@@ -1,0 +1,134 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="ERD-IMEDBA-v2" name="Entidad-Relación Simplificado">
+    <mxGraphModel dx="2200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="3000" pageHeight="2000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ========== ACADÉMICO + FACTURACIÓN (Azul/Verde) ========== -->
+        <mxCell id="lbl1" value="ACADÉMICO + FACTURACIÓN" style="text;html=1;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1100" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="students" value="students&#xa;────────────────&#xa;PK id: UUID&#xa;first_name, last_name&#xa;email (UNIQUE), phone&#xa;dni, nationality&#xa;university, locality&#xa;is_active, moodle_user_id&#xa;notes&#xa;created_at, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="220" height="200" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="courses" value="courses&#xa;────────────────&#xa;PK id: UUID&#xa;name, code (UNIQUE)&#xa;business_unit, modality&#xa;enrollment_price&#xa;course_price, exam_date&#xa;contract_template_path&#xa;moodle_course_id&#xa;is_active, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="310" y="70" width="220" height="200" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="discount_campaigns" value="discount_campaigns&#xa;────────────────&#xa;PK id: UUID&#xa;name, description&#xa;discount_type (ENUM)&#xa;discount_value&#xa;start_date, end_date&#xa;is_active" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="580" y="70" width="220" height="170" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="enrollments" value="enrollments&#xa;────────────────────────&#xa;PK id: UUID&#xa;FK student_id, course_id&#xa;FK discount_campaign_id&#xa;enrolled_by (Keycloak UUID)&#xa;list_price, discount_pct&#xa;final_price, book_price, total_price&#xa;enrollment_fee, num_installments&#xa;payment_method (ENUM)&#xa;contract_file_path, contract_sent_at&#xa;status (ENUM), moodle_status&#xa;notes, created_at, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="310" width="280" height="270" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="installments" value="installments&#xa;────────────────&#xa;PK id: UUID&#xa;FK enrollment_id&#xa;number (0=matrícula)&#xa;amount, surcharge_amount&#xa;due_date&#xa;status (ENUM)&#xa;paid_at, last_alert_sent_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="380" y="330" width="220" height="190" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="payments" value="payments&#xa;────────────────&#xa;PK id: UUID&#xa;FK installment_id&#xa;FK enrollment_id&#xa;amount, payment_method&#xa;payment_date&#xa;reference_number&#xa;receipt_number (UNIQUE)&#xa;receipt_file_path&#xa;receipt_sent_at&#xa;registered_by, notes" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="650" y="310" width="220" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- Relaciones académico -->
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="students" target="enrollments" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="courses" target="enrollments" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERzeroToOne;" edge="1" source="discount_campaigns" target="enrollments" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="enrollments" target="installments" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="installments" target="payments" parent="1"/>
+
+        <!-- ========== EDITORIAL (Naranja) ========== -->
+        <mxCell id="lbl2" value="EDITORIAL" style="text;html=1;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="700" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="books" value="books&#xa;────────────────&#xa;PK id: UUID&#xa;name, code&#xa;specialty (VARCHAR)&#xa;format (VARCHAR)&#xa;edition, pages&#xa;sale_price, cost_per_unit&#xa;student_discount_pct&#xa;stock_quantity, branch&#xa;is_active, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="670" width="220" height="230" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="book_sales" value="book_sales&#xa;────────────────&#xa;PK id: UUID&#xa;FK book_id&#xa;FK student_id (nullable)&#xa;FK enrollment_id (nullable)&#xa;quantity, unit_price&#xa;is_student_sale&#xa;total_amount&#xa;sale_date, sold_by" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="310" y="670" width="210" height="200" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="authors" value="authors&#xa;────────────────&#xa;PK id: UUID&#xa;first_name, last_name&#xa;email, phone&#xa;is_active" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="570" y="670" width="170" height="130" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="book_authors" value="book_authors&#xa;────────────────&#xa;PK id: UUID&#xa;FK book_id&#xa;FK author_id&#xa;royalty_percentage&#xa;UNIQUE(book,author)" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="570" y="830" width="170" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="books" target="book_sales" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="books" target="book_authors" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="authors" target="book_authors" parent="1"/>
+
+        <!-- ========== DOCENTES (Rojo) ========== -->
+        <mxCell id="lbl3" value="STAFF (DOCENTES + TUTORAS)" style="text;html=1;fontSize=16;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="900" y="620" width="500" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="staff" value="staff&#xa;────────────────&#xa;PK id: UUID&#xa;first_name, last_name&#xa;email, phone&#xa;staff_type (ENUM)&#xa;is_active, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="900" y="670" width="200" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="hour_logs" value="hour_logs&#xa;──────────────────────&#xa;PK id: UUID&#xa;FK staff_id&#xa;activity_type (VARCHAR)&#xa;period_month, period_year&#xa;hours, rate_per_hour&#xa;total_amount&#xa;invoice_email_sent_at&#xa;invoice_received&#xa;invoice_file_path&#xa;payment_status (ENUM)&#xa;paid_at, notes" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="670" width="240" height="270" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="activity_types" value="activity_types (lookup)&#xa;────────────────&#xa;PK id: UUID&#xa;name (UNIQUE)&#xa;rate_per_hour&#xa;applies_to, is_active" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="900" y="860" width="200" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="staff" target="hour_logs" parent="1"/>
+
+        <!-- ========== DIPLOMAS (Violeta) ========== -->
+        <mxCell id="lbl4" value="FORMACIÓN SUPERIOR" style="text;html=1;fontSize=16;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="900" y="20" width="500" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="diplomas" value="diplomas&#xa;──────────────────────&#xa;PK id: UUID&#xa;name, university_name&#xa;enrollment_price, course_price&#xa;tax_commission_pct&#xa;secretary_salary&#xa;advertising_amount&#xa;admin_pct, university_pct&#xa;imedba_pct&#xa;partners_config (JSONB)&#xa;is_active, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="900" y="70" width="240" height="250" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="diploma_enrollments" value="diploma_enrollments&#xa;────────────────&#xa;PK id: UUID&#xa;FK diploma_id&#xa;FK student_id&#xa;enrollment_date&#xa;num_installments&#xa;payment_method&#xa;status, pending_amount" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="70" width="210" height="180" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="diploma_settlements" value="diploma_settlements&#xa;──────────────────────&#xa;PK id: UUID&#xa;FK diploma_id&#xa;period_month, period_year&#xa;total_collected&#xa;tax_commission_amount&#xa;secretary/advertising/admin&#xa;university/imedba amounts&#xa;partners_total&#xa;partners_distribution (JSONB)&#xa;status (ENUM)" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="900" y="360" width="250" height="220" as="geometry"/>
+        </mxCell>
+
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="diplomas" target="diploma_enrollments" parent="1"/>
+        <mxCell style="endArrow=ERmany;startArrow=ERone;" edge="1" source="diplomas" target="diploma_settlements" parent="1"/>
+
+        <!-- ========== PRESUPUESTO + SOPORTE (Gris) ========== -->
+        <mxCell id="lbl5" value="PRESUPUESTO + SOPORTE" style="text;html=1;fontSize=16;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="960" width="700" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="budget_entries" value="budget_entries (unificada)&#xa;──────────────────────&#xa;PK id: UUID&#xa;entry_type: INCOME|EXPENSE&#xa;category: FIXED|VARIABLE|MAINTENANCE&#xa;subcategory (VARCHAR)&#xa;business_unit (VARCHAR)&#xa;concept, amount, entry_date&#xa;period_month, period_year&#xa;payment_method&#xa;is_recurring, is_cash&#xa;is_projected&#xa;FK contact_id, FK enrollment_id&#xa;receipt_file_path&#xa;registered_by, notes" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1010" width="270" height="300" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="contacts" value="contacts (empleados+proveedores)&#xa;────────────────&#xa;PK id: UUID&#xa;contact_type: EMPLEADO|PROVEEDOR&#xa;first_name, last_name&#xa;company_name&#xa;email, phone&#xa;role_description&#xa;keycloak_user_id&#xa;is_active, deleted_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1010" width="250" height="200" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="notifications" value="notifications (emails+alertas)&#xa;────────────────&#xa;PK id: UUID&#xa;notification_type (ENUM)&#xa;category (VARCHAR)&#xa;recipient_email, phone&#xa;subject, body, status&#xa;related_entity, related_id&#xa;alert_date, recurrence&#xa;target_role&#xa;sent_at" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1240" width="250" height="210" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="branches" value="branches&#xa;────────────────&#xa;PK id: UUID&#xa;name, address&#xa;city, province&#xa;is_active" style="shape=table;startSize=25;container=0;fontStyle=1;align=left;overflow=auto;html=0;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1340" width="170" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell style="endArrow=ERmany;startArrow=ERzeroToOne;" edge="1" source="contacts" target="budget_entries" parent="1"/>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

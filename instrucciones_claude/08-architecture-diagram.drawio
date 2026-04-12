@@ -1,0 +1,176 @@
+<mxfile host="app.diagrams.net" modified="2026-04-08T00:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram id="ARCH-IMEDBA" name="Arquitectura">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Arquitectura del Sistema - IMEDBA" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="800" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== CLIENT LAYER ===== -->
+        <mxCell id="client_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="400" y="60" width="800" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="client_label" value="CAPA CLIENTE" style="text;html=1;fontSize=12;fontStyle=1;align=left;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="410" y="65" width="150" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="browser" value="Browser&#xa;(React SPA + TypeScript)" style="shape=mxgraph.basic.rect;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="630" y="85" width="250" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="keycloak_js" value="Keycloak&#xa;JS Adapter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="920" y="90" width="100" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== REVERSE PROXY ===== -->
+        <mxCell id="nginx" value="Nginx (Reverse Proxy + SSL + Static Files)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333333;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="200" width="700" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrow browser → nginx -->
+        <mxCell id="arr_br_ng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="browser" target="nginx" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="HTTPS" style="edgeLabel;html=1;fontSize=10;fontStyle=1;fillColor=none;" vertex="1" connectable="0" as="label">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+
+        <!-- ===== APPLICATION LAYER ===== -->
+        <mxCell id="app_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="120" y="280" width="1360" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="app_label" value="DOCKER COMPOSE" style="text;html=1;fontSize=14;fontStyle=1;align=left;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="130" y="285" width="200" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Spring Boot Backend -->
+        <mxCell id="backend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="140" y="320" width="500" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="backend_title" value="Spring Boot 3.3 + Java 21" style="text;html=1;fontSize=14;fontStyle=1;align=center;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="240" y="325" width="250" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- Backend Modules -->
+        <mxCell id="mod_academic" value="Académico" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="160" y="360" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_billing" value="Facturación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="260" y="360" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_editorial" value="Editorial" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="360" y="360" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_budget" value="Presupuesto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="460" y="360" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_teaching" value="Docentes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="160" y="405" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_diploma" value="Form. Superior" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="260" y="405" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_notif" value="Notificaciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="360" y="405" width="90" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mod_moodle" value="Moodle Sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="460" y="405" width="90" height="35" as="geometry"/>
+        </mxCell>
+
+        <!-- Backend infra -->
+        <mxCell id="security" value="Spring Security + JWT Validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="160" y="460" width="180" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="flyway" value="Flyway Migrations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="460" width="120" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="scheduler" value="Schedulers&#xa;(Cuotas, Recargos, Suspensión)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="160" y="500" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="audit_svc" value="Auditoría" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="460" width="80" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Keycloak -->
+        <mxCell id="keycloak" value="Keycloak 25+&#xa;(Auth Server)&#xa;───────────&#xa;Realm: imedba&#xa;Roles + Permisos&#xa;OIDC / JWT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="310" width="200" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Databases -->
+        <mxCell id="db_app" value="PostgreSQL 16&#xa;(App DB)&#xa;imedba" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="200" y="600" width="150" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="db_kc" value="PostgreSQL 16&#xa;(Keycloak DB)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="745" y="480" width="150" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- External Services -->
+        <mxCell id="ext_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#b85450;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="310" width="460" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_label" value="SERVICIOS EXTERNOS" style="text;html=1;fontSize=12;fontStyle=1;align=left;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="315" width="200" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sendgrid" value="SendGrid&#xa;(Email API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="350" width="130" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="moodle_api" value="Moodle&#xa;(API REST)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="350" width="130" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="whatsapp" value="WhatsApp&#xa;(Links wa.me)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="350" width="120" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- Don Web hosting -->
+        <mxCell id="donweb" value="Don Web Server&#xa;(Hosting)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="460" width="200" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="arr_ng_be" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="nginx" target="backend" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="/api/*" style="edgeLabel;html=1;fontSize=10;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+        <mxCell id="arr_ng_kc" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="nginx" target="keycloak" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="/auth/*" style="edgeLabel;html=1;fontSize=10;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+        <mxCell id="arr_be_db" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="backend" target="db_app" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="JDBC" style="edgeLabel;html=1;fontSize=10;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+        <mxCell id="arr_kc_db" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="keycloak" target="db_kc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="arr_be_sg" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="backend" target="sendgrid" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="HTTPS" style="edgeLabel;html=1;fontSize=10;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+        <mxCell id="arr_be_md" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="backend" target="moodle_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="REST API" style="edgeLabel;html=1;fontSize=10;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+        <mxCell id="arr_be_kc" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" source="backend" target="keycloak" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+          <mxCell value="JWT Validate" style="edgeLabel;html=1;fontSize=10;fontStyle=2;" vertex="1" connectable="0" as="label">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
