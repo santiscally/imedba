@@ -1,0 +1,35 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+
+# IntelliJ
+*.iml
+.idea/

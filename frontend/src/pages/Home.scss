@@ -1,0 +1,292 @@
+@use '../styles/variables' as *;
+
+// ─── Layout general ──────────────────────────────────────────────────────────
+.home-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: $fondo-app;
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background-color: $verde-petroleo;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+
+  &__header {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  &__logo {
+    width: 130px;
+    filter: brightness(0) invert(1);
+  }
+
+  &__nav {
+    flex: 1;
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    background-color: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $blanco;
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  &__user-name {
+    color: $blanco;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  &__user-role {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.78rem;
+  }
+}
+
+// ─── Nav items ───────────────────────────────────────────────────────────────
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.25rem;
+  color: rgba(255,255,255,0.65);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s, color 0.15s;
+  border-radius: 0;
+
+  &__icon {
+    font-size: 0.5rem;
+    opacity: 0.6;
+  }
+
+  &:hover {
+    background-color: rgba(255,255,255,0.06);
+    color: $blanco;
+  }
+
+  &--active {
+    background-color: rgba(255,255,255,0.12);
+    color: $blanco;
+    font-weight: 500;
+
+    .nav-item__icon {
+      opacity: 1;
+    }
+  }
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: rgba(255,255,255,0.14);
+    color: $blanco;
+  }
+}
+
+// ─── Área principal ───────────────────────────────────────────────────────────
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+// ─── Top bar ─────────────────────────────────────────────────────────────────
+.topbar {
+  height: 60px;
+  background: $blanco;
+  border-bottom: 1px solid $gris-borde;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: $texto-oscuro;
+  }
+
+  &__date {
+    font-size: 0.85rem;
+    color: $gris-texto;
+  }
+}
+
+// ─── Contenido ───────────────────────────────────────────────────────────────
+.content {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+// ─── Stats grid ──────────────────────────────────────────────────────────────
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.stat-card {
+  background: $blanco;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: $sombra-card;
+
+  &__value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+
+  &__label {
+    font-size: 0.85rem;
+    color: $gris-texto;
+  }
+}
+
+// ─── Tabla ────────────────────────────────────────────────────────────────────
+.table-card {
+  background: $blanco;
+  border-radius: 12px;
+  box-shadow: $sombra-card;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid $gris-borde;
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: $texto-oscuro;
+    }
+  }
+}
+
+.btn-ver-todo {
+  background: none;
+  border: none;
+  color: $verde-petroleo;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th {
+      text-align: left;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: $gris-texto;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: #fafafa;
+      border-bottom: 1px solid $gris-borde;
+    }
+
+    td {
+      padding: 0.9rem 1.5rem;
+      font-size: 0.9rem;
+      color: $texto-oscuro;
+      border-bottom: 1px solid $gris-borde;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #fafafa;
+    }
+  }
+}
+
+// ─── Badges ──────────────────────────────────────────────────────────────────
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+
+  &--activa {
+    background-color: #dcfce7;
+    color: #15803d;
+  }
+
+  &--pendiente {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  &--inactiva {
+    background-color: #f1f5f9;
+    color: $gris-texto;
+  }
+}

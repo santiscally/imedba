@@ -1,0 +1,120 @@
+@use '../styles/variables' as *;
+
+.login-page {
+  display: flex;
+  min-height: 100vh;
+}
+
+// ─── Panel izquierdo: marca ───────────────────────────────────────────────────
+.login-brand {
+  flex: 1;
+  background-color: $verde-petroleo;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 3rem;
+
+  &__logo {
+    width: 200px;
+    filter: brightness(0) invert(1);
+  }
+
+  &__tagline {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+}
+
+// ─── Panel derecho: formulario ────────────────────────────────────────────────
+.login-form-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: $fondo-app;
+  padding: 2rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: $blanco;
+  border-radius: 14px;
+  padding: 2.75rem 2.5rem;
+  box-shadow: $sombra-md;
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: $verde-petroleo;
+    margin-bottom: 0.3rem;
+  }
+
+  &__subtitle {
+    color: $gris-texto;
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+  }
+}
+
+// ─── Campo ───────────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: $texto-oscuro;
+  }
+
+  input {
+    padding: 0.65rem 0.9rem;
+    border: 1.5px solid $gris-borde;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: $blanco;
+
+    &::placeholder {
+      color: #bbb;
+    }
+
+    &:focus {
+      border-color: $verde-petroleo;
+      box-shadow: 0 0 0 3px $verde-petroleo-suave;
+    }
+  }
+}
+
+// ─── Botón ────────────────────────────────────────────────────────────────────
+.btn-ingresar {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 0.5rem;
+  background-color: $verde-petroleo;
+  color: $blanco;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  letter-spacing: 0.02em;
+
+  &:hover:not(:disabled) {
+    background-color: $verde-petroleo-hover;
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
