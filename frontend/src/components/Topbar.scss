@@ -1,0 +1,213 @@
+@use '../styles/variables' as *;
+
+.topbar {
+  height: $topbar-alto;
+  background: $blanco;
+  border-bottom: 1px solid $gris-borde;
+  padding: 0 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+// ─── Izquierda ───────────────────────────────────────────────────────────────
+.topbar__left {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.topbar__title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: $texto-oscuro;
+  letter-spacing: -0.01em;
+}
+
+.topbar__breadcrumb {
+  font-size: 0.82rem;
+  color: $gris-texto;
+  padding-left: 1rem;
+  border-left: 1px solid $gris-borde;
+}
+
+// ─── Derecha ─────────────────────────────────────────────────────────────────
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+// ─── Icon button (campana, etc) ──────────────────────────────────────────────
+.topbar__icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: $radio-md;
+  background: transparent;
+  color: $gris-texto;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color $transicion, color $transicion;
+
+  &:hover {
+    background: $fondo-hover;
+    color: $texto-oscuro;
+  }
+}
+
+.topbar__badge {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: $rojo;
+  border-radius: 50%;
+  border: 2px solid $blanco;
+}
+
+// ─── User button ─────────────────────────────────────────────────────────────
+.topbar__user {
+  position: relative;
+  margin-left: 0.25rem;
+}
+
+.topbar__user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.3rem;
+  border-radius: $radio-md;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color $transicion;
+
+  &:hover {
+    background: $fondo-hover;
+  }
+
+  &--open {
+    background: $fondo-hover;
+
+    .topbar__chevron {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.topbar__avatar {
+  width: 34px;
+  height: 34px;
+  background: $verde-petroleo;
+  color: $blanco;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.topbar__user-info {
+  text-align: left;
+  line-height: 1.15;
+}
+
+.topbar__user-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: $texto-oscuro;
+}
+
+.topbar__user-role {
+  font-size: 0.72rem;
+  color: $gris-texto;
+}
+
+.topbar__user-email {
+  font-size: 0.78rem;
+  color: $gris-texto;
+  margin-top: 2px;
+}
+
+.topbar__chevron {
+  color: $gris-texto;
+  transition: transform $transicion;
+}
+
+// ─── Dropdown ────────────────────────────────────────────────────────────────
+.topbar__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: $blanco;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  box-shadow: $sombra-lg;
+  padding: 0.35rem;
+  animation: dropdown-in 140ms ease-out;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.topbar__dropdown-header {
+  padding: 0.7rem 0.8rem 0.8rem;
+  border-bottom: 1px solid $gris-borde-sutil;
+  margin-bottom: 0.35rem;
+}
+
+.topbar__dropdown-sep {
+  height: 1px;
+  background: $gris-borde-sutil;
+  margin: 0.35rem 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: $radio-sm;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: $texto-medio;
+  text-align: left;
+  transition: background-color $transicion, color $transicion;
+
+  svg {
+    color: $gris-texto;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: $fondo-hover;
+    color: $texto-oscuro;
+  }
+
+  &--danger {
+    color: $rojo;
+
+    svg { color: $rojo; }
+
+    &:hover {
+      background: $rojo-bg;
+      color: $rojo;
+    }
+  }
+}

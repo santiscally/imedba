@@ -1,0 +1,26 @@
+@use '../styles/variables' as *;
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: $fondo-app;
+}
+
+.layout__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.layout__content {
+  flex: 1;
+  padding: 1.75rem 1.75rem 2.5rem;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  .layout__content {
+    padding: 1.25rem 1rem 2rem;
+  }
+}

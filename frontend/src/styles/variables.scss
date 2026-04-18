@@ -1,20 +1,52 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMEDBA — Sistema de diseño
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ─── Paleta principal ────────────────────────────────────────────────────────
-$verde-petroleo:        #08323C;
-$verde-petroleo-hover:  #0a3f4c;
-$verde-petroleo-suave:  rgba(8, 50, 60, 0.08);
+$verde-petroleo:         #08323C;
+$verde-petroleo-hover:   #0a3f4c;
+$verde-petroleo-dark:    #051e24;
+$verde-petroleo-light:   #1a4a56;
+$verde-petroleo-suave:   rgba(8, 50, 60, 0.08);
+$verde-petroleo-overlay: rgba(8, 50, 60, 0.04);
+
+// ─── Acentos (para stats, gráficos, estados) ─────────────────────────────────
+$azul:       #2563eb;
+$azul-bg:    #dbeafe;
+$verde:      #16a34a;
+$verde-bg:   #dcfce7;
+$ambar:      #d97706;
+$ambar-bg:   #fef3c7;
+$rojo:       #dc2626;
+$rojo-bg:    #fee2e2;
+$violeta:    #7c3aed;
+$violeta-bg: #ede9fe;
 
 // ─── Neutros ─────────────────────────────────────────────────────────────────
-$blanco:        #ffffff;
-$fondo-app:     #f4f6f8;
-$gris-borde:    #e0e4e8;
-$gris-texto:    #6b7280;
-$texto-oscuro:  #1a1a2e;
-
-// ─── Estados ─────────────────────────────────────────────────────────────────
-$activo:    #16a34a;
-$pendiente: #d97706;
-$inactivo:  #6b7280;
+$blanco:          #ffffff;
+$fondo-app:       #f7f8fa;
+$fondo-hover:     #f1f3f6;
+$gris-borde:      #e5e7eb;
+$gris-borde-sutil:#f0f2f5;
+$gris-texto:      #6b7280;
+$gris-texto-sutil:#9ca3af;
+$texto-oscuro:    #111827;
+$texto-medio:     #374151;
 
 // ─── Sombras ─────────────────────────────────────────────────────────────────
-$sombra-card: 0 2px 12px rgba(0, 0, 0, 0.07);
-$sombra-md:   0 4px 24px rgba(0, 0, 0, 0.10);
+$sombra-xs:    0 1px 2px rgba(16, 24, 40, 0.05);
+$sombra-sm:    0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+$sombra-md:    0 4px 12px rgba(16, 24, 40, 0.07), 0 2px 4px rgba(16, 24, 40, 0.04);
+$sombra-lg:    0 12px 32px rgba(16, 24, 40, 0.10), 0 4px 8px rgba(16, 24, 40, 0.04);
+
+// ─── Espaciado ───────────────────────────────────────────────────────────────
+$radio-sm: 6px;
+$radio-md: 10px;
+$radio-lg: 14px;
+$radio-xl: 20px;
+
+// ─── Layout ──────────────────────────────────────────────────────────────────
+$sidebar-ancho:            260px;
+$sidebar-ancho-collapsed:  72px;
+$topbar-alto:              64px;
+$transicion:               180ms cubic-bezier(0.4, 0, 0.2, 1);

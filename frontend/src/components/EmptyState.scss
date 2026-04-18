@@ -1,0 +1,36 @@
+@use '../styles/variables' as *;
+
+.empty-state {
+  background: $blanco;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-lg;
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+
+  &__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: $fondo-hover;
+    color: $gris-texto-sutil;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.3rem;
+  }
+
+  &__message {
+    font-size: 0.9rem;
+    color: $gris-texto;
+    font-weight: 500;
+  }
+
+  &__hint {
+    font-size: 0.78rem;
+    color: $gris-texto-sutil;
+  }
+}

@@ -1,0 +1,43 @@
+@use '../styles/variables' as *;
+
+.placeholder {
+  background: $blanco;
+  border: 1px dashed $gris-borde;
+  border-radius: $radio-lg;
+  padding: 4rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  max-width: 600px;
+  margin: 2rem auto;
+
+  &__icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $texto-oscuro;
+  }
+
+  &__desc {
+    font-size: 0.92rem;
+    color: $gris-texto;
+    line-height: 1.6;
+
+    strong {
+      color: $texto-medio;
+      text-transform: capitalize;
+    }
+  }
+}
