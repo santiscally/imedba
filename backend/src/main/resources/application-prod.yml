@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    show-sql: false
+
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+
+logging:
+  level:
+    root: INFO
+    com.imedba: INFO
+    org.springframework.security: WARN

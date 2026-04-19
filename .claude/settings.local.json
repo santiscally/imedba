@@ -1,7 +1,29 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(docker compose *)",
+      "Bash(cp .env.example .env)",
+      "Bash(docker info *)",
+      "Bash(python *)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('keycloak/realms/imedba-realm.json','utf8'\\)\\); console.log\\('realm JSON OK'\\)\")",
+      "Bash(pwd -W)",
+      "Bash(docker run *)",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -q -DskipTests compile 2>&1 | tail -60\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests compile 2>&1 | tail -100\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests clean compile 2>&1 | tail -60\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -q -DskipTests compile 2>&1 | tail -30\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests clean compile 2>&1 | grep -E 'BUILD|WARNING|ERROR' | head -40\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests clean compile 2>&1 | grep -E 'BUILD|WARNING|ERROR' | head -20\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests test-compile 2>&1 | tail -60\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven >/dev/null 2>&1 && mvn -DskipTests test-compile 2>&1 | grep -E 'BUILD|ERROR|\\\\[ERROR\\\\]' | head -30\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -120\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -80\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -30\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -40\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn -Dtest=CourseApiIntegrationTests test 2>&1 | grep -A 40 'Response body\\\\|ERROR.*Course\\\\|Exception\\\\|.CourseService\\\\|.CourseController\\\\|Hibernate:' | head -100\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -25\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -10\")"
     ]
   }
 }

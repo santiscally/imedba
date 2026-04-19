@@ -1,0 +1,43 @@
+# Override de producción.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# En prod:
+#   - Keycloak arranca con `start` (no `start-dev`) y exige HOSTNAME público.
+#   - Backend con perfil prod y sin puerto expuesto al host (llega por nginx).
+#   - Nginx como reverse proxy + TLS.
+
+services:
+  db:
+    ports: []
+
+  keycloak-db:
+    ports: []
+
+  keycloak:
+    command: ["start", "--import-realm", "--optimized"]
+    environment:
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "false"
+      KC_PROXY: edge
+    ports: []
+
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    ports: []
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: imedba-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - keycloak
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    networks: [imedba-net]

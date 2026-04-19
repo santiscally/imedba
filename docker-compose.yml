@@ -1,0 +1,123 @@
+# Stack de desarrollo.
+# Para producción: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
+
+name: imedba
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: imedba-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-imedba}
+      POSTGRES_USER: ${POSTGRES_USER:-imedba}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-imedba_dev}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - imedba_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-imedba} -d $${POSTGRES_DB:-imedba}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [imedba-net]
+
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: imedba-kc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak_dev}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      - "${KC_DB_PORT:-5433}:5432"
+    volumes:
+      - imedba_kc_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${KC_DB_USER:-keycloak} -d $${KC_DB_NAME:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [imedba-net]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: imedba-keycloak
+    restart: unless-stopped
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak_dev}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_HEALTH_ENABLED: "true"
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import:ro
+    healthcheck:
+      # Keycloak 25 no trae curl/wget; usamos bash /dev/tcp para checar el puerto.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q '200'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks: [imedba-net]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: imedba/backend:dev
+    container_name: imedba-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-imedba}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-imedba}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-imedba_dev}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/imedba}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/imedba/protocol/openid-connect/certs}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-no-reply@imedba.local}
+      SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-IMEDBA}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks: [imedba-net]
+
+volumes:
+  imedba_db_data:
+  imedba_kc_db_data:
+
+networks:
+  imedba-net:
+    driver: bridge

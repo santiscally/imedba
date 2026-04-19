@@ -33,3 +33,16 @@ target/
 # IntelliJ
 *.iml
 .idea/
+
+# Maven wrapper internals (keep mvnw/.mvn/wrapper)
+.mvn/wrapper/*.jar
+
+# Secretos / locales
+.env
+.env.*
+!.env.example
+
+# Docker / runtime
+docker-data/
+volumes/
+

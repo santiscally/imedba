@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc.lob.non_contextual_creation: true
+
+logging:
+  level:
+    root: INFO
+    com.imedba: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    org.flywaydb: INFO

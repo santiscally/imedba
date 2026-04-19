@@ -1,0 +1,277 @@
+{
+  "realm": "imedba",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["es", "en"],
+  "defaultLocale": "es",
+
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Acceso total",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read", "students:write",
+              "courses:read", "courses:write",
+              "enrollments:read", "enrollments:write",
+              "payments:read", "payments:write",
+              "editorial:read", "editorial:write",
+              "stock:read", "stock:write",
+              "budget:read", "budget:write",
+              "teaching:read", "teaching:write",
+              "settlements:read", "settlements:write",
+              "notifications:manage",
+              "reports:read",
+              "admin:manage"
+            ]
+          }
+        }
+      },
+      {
+        "name": "VENDEDORA",
+        "description": "Carga alumnos, cursos y cobra (ve sus inscripciones)",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read", "students:write",
+              "courses:read",
+              "enrollments:read", "enrollments:write",
+              "payments:read", "payments:write",
+              "notifications:manage"
+            ]
+          }
+        }
+      },
+      {
+        "name": "SECRETARIA_FS",
+        "description": "Secretaría de Formación Superior (diplomaturas)",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read",
+              "enrollments:read",
+              "settlements:read", "settlements:write",
+              "teaching:read",
+              "notifications:manage"
+            ]
+          }
+        }
+      },
+      {
+        "name": "EDITORIAL",
+        "description": "Editorial: libros, stock, ventas, autorías",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read",
+              "editorial:read", "editorial:write",
+              "stock:read", "stock:write"
+            ]
+          }
+        }
+      },
+      {
+        "name": "CONTABLE",
+        "description": "Presupuesto, balances y reportes",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "budget:read", "budget:write",
+              "payments:read",
+              "reports:read"
+            ]
+          }
+        }
+      },
+      {
+        "name": "VIEWER",
+        "description": "Solo lectura global",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read",
+              "courses:read",
+              "enrollments:read",
+              "payments:read",
+              "editorial:read",
+              "stock:read",
+              "budget:read",
+              "teaching:read",
+              "settlements:read",
+              "reports:read"
+            ]
+          }
+        }
+      }
+    ],
+    "client": {
+      "imedba-backend": [
+        { "name": "students:read" },
+        { "name": "students:write" },
+        { "name": "courses:read" },
+        { "name": "courses:write" },
+        { "name": "enrollments:read" },
+        { "name": "enrollments:write" },
+        { "name": "payments:read" },
+        { "name": "payments:write" },
+        { "name": "editorial:read" },
+        { "name": "editorial:write" },
+        { "name": "stock:read" },
+        { "name": "stock:write" },
+        { "name": "budget:read" },
+        { "name": "budget:write" },
+        { "name": "teaching:read" },
+        { "name": "teaching:write" },
+        { "name": "settlements:read" },
+        { "name": "settlements:write" },
+        { "name": "notifications:manage" },
+        { "name": "reports:read" },
+        { "name": "admin:manage" }
+      ]
+    }
+  },
+
+  "clientScopes": [
+    {
+      "name": "imedba-audience",
+      "description": "Fuerza que el aud del token incluya imedba-backend",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "imedba-backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "imedba-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+
+  "defaultDefaultClientScopes": ["email", "profile", "roles", "web-origins", "imedba-audience"],
+
+  "clients": [
+    {
+      "clientId": "imedba-frontend",
+      "name": "IMEDBA SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*",
+        "http://localhost/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": ["email", "profile", "roles", "web-origins", "imedba-audience"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    },
+    {
+      "clientId": "imedba-backend",
+      "name": "IMEDBA API",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "imedba-backend-dev-secret-change-me",
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "use.refresh.tokens": "true"
+      }
+    }
+  ],
+
+  "users": [
+    {
+      "username": "admin@imedba.dev",
+      "email": "admin@imedba.dev",
+      "firstName": "Admin",
+      "lastName": "IMEDBA",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "vendedora@imedba.dev",
+      "email": "vendedora@imedba.dev",
+      "firstName": "Vendedora",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["VENDEDORA"]
+    },
+    {
+      "username": "secretaria@imedba.dev",
+      "email": "secretaria@imedba.dev",
+      "firstName": "Secretaria",
+      "lastName": "FS",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["SECRETARIA_FS"]
+    },
+    {
+      "username": "editorial@imedba.dev",
+      "email": "editorial@imedba.dev",
+      "firstName": "Editorial",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["EDITORIAL"]
+    },
+    {
+      "username": "contable@imedba.dev",
+      "email": "contable@imedba.dev",
+      "firstName": "Contable",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["CONTABLE"]
+    },
+    {
+      "username": "viewer@imedba.dev",
+      "email": "viewer@imedba.dev",
+      "firstName": "Viewer",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "test1234", "temporary": false }],
+      "realmRoles": ["VIEWER"]
+    }
+  ]
+}

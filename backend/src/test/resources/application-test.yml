@@ -1,0 +1,17 @@
+spring:
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
+
+# Los tests de integración usan jwt() postProcessor de spring-security-test,
+# asi que no necesitamos un issuer real. El JwtDecoder lo provee TestSecurityConfig.
