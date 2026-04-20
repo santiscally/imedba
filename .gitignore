@@ -46,3 +46,7 @@ target/
 docker-data/
 volumes/
 
+# Certificados TLS (nginx)
+nginx/certs/*
+!nginx/certs/.gitkeep
+

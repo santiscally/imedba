@@ -1,13 +1,13 @@
 # IMEDBA — Guía para Claude Code
 
-## Propiedad del repo (NO TOCAR frontend)
+## Propiedad del repo
 
 Este monorepo lo construyen dos personas:
 
-- **`backend/`, `docker-compose*.yml`, `keycloak/`, `nginx/`, `scripts/`, `Makefile`, `.env.example`, raíz (README, CLAUDE.md)** → **Santi** (backend / DevOps / DB / Keycloak).
-- **`frontend/`** → **Socio** (React 18+/TS/Vite). **READ-ONLY** desde el lado de Claude. Nunca editar, crear ni borrar archivos dentro de `frontend/`. Está permitido leerlo para entender los contratos de API que espera la SPA.
+- **`backend/`, `docker-compose*.yml`, `keycloak/`, `nginx/`, `db/`, `scripts/`, `.env.example`, raíz (README, CLAUDE.md)** → **Santi** (backend / DevOps / DB / Keycloak).
+- **`frontend/`** → **Socio** (React 18+/TS/Vite). No tocar salvo pedido explícito del usuario. Leerlo está permitido.
 
-Si una tarea implica modificar `frontend/`, **parar y avisar** al usuario antes de tocar nada.
+Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avisar** antes de tocar nada.
 
 ## Stack (no negociable)
 
@@ -55,8 +55,26 @@ Si una tarea implica modificar `frontend/`, **parar y avisar** al usuario antes 
 7. Moodle (futura)
 8. Hardening + deploy
 
+## Coordinación entre los dos Claudes (Santi + socio)
+
+Dos personas trabajan en este repo con dos Claudes distintos. Para que no se pisen ni re-descubran cosas ya resueltas:
+
+- **`instrucciones_claude/DIARIO.md`** — bitácora append-only. Al **cerrar una tarea no trivial** (feature, bug-fix, decisión arquitectónica, fix de build, cambio en infra), agregar una entrada con el formato del header del archivo. Al **arrancar sesión**, leer las últimas ~10 entradas.
+- **`instrucciones_claude/ESTADO.md`** — snapshot del presente. Dos secciones separadas ("Santi / backend" y "Socio / frontend"). **Solo editar la sección del dueño activo.** Jamás tocar la sección del otro (causa merge conflicts). Al empezar/terminar tarea, sobreescribir la sección propia.
+- **`PROMPT-BOOTSTRAP.md`** — prompt one-shot para que el Claude del otro dev quede sincronizado con las mismas reglas. Se corre una sola vez por máquina.
+- **`instrucciones_claude/00-setup-claude.md`** — instructivo humano de setup y convención de uso.
+
+Reglas duras:
+- Si te piden tocar archivos fuera del área de propiedad del usuario activo, **parar y avisar** antes de modificar nada.
+- No editar entradas viejas del DIARIO. Si algo cambió, agregar entrada nueva de "corrección".
+- Respuestas concisas. Si algo se dice en 2 líneas, no decirlo en 10.
+
 ## Referencias
 
+- `instrucciones_claude/00-setup-claude.md` — setup y convención de trabajo entre dos Claudes
+- `instrucciones_claude/DIARIO.md` — bitácora compartida append-only
+- `instrucciones_claude/ESTADO.md` — snapshot de trabajo en curso
+- `PROMPT-BOOTSTRAP.md` — prompt de bootstrap para el segundo dev
 - `instrucciones_claude/01-arquitectura-sistema.md`
 - `instrucciones_claude/02-entidad-relacion.md` (DDL de las 18 entidades)
 - `instrucciones_claude/03-reglas-negocio-pendientes.md`
@@ -67,11 +85,13 @@ Si una tarea implica modificar `frontend/`, **parar y avisar** al usuario antes 
 
 ## Comandos comunes
 
-- `make up` / `make down` / `make logs` — ciclo Docker Compose.
-- `make psql` — shell contra la DB app.
-- `make kc-shell` — shell del contenedor Keycloak.
-- `make backend-dev` — Spring Boot con perfil `dev` (fuera de Docker, contra Postgres+Keycloak dockerizados).
-- `make backend-test` — tests con Testcontainers.
+- `docker compose up -d --build` / `docker compose down` / `docker compose logs -f --tail=200` — ciclo dev.
+- `docker compose down -v` — reset total (borra volúmenes, vuelve a correr init scripts de Postgres).
+- `docker compose exec db psql -U imedba -d imedba` — shell psql.
+- `docker compose exec keycloak sh` — shell del contenedor Keycloak.
+- `cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` — backend fuera de Docker.
+- `cd backend && ./mvnw test` — tests locales (requiere Java 21 en el host).
+- Prod: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`.
 
 ## Secretos
 

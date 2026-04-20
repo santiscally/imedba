@@ -23,7 +23,20 @@
       "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -40\")",
       "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn -Dtest=CourseApiIntegrationTests test 2>&1 | grep -A 40 'Response body\\\\|ERROR.*Course\\\\|Exception\\\\|.CourseService\\\\|.CourseController\\\\|Hibernate:' | head -100\")",
       "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -25\")",
-      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -10\")"
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm --network host -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v \"$\\(pwd -W\\):/app\" -w //app -v maven-repo:/root/.m2 -v //var/run/docker.sock://var/run/docker.sock eclipse-temurin:21-jdk-alpine sh -c \"apk add --no-cache maven docker-cli >/dev/null 2>&1 && mvn test 2>&1 | tail -10\")",
+      "Bash(SERVER_NAME=example.com KEYCLOAK_HOSTNAME=example.com KEYCLOAK_ISSUER_URI=https://example.com/auth/realms/imedba KEYCLOAK_JWK_SET_URI=http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet)",
+      "Bash(SERVER_NAME=example.com KEYCLOAK_HOSTNAME=example.com KEYCLOAK_ISSUER_URI=https://example.com/auth/realms/imedba KEYCLOAK_JWK_SET_URI=http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs docker compose --project-directory /c/Users/Santi/Documents/Santi/proyectos/imedba -f /c/Users/Santi/Documents/Santi/proyectos/imedba/docker-compose.yml -f /c/Users/Santi/Documents/Santi/proyectos/imedba/docker-compose.prod.yml config)",
+      "Bash(SERVER_NAME=example.com KEYCLOAK_HOSTNAME=example.com KEYCLOAK_ISSUER_URI=https://example.com/auth/realms/imedba KEYCLOAK_JWK_SET_URI=http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs docker compose --project-directory /c/Users/Santi/Documents/Santi/proyectos/imedba -f /c/Users/Santi/Documents/Santi/proyectos/imedba/docker-compose.yml -f /c/Users/Santi/Documents/Santi/proyectos/imedba/docker-compose.prod.yml config --quiet)",
+      "Read(//c/Users/Santi/Documents/Santi//**)",
+      "Read(//c/Users/Santi/Documents//**)",
+      "Bash(claude mcp *)",
+      "Bash(npm ci *)",
+      "Bash(git check-ignore *)",
+      "Bash(node /c/Users/Santi/.claude/workspace/scripts/purge-old.js)",
+      "Bash(node /c/Users/Santi/.claude/workspace/scripts/inject-domain-context.js)",
+      "Bash(node /c/Users/Santi/.claude/workspace/scripts/track-file-changes.js)",
+      "Bash(git add *)",
+      "Bash(git rm *)"
     ]
   }
 }
