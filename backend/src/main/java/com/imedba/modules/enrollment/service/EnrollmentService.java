@@ -13,6 +13,14 @@ import com.imedba.modules.enrollment.entity.EnrollmentStatus;
 import com.imedba.modules.enrollment.mapper.EnrollmentMapper;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.enrollment.repository.EnrollmentSpecs;
+import com.imedba.modules.installment.entity.Installment;
+import com.imedba.modules.installment.repository.InstallmentRepository;
+import com.imedba.modules.installment.service.InstallmentGenerator;
+import com.imedba.modules.notification.entity.NotificationType;
+import com.imedba.modules.notification.entity.RelatedEntityType;
+import com.imedba.modules.notification.service.NotificationService;
+import com.imedba.modules.notification.template.NotificationTemplate;
+import com.imedba.modules.notification.template.NotificationTemplates;
 import com.imedba.modules.student.entity.Student;
 import com.imedba.modules.student.repository.StudentRepository;
 import java.math.BigDecimal;
@@ -39,6 +47,8 @@ public class EnrollmentService {
     private final EnrollmentRepository repository;
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
+    private final InstallmentRepository installmentRepository;
+    private final NotificationService notificationService;
     private final EnrollmentMapper mapper;
 
     @Transactional(readOnly = true)
@@ -106,7 +116,28 @@ public class EnrollmentService {
                 .notes(req.notes())
                 .build();
 
-        return mapper.toResponse(repository.save(e));
+        Enrollment saved = repository.save(e);
+        List<Installment> schedule = InstallmentGenerator.generate(saved);
+        if (!schedule.isEmpty()) {
+            installmentRepository.saveAll(schedule);
+        }
+        enqueueEnrollmentNotifications(saved);
+        return mapper.toResponse(saved);
+    }
+
+    private void enqueueEnrollmentNotifications(Enrollment saved) {
+        Student s = saved.getStudent();
+        if (s == null || s.getEmail() == null || s.getEmail().isBlank()) {
+            return;
+        }
+        String firstName = s.getFirstName() != null ? s.getFirstName() : "";
+        String courseName = saved.getCourse() != null ? saved.getCourse().getName() : "";
+        NotificationTemplate welcome = NotificationTemplates.welcome(firstName, courseName);
+        NotificationTemplate contract = NotificationTemplates.contract(firstName, courseName);
+        notificationService.enqueue(NotificationType.WELCOME, s.getEmail(), welcome,
+                RelatedEntityType.ENROLLMENT, saved.getId());
+        notificationService.enqueue(NotificationType.CONTRACT, s.getEmail(), contract,
+                RelatedEntityType.ENROLLMENT, saved.getId());
     }
 
     public EnrollmentResponse update(UUID id, EnrollmentUpdateRequest req) {
