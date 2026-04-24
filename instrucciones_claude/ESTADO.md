@@ -19,9 +19,9 @@
 - Fases 0-6 cerradas. Integration tests Testcontainers de Fase 2/3 siguen pendientes de corrida host (DinD en alpine JDK no sirve para Testcontainers).
 
 **Próximo paso:**
+- **Fase 7 (Moodle) como drop-in** detrás de feature flag `MOODLE_ENABLED=false` (default). Implementar ahora: cliente REST genérico contra la API estándar de Moodle Web Services (funciones `core_user_*` y `enrol_manual_*` — estables desde Moodle 2.0/3.0, siguen vivas en 4.1/4.3/4.5/5.0; Moodle 5.0 removió pre-4.0 deprecadas, pero las nuestras no están afectadas). Migración `V015__moodle_mappings.sql`: `students.moodle_user_id INTEGER NULL` y `courses.moodle_course_id INTEGER NULL` (IMEDBA mantiene sus UUIDs como source of truth; el id de Moodle es un side-link que se puebla en el primer sync y puede quedar null para cursos/alumnos sin LMS). Env vars: `MOODLE_URL`, `MOODLE_TOKEN`, `MOODLE_DEFAULT_STUDENT_ROLE_ID=5`, `MOODLE_ENABLED`. Hooks silenciosos (no-op cuando `enabled=false`) en `EnrollmentService` (crear+inscribir al activar), `InstallmentScheduler` (suspend=1 al día 22) y `PaymentService` (suspend=0 al regularizar). Notifications de tipo `MOODLE_SYNC` para log de operaciones. Tests unitarios del client con WireMock o MockWebServer contra fixtures JSON. Cuando IMEDBA tenga el token + course IDs, la activación es setear env vars + poblar mapeo. Queda codeado, testeado y mergeable sin romper prod.
 - Deploy real a Don Web: copiar repo, setear `.env` de prod (SERVER_NAME, KEYCLOAK_HOSTNAME, KEYCLOAK_ISSUER_URI=https://..., KEYCLOAK_JWK_SET_URI=http://keycloak:8080/..., SERVER_NAME del dominio, POSTGRES_PASSWORD real, SENDGRID_API_KEY), certbot para cert inicial a `nginx/certs/`, `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`, y luego agregar cron del backup.
 - Cuando el socio confirme que el SPA no usa scripts/estilos inline externos, apretar CSP quitando `'unsafe-inline'`.
-- Fase 7 (Moodle) queda diferida para post-deploy — el stack no la necesita para salir.
 - Si se toca host: correr los integration tests Testcontainers acumulados (Student/Course/Enrollment/Payment API).
 
 **Bloqueado por el otro:** nada.

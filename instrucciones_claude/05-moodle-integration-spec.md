@@ -33,7 +33,16 @@ Para habilitar la API REST de Moodle:
 4. Crear un **token** para un usuario con los permisos necesarios
 
 ### 2.3 Mapeo de Cursos
-Necesitamos una lista de los cursos actuales en Moodle con sus IDs:
+
+**Arquitectura**: IMEDBA tiene su propio ID de curso (UUID, fuente de verdad). El vínculo con Moodle se guarda en `courses.moodle_course_id` (INTEGER, **nullable**). Razones:
+
+- **Independencia**: un curso puede existir en IMEDBA sin tener contraparte en Moodle (ej. cursos presenciales sin LMS, o cursos nuevos antes de ser creados en Moodle).
+- **Portabilidad**: si un día IMEDBA migra a otro LMS, no arrastramos IDs ajenos en el schema. Basta con vaciar `moodle_course_id` y agregar un `other_lms_id` nuevo.
+- **Primera vinculación**: el `moodle_course_id` se puebla al primer sync (manual desde el panel de admin, eligiendo de la lista que devuelva `core_course_get_courses`). No hay dependencia de conocer el ID de Moodle antes de dar de alta el curso en IMEDBA.
+
+Misma lógica para alumnos: `students.id` (UUID IMEDBA) + `students.moodle_user_id` (INTEGER nullable, se puebla al primer sync con `core_user_get_users_by_field` por email).
+
+Necesitamos, al momento del onboarding con IMEDBA, una lista de los cursos actuales en Moodle con sus IDs para poblar el mapeo inicial:
 
 | Nombre del Curso en Moodle | Moodle Course ID | Equivalente IMEDBA |
 |----------------------------|-------------------|-------------------|
@@ -176,6 +185,7 @@ Sistema IMEDBA                              Moodle
 9. ¿El Moodle tiene habilitado el envío de emails propio (para notificar al alumno su alta)?
 10. ¿Cuál es la URL base de la API REST? (Normalmente: `https://su-moodle.com/webservice/rest/server.php`)
 11. ¿Qué `roleid` usan para el rol "estudiante"? (Default Moodle = 5, pero puede estar personalizado)
+    - **Importante**: este valor se pasa a `enrol_manual_enrol_users` para determinar con qué permisos se inscribe al alumno. Si el admin de IMEDBA creó un rol custom (ej. "Alumno IMEDBA" con ID 12), hay que usar ese ID. Un ID equivocado puede inscribir al alumno como profesor (brecha de permisos) o fallar el llamado. En nuestro sistema lo guardamos como `MOODLE_DEFAULT_STUDENT_ROLE_ID` (env var, default 5).
 12. ¿Hay límites de rate limiting en la API?
 13. ¿Podemos tener acceso a un entorno de pruebas/staging de Moodle para testing?
 
@@ -186,6 +196,15 @@ Sistema IMEDBA                              Moodle
 - **Token de servicio web**: string alfanumérico
 - **Formato de respuesta**: JSON (default)
 - **Protocolo**: HTTPS (obligatorio para producción)
+
+### Variables de entorno del lado IMEDBA:
+
+| Variable | Default | Nota |
+|---|---|---|
+| `MOODLE_URL` | — | URL base sin `/webservice/rest/server.php` |
+| `MOODLE_TOKEN` | — | Token emitido por admin Moodle |
+| `MOODLE_DEFAULT_STUDENT_ROLE_ID` | `5` | Role ID para inscribir alumnos. 5 es el default de Moodle vanilla; pisar si usan rol custom. |
+| `MOODLE_ENABLED` | `false` | Feature flag. Con `false` los hooks son no-op silenciosos (permite deployar el código sin tener Moodle listo). |
 
 ### Ejemplo de llamada API:
 ```
