@@ -29,6 +29,12 @@
 
 ## Entradas
 
+## 2026-04-24 — Fran — frontend
+**Qué:** (1) Sidebar reorganizado: eliminada la sección **Diplomas**; **Diplomaturas** (ex "Diplomas" en UI) + **Liquidaciones** ahora viven dentro de **Finanzas**. Rutas renombradas en `App.tsx`: `/diplomas` → `/diplomaturas` (placeholder). (2) Nuevo archivo `frontend/ROADMAP.md` con el patrón UX canónico a replicar (debounce 300ms + sort 3-estados + `buildPageNumbers` + panel modal create/edit/detail + soft delete + formatters AR) y la lista ordenada de 11 módulos pendientes (Cursos CRUD completo, Inscripciones, Cuotas/Pagos, Descuentos, Diplomaturas, Liquidaciones, Presupuesto, Contactos, Editorial trio, Personal+Horas, Notificaciones) con endpoints backend, types espejo a crear, campos, sort default, validaciones y authorities Keycloak. El ROADMAP está pensado para que una sesión nueva de Claude entre en frío y pueda construir el próximo módulo sin re-descubrir el patrón.
+**Por qué:** el label "Diplomas" en UI no matchea cómo se refiere el instituto a los programas de formación superior — se llaman diplomaturas. Además, agrupar diplomaturas+liquidaciones dentro de Finanzas deja más claro que son un vertical financiero (reparto de socias, liquidación mensual) y no un módulo académico. Backend no se toca: entidades, tablas y endpoints siguen con `diploma*` como nombre técnico.
+**Impacto para el otro:** ninguno en backend. Si alguna notificación SendGrid linkea a `/diplomas` del SPA, redirigir a `/diplomaturas` (la ruta vieja ya no existe). Endpoints `/api/v1/diplomas`, `/api/v1/diploma-enrollments`, `/api/v1/diploma-settlements` intactos — solo cambia el label en el front.
+**Refs:** `frontend/src/components/Sidebar.tsx`, `frontend/src/App.tsx`, `frontend/ROADMAP.md` (nuevo), `instrucciones_claude/ESTADO.md` (sección Fran actualizada).
+
 ## 2026-04-24 — Fran — infra/naming
 **Qué:** Rename `Socio`/`socio` → `Fran` en todos los `.md` del repo (`CLAUDE.md`, `PROMPT-BOOTSTRAP.md`, `README.md`, `instrucciones_claude/00-setup-claude.md`, `DIARIO.md`, `ESTADO.md`). El rol "socio = dueño de `frontend/`" pasa a llamarse "Fran". `Santi` queda igual.
 **Por qué:** Fran prefiere usar su nombre real en la documentación en lugar del rol genérico `Socio`. Clarifica cuál de los dos devs/Claudes se está referenciando.

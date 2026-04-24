@@ -45,23 +45,25 @@
 
 ## Fran / frontend
 
-**Fase actual:** SPA — Fase 1 (Alumnos + Cursos) cerrada a nivel UI contra mocks.
+**Fase actual:** SPA — Fase 1 cerrada (Alumnos CRUD + Cursos listado). Sidebar reorganizado. `frontend/ROADMAP.md` escrito para guiar las próximas sesiones.
 
 **En qué estoy ahora:**
-- Módulo **Alumnos** completo: listado paginado con buscador (debounce 300ms), sort 3-estados (A-Z / Z-A / sin orden) en `Apellido`, `Universidad` y `Estado`, paginación numerada con elipsis, acciones por fila (detalle + editar), modal de detalle (`StudentDetail`) y modal de alta/edición (`StudentForm`) con validación client-side y toggle Activo/Inactivo.
-- Módulo **Cursos** como listado: buscador + filtro por `businessUnit` (chips Todas / Residencias / Prematuros / Editorial / Formación Superior / Otros), sort en `Curso`, `Modalidad`, `Precio curso`, `Estado`, paginación. Columnas: curso+código, modalidad (pill), unidad (badge coloreado), fecha examen, precio formateado en ARS, estado.
-- **Capa mock (`src/api/mock/`)** ya soporta GET/POST/PUT/DELETE para `students` y `courses`. Forma idéntica a `PageResponse<T>` del backend — se gira el switch con `VITE_USE_MOCK=false` cuando el backend esté expuesto.
-- Tipos espejados: `types/student.ts`, `types/course.ts`. Data seed de Cursos viene del análisis del Excel `precio de lista`.
+- **Alumnos** completo (CRUD + modal form + modal detail + toggle activo).
+- **Cursos** como listado (buscador + filtro `businessUnit` + sort + paginación); **falta CourseForm + CourseDetail** — próximo paso.
+- **Sidebar reorganizado:** sección `Diplomas` eliminada; `Diplomaturas` (ex `Diplomas` en UI) + `Liquidaciones` movidas a **Finanzas**. Rutas `/diplomaturas` y `/liquidaciones` registradas en App.tsx (placeholder por ahora). Backend sigue usando `/api/v1/diplomas` — **solo cambia el label/ruta del SPA**.
+- **ROADMAP** en `frontend/ROADMAP.md`: patrón UX canónico + lista ordenada de 11 módulos pendientes con endpoints, campos, sort default, validaciones y mocks a extender. Pensado para que cualquier sesión de Claude entre en frío y sepa exactamente qué construir.
+- Capa mock (`src/api/mock/handlers.ts`) sigue activa con `VITE_USE_MOCK=true`.
 
 **Próximo paso:**
-- Form de alta/edición de Curso (CourseForm) + vista detalle. Hoy Cursos es read-only.
-- Luego: **Inscripciones** (Fase 1 backend) — listado con filtros por curso/alumno/cohorte, relación M:N Student ↔ Course a través de Enrollment.
-- Más adelante: integrar authorities de Keycloak — hoy el SPA llama al mock sin JWT. Cuando se conecte al back real, agregar capa de token en `api/client.ts` (authorization bearer).
+- Completar CRUD de **Cursos** (CourseForm create/edit + CourseDetail) siguiendo el patrón Alumnos.
+- Después: **Inscripciones** (`/api/v1/enrollments`) — crear enrollment dispara la generación automática del cronograma de cuotas server-side, el SPA solo consulta.
+- Orden completo: ver `frontend/ROADMAP.md`.
 
-**Bloqueado por el otro:** nada. El backend de Fases 1-6 expone Swagger en `localhost:8080` — uso eso como contrato.
+**Bloqueado por el otro:** nada. Backend Fases 1–8 expuesto en Swagger `localhost:8080/swagger-ui.html`.
 
 **Notas para Santi:**
-- Los mocks están alineados con `PageResponse<T>` y los query params documentados. Cuando se conecte, esperemos `200` en GET vacío (no 204) para no romper `.json()`.
-- `Course.examDate` se parsea en el SPA como `YYYY-MM-DD` (LocalDate) sin TZ shifting — parseo manual para evitar corrimiento.
-- `BusinessUnit` en el front está tipado como union literal `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'`. Si agregás un valor al enum en el back, avisame y lo sincronizo.
-- Campos del Excel todavía no modelados en Student: `interview_status`, `Ausente plat NOV/ENE`, `Pago chq`. El form los menciona como nota amarilla para que el usuario sepa que faltan.
+- Sección `Diplomas` eliminada del Sidebar del SPA. Ruta `/diplomas` ya no existe en el front — si alguien la linkea desde email/notificación, redirigir a `/diplomaturas`. Endpoints backend intactos.
+- Los mocks siguen esperando `200` en GET vacío (no 204) para no romper `.json()`.
+- `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting).
+- `BusinessUnit` tipado como `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'` — avisame si agregás un valor al enum backend.
+- Campos del Excel aún sin modelar en Student: `interview_status`, `Ausente plat NOV/ENE`, `Pago chq` — quedan como nota amarilla en el form.

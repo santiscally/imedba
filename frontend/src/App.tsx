@@ -8,9 +8,8 @@ import Placeholder from './pages/Placeholder'
 
 const MODULES = [
   'inscripciones',
-  'cuotas', 'descuentos', 'presupuesto',
+  'cuotas', 'descuentos', 'diplomaturas', 'liquidaciones', 'presupuesto',
   'libros', 'ventas', 'autores',
-  'diplomas', 'liquidaciones',
   'personal', 'horas', 'contactos', 'notificaciones',
 ]
 
