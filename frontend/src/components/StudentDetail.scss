@@ -1,0 +1,157 @@
+@use '../styles/variables' as *;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Detalle de alumno — reutiliza .modal-overlay de StudentForm.scss
+// ═══════════════════════════════════════════════════════════════════════════
+.detail {
+  background: $blanco;
+  border-radius: $radio-xl;
+  box-shadow: $sombra-lg;
+  width: 100%;
+  max-width: 640px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 180ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.3rem 1.4rem 1.1rem 1.4rem;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  &__identity {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.35rem;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+
+  &__moodle {
+    font-size: 0.72rem;
+    color: $gris-texto;
+    background: $fondo-app;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid $gris-borde-sutil;
+  }
+
+  &__body {
+    padding: 1.1rem 1.4rem 0.3rem 1.4rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  &__section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: $gris-texto;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 1.2rem;
+    margin: 0;
+
+    @media (max-width: 560px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  &__row-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: $gris-texto;
+    font-weight: 500;
+  }
+
+  &__row-value {
+    font-size: 0.9rem;
+    color: $texto-oscuro;
+    word-break: break-word;
+
+    &.mono {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      color: $texto-medio;
+    }
+  }
+
+  &__empty {
+    color: $gris-texto-sutil;
+  }
+
+  &__notes {
+    font-size: 0.88rem;
+    color: $texto-medio;
+    background: $fondo-app;
+    padding: 0.75rem 0.9rem;
+    border-radius: $radio-md;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding: 1rem 1.4rem 1.2rem 1.4rem;
+    border-top: 1px solid $gris-borde-sutil;
+    margin-top: 0.5rem;
+  }
+}
