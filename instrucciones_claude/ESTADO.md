@@ -12,15 +12,17 @@
 
 ## Santi / backend / infra / db / auth
 
-**Fase actual:** 6 — cerrada a nivel código (Docentes + Formación Superior + hour logs + diplomas + settlements). Próxima: Fase 7 (integración Moodle) o Fase 8 (hardening + deploy).
+**Fase actual:** 8 — cerrada a nivel infra/backend (hardening + deploy). Próxima: deploy real a Don Web y/o Fase 7 (Moodle) diferida.
 
 **En qué estoy ahora:**
-- Fase 6 completa. **6.a Docentes:** migración `V013__staff_activity_types_hour_logs.sql` + módulos `modules/staff` (DOCENTE/TUTORA/PRECEPTORA, soft delete), `modules/activitytype` (catálogo rate_per_hour, sin soft delete) y `modules/hourlog` (append-only; rate y total snapshot al crear; flujo factura PENDING → INVOICE_RECEIVED → PAID, markPaid exige invoice_received=true). **6.b Formación Superior:** migración `V014__diplomas.sql` + módulos `modules/diploma` (partners_config en JSONB con `@JdbcTypeCode(SqlTypes.JSON)`), `modules/diplomaenrollment` (status ACTIVE/SUSPENDED/COMPLETED/CANCELLED), `modules/diplomasettlement` (state machine DRAFT→APPROVED→PAID, UNIQUE(diploma_id, period_year, period_month) para impedir doble liquidación). Motor `SettlementEngine.compute` puro: tax → fijos (secretaria+publicidad) → % sobre remaining (admin/universidad/imedba) → socias por pct. HALF_UP a 2 decimales; remanente por redondeo queda en partners_total. 50/50 unit tests verde en Java 21 Docker (21 tests nuevos: HourLogServiceTests 7, SettlementEngineTests 7, DiplomaSettlementServiceTests 7). 202 fuentes compilan sin warnings.
-- Fases anteriores (0-5) cerradas — integration tests Testcontainers de Fase 2/3 fallan dentro del contenedor Alpine por falta de DinD (no es regresión; corren en host con Docker Desktop).
+- Fase 8 completa a nivel código e infra. `application-prod.yml` con swagger off, actuator restringido, Hikari/Tomcat tuning, logging. `SecurityConfig` emite X-Frame-Options=DENY + X-Content-Type-Options + Referrer-Policy + Permissions-Policy + CSP api-apta, y gatea swagger por `springdoc.api-docs.enabled`. Nginx con CSP explícito para el SPA, X-Frame-Options, Permissions-Policy, `server_tokens off`, rate limit 20 req/s por IP en `/api/` y 5 req/s en el token endpoint de Keycloak. Scripts `backup-db.sh` (pg_dump + gzip + rotación 30d+12m) y `restore-db.sh` (destructivo, con confirmación). `.github/workflows/backend-ci.yml` con Java 21 + maven cache + compile+test y upload de surefire-reports. `docker-compose.prod.yml` con deploy.resources.limits, healthcheck backend `/actuator/health/readiness`, JAVA_OPTS con MaxRAMPercentage=75. 50/50 unit tests siguen verde tras los cambios.
+- Fases 0-6 cerradas. Integration tests Testcontainers de Fase 2/3 siguen pendientes de corrida host (DinD en alpine JDK no sirve para Testcontainers).
 
 **Próximo paso:**
-- Decidir entre Fase 7 (integración Moodle — spec en `instrucciones_claude/05-moodle-integration-spec.md`) o saltar a Fase 8 (hardening + deploy Don Web) dejando Moodle como trabajo posterior.
-- Si se toca host: correr los integration tests Testcontainers acumulados (StudentApi, CourseApi, EnrollmentApi, PaymentApi) — hoy el .jdks del host tiene sólo Java 17, hay que instalar Java 21 o seguir usando el contenedor Alpine pero montando socket Docker.
+- Deploy real a Don Web: copiar repo, setear `.env` de prod (SERVER_NAME, KEYCLOAK_HOSTNAME, KEYCLOAK_ISSUER_URI=https://..., KEYCLOAK_JWK_SET_URI=http://keycloak:8080/..., SERVER_NAME del dominio, POSTGRES_PASSWORD real, SENDGRID_API_KEY), certbot para cert inicial a `nginx/certs/`, `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`, y luego agregar cron del backup.
+- Cuando el socio confirme que el SPA no usa scripts/estilos inline externos, apretar CSP quitando `'unsafe-inline'`.
+- Fase 7 (Moodle) queda diferida para post-deploy — el stack no la necesita para salir.
+- Si se toca host: correr los integration tests Testcontainers acumulados (Student/Course/Enrollment/Payment API).
 
 **Bloqueado por el otro:** nada.
 

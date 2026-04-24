@@ -9,6 +9,14 @@
 # /etc/nginx/templates/ + NGINX_ENVSUBST_FILTER=^SERVER_NAME$ para que no toque
 # las variables nativas de nginx tipo $host, $uri, $remote_addr, etc.).
 
+# ---------- Rate limit zones (contexto http) ------------------------------- #
+# Zonas con clave = IP del cliente. 10m de memoria = ~160k IPs trackeadas.
+#   api:  20 req/s por IP  (burst hasta 40, cola de 20 diferidas)
+#   auth:  5 req/s por IP  (protege /auth/realms/*/protocol/openid-connect/token)
+limit_req_zone $binary_remote_addr zone=api:10m  rate=20r/s;
+limit_req_zone $binary_remote_addr zone=auth:10m rate=5r/s;
+limit_req_status 429;
+
 # ---------- HTTP → HTTPS --------------------------------------------------- #
 server {
     listen 80 default_server;
@@ -54,16 +62,26 @@ server {
     ssl_session_timeout 1d;
     ssl_session_tickets off;
 
+    # Oculta versión de nginx en Server header y páginas de error.
+    server_tokens off;
+
     # HSTS — activar solo cuando ya estés 100% con HTTPS en el dominio.
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+    # CSP: ajustar si el SPA carga CDNs / gtag / recaptcha. Keycloak vive
+    # bajo el mismo dominio en /auth, así que 'self' alcanza para connect-src.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # Uploads/respuestas grandes (PDFs de contratos, etc.)
     client_max_body_size 20m;
 
     # --- Backend API ------------------------------------------------------- #
     location /api/ {
+        limit_req zone=api burst=40 delay=20;
+
         proxy_pass http://backend:8080/api/;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
@@ -73,9 +91,25 @@ server {
         proxy_set_header X-Forwarded-Host  $host;
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
+        proxy_connect_timeout 5s;
     }
 
     # --- Keycloak (con KC_HTTP_RELATIVE_PATH=/auth) ------------------------ #
+    # Rate limit más estricto en el token endpoint para frenar brute force.
+    location = /auth/realms/imedba/protocol/openid-connect/token {
+        limit_req zone=auth burst=10 nodelay;
+
+        proxy_pass http://keycloak:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Port  443;
+        proxy_read_timeout 30s;
+    }
+
     location /auth/ {
         proxy_pass http://keycloak:8080;
         proxy_http_version 1.1;

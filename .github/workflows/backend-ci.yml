@@ -1,0 +1,48 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-and-test:
+    name: Build + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+          cache-dependency-path: backend/pom.xml
+
+      - name: Maven compile
+        working-directory: backend
+        run: ./mvnw -B -ntp -DskipTests compile
+
+      # Los integration tests usan Testcontainers y necesitan docker.socket
+      # (disponible en ubuntu-latest). Los unit tests no lo requieren, pero
+      # corremos ambos para tener cobertura completa en CI.
+      - name: Maven test
+        working-directory: backend
+        run: ./mvnw -B -ntp test
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7

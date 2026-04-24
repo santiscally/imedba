@@ -1,12 +1,24 @@
-# Override de produccion.
+# Override de producción.
 # Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Lo unico que se agrega es nginx con TLS en 80/443 y el ajuste de Keycloak
-# para servir bajo /auth con hostname estricto. Los puertos internos siguen
-# bindeados a 127.0.0.1 (definidos en el base); nginx llega a los servicios
-# por la red interna Docker.
+# Agrega:
+#   - Nginx TLS en 80/443 (frontal)
+#   - Keycloak en modo optimized con /auth + hostname estricto
+#   - Backend en SPRING_PROFILES_ACTIVE=prod + healthcheck + límites de memoria
+#   - Límites de recursos y reservas en todos los servicios.
+#
+# Los puertos internos siguen bindeados a 127.0.0.1 (definidos en el base);
+# nginx llega a los servicios por la red interna Docker.
 
 services:
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
   keycloak:
     command: ["start", "--import-realm", "--optimized"]
     environment:
@@ -15,6 +27,12 @@ services:
       KC_HOSTNAME_STRICT: "true"
       KC_HTTP_ENABLED: "true"
       KC_PROXY: edge
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 384M
 
   backend:
     environment:
@@ -22,6 +40,19 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
       APP_CORS_ALLOWED_ORIGINS: https://${SERVER_NAME}
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 512M
 
   frontend:
     build:
@@ -29,6 +60,10 @@ services:
         VITE_API_BASE_URL: /api
         VITE_KEYCLOAK_URL: /auth
     image: imedba/frontend:prod
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   nginx:
     image: nginx:1.27-alpine
@@ -46,3 +81,7 @@ services:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/certs:/etc/nginx/certs:ro
     networks: [imedba-net]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
