@@ -45,12 +45,23 @@
 
 ## Socio / frontend
 
-**Fase actual:** _(pendiente de que el socio actualice)_
+**Fase actual:** SPA — Fase 1 (Alumnos + Cursos) cerrada a nivel UI contra mocks.
 
-**En qué estoy ahora:** _(pendiente)_
+**En qué estoy ahora:**
+- Módulo **Alumnos** completo: listado paginado con buscador (debounce 300ms), sort 3-estados (A-Z / Z-A / sin orden) en `Apellido`, `Universidad` y `Estado`, paginación numerada con elipsis, acciones por fila (detalle + editar), modal de detalle (`StudentDetail`) y modal de alta/edición (`StudentForm`) con validación client-side y toggle Activo/Inactivo.
+- Módulo **Cursos** como listado: buscador + filtro por `businessUnit` (chips Todas / Residencias / Prematuros / Editorial / Formación Superior / Otros), sort en `Curso`, `Modalidad`, `Precio curso`, `Estado`, paginación. Columnas: curso+código, modalidad (pill), unidad (badge coloreado), fecha examen, precio formateado en ARS, estado.
+- **Capa mock (`src/api/mock/`)** ya soporta GET/POST/PUT/DELETE para `students` y `courses`. Forma idéntica a `PageResponse<T>` del backend — se gira el switch con `VITE_USE_MOCK=false` cuando el backend esté expuesto.
+- Tipos espejados: `types/student.ts`, `types/course.ts`. Data seed de Cursos viene del análisis del Excel `precio de lista`.
 
-**Próximo paso:** _(pendiente)_
+**Próximo paso:**
+- Form de alta/edición de Curso (CourseForm) + vista detalle. Hoy Cursos es read-only.
+- Luego: **Inscripciones** (Fase 1 backend) — listado con filtros por curso/alumno/cohorte, relación M:N Student ↔ Course a través de Enrollment.
+- Más adelante: integrar authorities de Keycloak — hoy el SPA llama al mock sin JWT. Cuando se conecte al back real, agregar capa de token en `api/client.ts` (authorization bearer).
 
-**Bloqueado por el otro:** _(pendiente)_
+**Bloqueado por el otro:** nada. El backend de Fases 1-6 expone Swagger en `localhost:8080` — uso eso como contrato.
 
-**Notas para Santi:** _(pendiente)_
+**Notas para Santi:**
+- Los mocks están alineados con `PageResponse<T>` y los query params documentados. Cuando se conecte, esperemos `200` en GET vacío (no 204) para no romper `.json()`.
+- `Course.examDate` se parsea en el SPA como `YYYY-MM-DD` (LocalDate) sin TZ shifting — parseo manual para evitar corrimiento.
+- `BusinessUnit` en el front está tipado como union literal `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'`. Si agregás un valor al enum en el back, avisame y lo sincronizo.
+- Campos del Excel todavía no modelados en Student: `interview_status`, `Ausente plat NOV/ENE`, `Pago chq`. El form los menciona como nota amarilla para que el usuario sepa que faltan.

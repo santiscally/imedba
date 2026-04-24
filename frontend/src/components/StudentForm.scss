@@ -1,0 +1,259 @@
+@use '../styles/variables' as *;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Modal genérico
+// ═══════════════════════════════════════════════════════════════════════════
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 30, 36, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 140ms ease-out;
+}
+
+.modal {
+  background: $blanco;
+  border-radius: $radio-xl;
+  box-shadow: $sombra-lg;
+  width: 100%;
+  max-width: 720px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 180ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  &__title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  &__title-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: $radio-md;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: $texto-oscuro;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  &__close {
+    width: 32px;
+    height: 32px;
+    border-radius: $radio-md;
+    background: transparent;
+    border: none;
+    color: $gris-texto;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background $transicion, color $transicion;
+
+    &:hover {
+      background: $fondo-hover;
+      color: $texto-oscuro;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Form
+// ═══════════════════════════════════════════════════════════════════════════
+.form {
+  padding: 1.4rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem 1.1rem;
+
+    @media (max-width: 620px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__note {
+    font-size: 0.78rem;
+    color: $gris-texto;
+    background: $fondo-app;
+    padding: 0.7rem 0.9rem;
+    border-radius: $radio-md;
+    margin: 0;
+    line-height: 1.5;
+
+    code {
+      background: $blanco;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      border: 1px solid $gris-borde-sutil;
+    }
+  }
+
+  &__error {
+    padding: 0.7rem 0.9rem;
+    background: $rojo-bg;
+    color: $rojo;
+    border-radius: $radio-md;
+    font-size: 0.85rem;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid $gris-borde-sutil;
+    margin-top: 0.3rem;
+    padding: 1rem 0 0.2rem 0;
+  }
+}
+
+// ─── Field ───────────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  &--full { grid-column: 1 / -1; }
+
+  &__label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: $texto-medio;
+  }
+
+  &__required {
+    color: $rojo;
+    margin-left: 0.2rem;
+  }
+
+  input,
+  textarea,
+  select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    font-size: 0.9rem;
+    color: $texto-oscuro;
+    font-family: inherit;
+    transition: border-color $transicion, box-shadow $transicion;
+
+    &:focus {
+      outline: none;
+      border-color: $verde-petroleo;
+      box-shadow: 0 0 0 3px $verde-petroleo-suave;
+    }
+
+    &::placeholder { color: $gris-texto-sutil; }
+  }
+
+  textarea { resize: vertical; min-height: 72px; }
+
+  &__error {
+    color: $rojo;
+    font-size: 0.75rem;
+  }
+
+  &--error input,
+  &--error textarea,
+  &--error select {
+    border-color: $rojo;
+    &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+  }
+}
+
+// ─── Toggle activo/inactivo ──────────────────────────────────────────────────
+.toggle {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  background: $fondo-app;
+  border-radius: $radio-md;
+  border: 1px solid $gris-borde-sutil;
+
+  &__option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.6rem;
+    border-radius: calc(#{$radio-md} - 2px);
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: $gris-texto;
+    transition: background $transicion, color $transicion;
+    user-select: none;
+
+    input { display: none; }
+
+    &:has(input:checked) {
+      background: $blanco;
+      color: $verde-petroleo;
+      font-weight: 600;
+      box-shadow: $sombra-xs;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Botón ghost (cancelar)
+// ═══════════════════════════════════════════════════════════════════════════
+.btn-ghost {
+  padding: 0.6rem 1rem;
+  background: transparent;
+  color: $texto-medio;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transicion, border-color $transicion;
+
+  &:hover:not(:disabled) {
+    background: $fondo-hover;
+    border-color: $verde-petroleo;
+    color: $verde-petroleo;
+  }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}

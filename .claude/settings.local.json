@@ -36,7 +36,8 @@
       "Bash(node /c/Users/Santi/.claude/workspace/scripts/inject-domain-context.js)",
       "Bash(node /c/Users/Santi/.claude/workspace/scripts/track-file-changes.js)",
       "Bash(git add *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(npm run *)"
     ]
   }
 }

@@ -85,6 +85,8 @@ Reglas duras:
 
 ## Comandos comunes
 
+### Backend / infra
+
 - `docker compose up -d --build` / `docker compose down` / `docker compose logs -f --tail=200` — ciclo dev.
 - `docker compose down -v` — reset total (borra volúmenes, vuelve a correr init scripts de Postgres).
 - `docker compose exec db psql -U imedba -d imedba` — shell psql.
@@ -92,6 +94,34 @@ Reglas duras:
 - `cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` — backend fuera de Docker.
 - `cd backend && ./mvnw test` — tests locales (requiere Java 21 en el host).
 - Prod: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`.
+
+### Frontend
+
+- `cd frontend && npm install` — instalar dependencias (una vez por máquina).
+- `cd frontend && npm run dev` — Vite dev server en `http://localhost:5173`.
+- `cd frontend && npm run build` — build de producción (tsc + vite build).
+- `cd frontend && npm run lint` — eslint sobre `src/`.
+- `cd frontend && npm run preview` — servir el build localmente.
+
+### Puertos de desarrollo
+
+| Servicio           | URL                                |
+| ------------------ | ---------------------------------- |
+| Frontend (Vite)    | `http://localhost:5173`            |
+| Backend (Spring)   | `http://localhost:8080`            |
+| Swagger UI         | `http://localhost:8080/swagger-ui.html` |
+| Keycloak           | `http://localhost:8180`            |
+| Postgres           | `localhost:5432` (user `imedba`)   |
+
+## Contrato front ↔ back
+
+- **Paginación.** Respuesta unificada `PageResponse<T>` con `content, page, size, totalElements, totalPages, first, last`. El front mapea 1:1 — al crear un nuevo DTO en el back, el socio agrega un `type` espejo en `frontend/src/types/`. No hay codegen: se sincroniza a mano.
+- **JWT — dos namespaces de authorities.** El backend mapea dos fuentes de Keycloak:
+  - `realm_access.roles` → prefijo `ROLE_` (ej. `ROLE_admin`, `ROLE_vendedora`).
+  - `resource_access.imedba-backend.roles` → authority pelado (ej. `students:read`, `budget:write`).
+  Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")` sobre los del segundo namespace.
+- **CORS.** El back acepta `http://localhost:5173` en dev. En prod se configura vía `APP_CORS_ALLOWED_ORIGINS`.
+- **Mocks frontend.** `frontend/src/api/mock/handlers.ts` replica las respuestas del backend (forma + paginación + sort). Se activa con `VITE_USE_MOCK=true` en `frontend/.env`. Permite al socio trabajar sin que el backend esté corriendo; al apuntar al back real es un solo flag.
 
 ## Secretos
 
