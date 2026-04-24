@@ -12,21 +12,35 @@
 
 ## Santi / backend / infra / db / auth
 
-**Fase actual:** 8 — cerrada a nivel infra/backend (hardening + deploy). Próxima: deploy real a Don Web y/o Fase 7 (Moodle) diferida.
+**Fase actual:** 8 cerrada. Plan de Fase 9 armado tras reunión IMEDBA 2026-04-24 (ver `07-requerimientos-reunion-20260424.md`). Fase 7 (Moodle) pausada esperando token del programador de Moodle.
 
 **En qué estoy ahora:**
-- Fase 8 completa a nivel código e infra. `application-prod.yml` con swagger off, actuator restringido, Hikari/Tomcat tuning, logging. `SecurityConfig` emite X-Frame-Options=DENY + X-Content-Type-Options + Referrer-Policy + Permissions-Policy + CSP api-apta, y gatea swagger por `springdoc.api-docs.enabled`. Nginx con CSP explícito para el SPA, X-Frame-Options, Permissions-Policy, `server_tokens off`, rate limit 20 req/s por IP en `/api/` y 5 req/s en el token endpoint de Keycloak. Scripts `backup-db.sh` (pg_dump + gzip + rotación 30d+12m) y `restore-db.sh` (destructivo, con confirmación). `.github/workflows/backend-ci.yml` con Java 21 + maven cache + compile+test y upload de surefire-reports. `docker-compose.prod.yml` con deploy.resources.limits, healthcheck backend `/actuator/health/readiness`, JAVA_OPTS con MaxRAMPercentage=75. 50/50 unit tests siguen verde tras los cambios.
-- Fases 0-6 cerradas. Integration tests Testcontainers de Fase 2/3 siguen pendientes de corrida host (DinD en alpine JDK no sirve para Testcontainers).
+- Fase 8 completa (hardening + deploy): `application-prod.yml` con swagger off + actuator restringido + Hikari/Tomcat tuning. `SecurityConfig` con headers defensivos. Nginx con CSP + rate limit (20 req/s `/api`, 5 req/s token endpoint Keycloak). Scripts `backup-db.sh` / `restore-db.sh`. `.github/workflows/backend-ci.yml`. `docker-compose.prod.yml` con deploy limits + healthcheck.
+- Fase 9 planificada post-reunión IMEDBA 2026-04-24. Scope: (a) segmentación Residencias↔Formación Superior por authorities + reubicación de Prematuros como diplomatura dentro de FS + `country` en courses; (b) workflow de aprobación de inscripciones (PENDING_APPROVAL → approve por socio dispara Moodle + contrato + cuotas); (c) entidad Commission para cohortes de diplomatura; (d) RecurringService para abonos con flujo de factura; (e) búsquedas sin tilde. Plan detallado en `04-plan-de-fases.md` §Fase 9.
+- Fase 7 (Moodle) — ya le escribí al programador de Moodle (2026-04-24) pidiendo API, API key y documentación. Esperando respuesta. El cliente REST puede empezar a codearse ahora contra la spec estándar; se cablea cuando llega el token.
+- Fases 0-6 cerradas. Integration tests Testcontainers pendientes de corrida host.
 
 **Próximo paso:**
-- **Fase 7 (Moodle) como drop-in** detrás de feature flag `MOODLE_ENABLED=false` (default). Implementar ahora: cliente REST genérico contra la API estándar de Moodle Web Services (funciones `core_user_*` y `enrol_manual_*` — estables desde Moodle 2.0/3.0, siguen vivas en 4.1/4.3/4.5/5.0; Moodle 5.0 removió pre-4.0 deprecadas, pero las nuestras no están afectadas). Migración `V015__moodle_mappings.sql`: `students.moodle_user_id INTEGER NULL` y `courses.moodle_course_id INTEGER NULL` (IMEDBA mantiene sus UUIDs como source of truth; el id de Moodle es un side-link que se puebla en el primer sync y puede quedar null para cursos/alumnos sin LMS). Env vars: `MOODLE_URL`, `MOODLE_TOKEN`, `MOODLE_DEFAULT_STUDENT_ROLE_ID=5`, `MOODLE_ENABLED`. Hooks silenciosos (no-op cuando `enabled=false`) en `EnrollmentService` (crear+inscribir al activar), `InstallmentScheduler` (suspend=1 al día 22) y `PaymentService` (suspend=0 al regularizar). Notifications de tipo `MOODLE_SYNC` para log de operaciones. Tests unitarios del client con WireMock o MockWebServer contra fixtures JSON. Cuando IMEDBA tenga el token + course IDs, la activación es setear env vars + poblar mapeo. Queda codeado, testeado y mergeable sin romper prod.
-- Deploy real a Don Web: copiar repo, setear `.env` de prod (SERVER_NAME, KEYCLOAK_HOSTNAME, KEYCLOAK_ISSUER_URI=https://..., KEYCLOAK_JWK_SET_URI=http://keycloak:8080/..., SERVER_NAME del dominio, POSTGRES_PASSWORD real, SENDGRID_API_KEY), certbot para cert inicial a `nginx/certs/`, `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`, y luego agregar cron del backup.
-- Cuando el socio confirme que el SPA no usa scripts/estilos inline externos, apretar CSP quitando `'unsafe-inline'`.
-- Si se toca host: correr los integration tests Testcontainers acumulados (Student/Course/Enrollment/Payment API).
+- **Arrancar Fase 9.a (segmentación)**: authorities nuevas en Keycloak realm export, migración V016 (eliminar `PREMATUROS` del enum, migrar datos a `FORMACION_SUPERIOR`, agregar `country` a courses, habilitar extension `unaccent`), filtrado server-side en queries de students/courses/enrollments/etc.
+- Luego 9.b (workflow aprobación) → 9.c (comisiones) → 9.d (RecurringService) → 9.e (búsquedas unaccent).
+- Retomar Fase 7 cuando Moodle responda con token + docs.
+- Deploy a Don Web post-Fase 9 (ya está listo infra, sólo setear `.env` de prod + cert).
+- Si se toca host: correr integration tests Testcontainers acumulados (Student/Course/Enrollment/Payment API).
 
 **Bloqueado por el otro:** nada.
 
 **Notas para el socio:**
+- **⚠️ Reunión IMEDBA 2026-04-24 — LEER ANTES DE SEGUIR TOCANDO EL SPA.** Resumen completo en `instrucciones_claude/07-requerimientos-reunion-20260424.md` y plan de Fase 9 en `04-plan-de-fases.md`. Puntos que te tocan directo:
+  1. **Menú se reorganiza**: en vez de "Académico" solo, van a ser DOS entradas "Académico Residencias Médicas" y "Académico Formación Superior". IMEDBA tiene dos equipos separados que no deben verse entre sí — esto no es opcional.
+  2. **"Diplomatura" pasa a estar dentro de "Finanzas"** (no como sección propia). "Horas" pasa a "Administración/Personal".
+  3. **Prematuros ya no es business_unit paralela**: es una diplomatura dentro de Formación Superior. Si tenés Prematuros como chip/filtro en `Cursos.tsx`, sacalo. El enum pasa a ser `RESIDENCIAS | EDITORIAL | FORMACION_SUPERIOR | GENERAL`. Los datos actuales con `PREMATUROS` van a migrarse a `FORMACION_SUPERIOR` (V016 backend).
+  4. **Filtro `country` en courses de Residencias** (Argentina / Uruguay — futuro "Exterior"). Campo nuevo que aparecerá en `CourseResponse`.
+  5. **Inscripciones tienen estado `PENDING_APPROVAL`**: la vendedora crea pero queda esperando OK de socio. Necesitás una vista "Pendientes de aprobación" para los socios con botones Aprobar / Rechazar.
+  6. **Comisiones en diplomaturas**: al inscribir alumno a diplomatura hay que elegir comisión (secuencial cada 6 meses, la 10 es la actual; la 11 arranca agosto 2026). Endpoint nuevo `/api/v1/commissions`.
+  7. **Vista "Abonos"** dentro de Finanzas — agenda mensual de vencimientos de proveedores con flujo de factura (igual UX que hour-logs).
+  8. **Búsquedas sin tilde**: el backend normaliza con `unaccent`, vos no tenés que hacer nada especial, pero podés liberar validaciones que exijan tilde.
+- Authorities Keycloak nuevas a sumar en los guards/menu del SPA: `residencias:read`, `residencias:write`, `formacion_superior:read`, `formacion_superior:write`, `enrollments:approve`, `recurring_services:read`, `recurring_services:write`. Socios (3 personas, `ROLE_admin`) tienen todas.
+- **Próxima reunión**: viernes 15 de mayo 11:00 (fallback 29). Intermedio posible con Meli (socia residencias).
 - El backend expone Swagger en `http://localhost:8080/swagger-ui.html`. Usar ese contrato como fuente de verdad para el SPA.
 - Endpoints nuevos de Fase 6:
   - `GET/POST /api/v1/staff` (filtros `type=DOCENTE|TUTORA|PRECEPTORA`, `active`, `q`), `GET/PUT/DELETE /api/v1/staff/{id}`.

@@ -54,6 +54,7 @@ Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avis
 6. Staff + HourLogs + Diplomas + Settlements
 7. Moodle (futura)
 8. Hardening + deploy
+9. Refinamiento post-reunión IMEDBA (segmentación Residencias↔FS, workflow aprobación, comisiones, abonos)
 
 ## Coordinación entre los dos Claudes (Santi + socio)
 
@@ -81,6 +82,7 @@ Reglas duras:
 - `instrucciones_claude/04-plan-de-fases.md`
 - `instrucciones_claude/05-moodle-integration-spec.md`
 - `instrucciones_claude/06-api-endpoints.md`
+- `instrucciones_claude/07-requerimientos-reunion-20260424.md` — requerimientos detectados en reunión con IMEDBA (fase 9)
 - `instrucciones_claude/09-claude-code-instructions.md`
 
 ## Comandos comunes
