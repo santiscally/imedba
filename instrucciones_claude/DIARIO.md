@@ -1,6 +1,6 @@
 # DIARIO — Bitácora compartida de Claudes
 
-> **Qué es esto.** Una bitácora append-only donde cada Claude (el de Santi y el del socio) deja registro de **qué hizo**, **por qué**, **qué errores se encontraron**, y **qué debería saber el otro**. Sirve para que la próxima sesión (cualquiera de los dos) arranque con contexto real de lo que ya pasó.
+> **Qué es esto.** Una bitácora append-only donde cada Claude (el de Santi y el del Fran) deja registro de **qué hizo**, **por qué**, **qué errores se encontraron**, y **qué debería saber el otro**. Sirve para que la próxima sesión (cualquiera de los dos) arranque con contexto real de lo que ya pasó.
 >
 > **Regla de uso para el Claude que esté activo:**
 > 1. Al **arrancar sesión**: leer las últimas ~10 entradas (las más recientes arriba).
@@ -17,7 +17,7 @@
 ## Formato de entrada
 
 ```markdown
-## YYYY-MM-DD — <autor: Santi|Socio> — <área: backend|frontend|infra|db|auth|...>
+## YYYY-MM-DD — <autor: Santi|Fran> — <área: backend|frontend|infra|db|auth|...>
 **Qué:** <qué cambió en 1-2 líneas>
 **Por qué:** <motivación; requisito / bug / decisión>
 **Problemas:** <errores que aparecieron y cómo se resolvieron; omitir si no hubo>
@@ -29,7 +29,13 @@
 
 ## Entradas
 
-## 2026-04-24 — Socio — frontend
+## 2026-04-24 — Fran — infra/naming
+**Qué:** Rename `Socio`/`socio` → `Fran` en todos los `.md` del repo (`CLAUDE.md`, `PROMPT-BOOTSTRAP.md`, `README.md`, `instrucciones_claude/00-setup-claude.md`, `DIARIO.md`, `ESTADO.md`). El rol "socio = dueño de `frontend/`" pasa a llamarse "Fran". `Santi` queda igual.
+**Por qué:** Fran prefiere usar su nombre real en la documentación en lugar del rol genérico `Socio`. Clarifica cuál de los dos devs/Claudes se está referenciando.
+**Impacto para el otro:** ninguno de fondo — es un rename de rol. Santi sigue siendo dueño de `backend/`, infra, docker, keycloak, nginx, raíz. Fran sigue siendo dueño de `frontend/`. Reglas de propiedad y coordinación intactas. En entradas nuevas del DIARIO usar `<autor: Santi|Fran>`. En `ESTADO.md` la sección antes titulada `## Socio / frontend` ahora es `## Fran / frontend`.
+**Refs:** `CLAUDE.md`, `PROMPT-BOOTSTRAP.md`, `README.md`, `instrucciones_claude/00-setup-claude.md`, `instrucciones_claude/DIARIO.md`, `instrucciones_claude/ESTADO.md`.
+
+## 2026-04-24 — Fran — frontend
 **Qué:** Cerrado módulo Alumnos del SPA y primer corte de Cursos. **Alumnos:** listado con buscador debounced (300ms), sort 3-estados (asc → desc → sin orden) en `Apellido`, `Universidad` y `Estado`, paginación numerada con elipsis (`buildPageNumbers`), acciones por fila (ver / editar). Modal `StudentForm` (alta + edición con validación client-side: requeridos, email regex, max lengths del backend @Size) y modal `StudentDetail` (read-only con secciones Contacto / Datos personales / Sistema / Observaciones). Icono `Users` al lado del título. **Cursos:** listado con filtro por `businessUnit` (chips Todas/Residencias/Prematuros/Editorial/Formación Superior/Otros), sort en Curso/Modalidad/Precio curso/Estado, badge coloreado por unidad, precio en ARS, fecha de examen con parseo manual de `LocalDate`. **Capa mock:** `src/api/mock/handlers.ts` ahora router completo GET/POST/PUT/DELETE para students y courses con `buildPage<T>` que emula `PageResponse<T>`. `applySort` genérico con soporte para boolean (active). Types espejados: `types/student.ts`, `types/course.ts`. Data seed de cursos desde Excel `precio de lista` (17 cursos reales). **Client unificado:** `api/client.ts` colapsa GET/POST/PUT/DELETE en `request<T>()` que respeta `VITE_USE_MOCK` y agrega Content-Type solo cuando hay body.
 **Por qué:** dejar los dos primeros listados navegables en dev contra mocks antes de cablear Keycloak + backend real. Así el ciclo de iteración es frontend-puro y se gira el switch a `/api/v1` cuando aparezca Swagger estable.
 **Problemas:** ninguno blocking. Decisiones:
@@ -59,7 +65,7 @@
   - Compilación falló inicialmente con `.permissionsPolicyHeader(...)` (método que no existe en Spring Security 6.3). El nombre correcto es `.permissionsPolicy(Customizer)`. Además, encadenar con `.contentSecurityPolicy(...)` después de `.permissionsPolicy(...)` rompe porque el returntype no es `HeadersConfigurer` en mi versión; fix: usar lambda con statements separados en vez de cadena fluida (`headers.frameOptions(...); headers.permissionsPolicy(...); headers.contentSecurityPolicy(...);`).
   Decisiones:
   - Rate limit en nginx, no en backend: nginx lo hace más barato, no ensucia el dominio y permite bypasear el rate limit si se necesita (ej. tests de carga internos, por IP whitelist).
-  - CSP con `'unsafe-inline'` en script-src y style-src: React + algunas libs de UI inyectan estilos inline y necesitan eval para hot-reload. Si se endurece más, romper las CSP del frontend. Puede apretarse cuando el socio confirme que no usa eval ni scripts inline.
+  - CSP con `'unsafe-inline'` en script-src y style-src: React + algunas libs de UI inyectan estilos inline y necesitan eval para hot-reload. Si se endurece más, romper las CSP del frontend. Puede apretarse cuando el Fran confirme que no usa eval ni scripts inline.
   - Backup comprimido con gzip -9: ~10x menos disco a cambio de un par de segundos extra en el dump. pg_dump + psql para restore (no pg_restore) porque el output es plain SQL.
   - Actuator /prometheus ni /metrics expuestos en prod (sólo /health, /info). Si hace falta Grafana, se activa a demanda.
   - Healthcheck apunta a `/actuator/health/readiness` en vez de `/actuator/health`: el primero incluye sólo señales de que la app está lista para recibir tráfico (DB up, etc.), el segundo también incluye liveness.
@@ -130,7 +136,7 @@
 **Qué:** agregado sistema de sincronización entre Claudes (DIARIO.md, ESTADO.md, 00-setup-claude.md) + endurecido CLAUDE.md con sección de coordinación entre devs.
 **Por qué:** dos personas trabajando con dos Claudes distintos sobre el mismo repo; sin contexto compartido cada Claude re-descubre cosas ya resueltas y pisa convenciones.
 **Problemas:** ninguno.
-**Impacto para el otro:** socio tiene que correr el prompt de bootstrap (ver `instrucciones_claude/00-setup-claude.md`) la primera vez que abra Claude Code en este repo. A partir de ahí, su Claude va a leer estos archivos automáticamente al arrancar.
+**Impacto para el otro:** Fran tiene que correr el prompt de bootstrap (ver `instrucciones_claude/00-setup-claude.md`) la primera vez que abra Claude Code en este repo. A partir de ahí, su Claude va a leer estos archivos automáticamente al arrancar.
 **Refs:** `CLAUDE.md`, `instrucciones_claude/00-setup-claude.md`, `instrucciones_claude/ESTADO.md`.
 
 ## 2026-04-20 — Santi — infra

@@ -21,7 +21,7 @@ gestión académica, cobranza, editorial, formación superior, docentes, presupu
 ```
 imedba/
 ├── backend/                # Spring Boot 3 + Java 21 (Santi)
-├── frontend/               # React 18 + TS + Vite (socio)
+├── frontend/               # React 18 + TS + Vite (Fran)
 ├── keycloak/               # Realm export + scripts de bootstrap
 ├── db/init/                # Init SQL/SH para Postgres (crea DB keycloak)
 ├── nginx/                  # Reverse proxy TLS (prod) — templates + certs
@@ -98,7 +98,7 @@ Ver `backend/README.md` para detalle de módulos, migraciones Flyway y tests.
 
 ## Frontend
 
-Propiedad del socio. Ver `frontend/README.md`.
+Propiedad del Fran. Ver `frontend/README.md`.
 
 ## Puesta en marcha (producción)
 
