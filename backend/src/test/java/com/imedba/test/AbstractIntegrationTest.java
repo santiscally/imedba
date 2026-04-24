@@ -47,8 +47,12 @@ public abstract class AbstractIntegrationTest {
     @Autowired protected ObjectMapper objectMapper;
     @Autowired protected JdbcTemplate jdbc;
 
-    /** Trunca todas las tablas del dominio de Fase 1, respetando FKs. */
+    /** Trunca todas las tablas del dominio (fases 1-2), respetando FKs. */
     protected void truncateAll() {
-        jdbc.execute("TRUNCATE TABLE enrollments, discount_campaigns, courses, students RESTART IDENTITY CASCADE");
+        jdbc.execute("""
+                TRUNCATE TABLE payments, installments, enrollments,
+                               discount_campaigns, courses, students
+                RESTART IDENTITY CASCADE
+                """);
     }
 }
