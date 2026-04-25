@@ -1,10 +1,10 @@
 @use '../styles/variables' as *;
 
-.cursos {
+.cuotas {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 1400px;
+  max-width: 1500px;
 
   &__header {
     display: flex;
@@ -45,6 +45,34 @@
     margin: 0;
   }
 
+  &__tabs {
+    display: inline-flex;
+    border-bottom: 1px solid $gris-borde-sutil;
+    gap: 0.25rem;
+  }
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1.2rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: $gris-texto;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color $transicion, border-color $transicion;
+
+    &:hover { color: $verde-petroleo; }
+
+    &--active {
+      color: $verde-petroleo;
+      border-bottom-color: $verde-petroleo;
+    }
+  }
+
   &__toolbar {
     display: flex;
     flex-direction: column;
@@ -73,7 +101,7 @@
   }
 }
 
-// ─── Chips de filtro (unidad de negocio) ─────────────────────────────────────
+// ─── Chips ───────────────────────────────────────────────────────────────────
 .chip {
   padding: 0.45rem 0.9rem;
   border: 1px solid $gris-borde;
@@ -99,8 +127,8 @@
   }
 }
 
-// ─── Tabla de cursos ─────────────────────────────────────────────────────────
-.cursos-table {
+// ─── Tabla ───────────────────────────────────────────────────────────────────
+.cuotas-table {
   width: 100%;
   border-collapse: collapse;
 
@@ -118,13 +146,15 @@
     letter-spacing: 0.04em;
     color: $gris-texto;
 
-    &.col-estado   { width: 110px; }
-    &.col-precio   { width: 160px; text-align: right; }
-    &.col-acciones { width: 90px;  text-align: right; }
+    &.col-cuota       { width: 90px; }
+    &.col-vencimiento { width: 170px; }
+    &.col-estado      { width: 160px; }
+    &.col-precio      { width: 180px; text-align: right; }
+    &.col-acciones    { width: 110px; text-align: right; }
   }
 
   td {
-    padding: 0.9rem 1rem;
+    padding: 0.85rem 1rem;
     font-size: 0.9rem;
     color: $texto-medio;
     border-bottom: 1px solid $gris-borde-sutil;
@@ -133,13 +163,22 @@
     &.col-precio   { text-align: right; }
     &.col-acciones { text-align: right; }
     &.td-date {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding-top: 0.95rem;
-      padding-bottom: 0.95rem;
       color: $texto-medio;
+      white-space: nowrap;
     }
+    &.td-num {
+      font-variant-numeric: tabular-nums;
+      color: $texto-oscuro;
+      font-weight: 600;
+    }
+  }
+
+  .cell-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+
+    > svg { color: $gris-texto-sutil; flex-shrink: 0; }
   }
 
   &__row {
@@ -150,37 +189,51 @@
   }
 }
 
-// ─── Celda del curso ─────────────────────────────────────────────────────────
-.curso-cell {
+// ─── Celdas ──────────────────────────────────────────────────────────────────
+.cuotas-cell {
   display: flex;
-  align-items: center;
   gap: 0.7rem;
+  align-items: center;
 
-  &__icon {
-    width: 36px;
-    height: 36px;
-    border-radius: $radio-md;
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
     background: $verde-petroleo-suave;
     color: $verde-petroleo;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
-  &__text { min-width: 0; }
-
   &__name {
     font-weight: 600;
     color: $texto-oscuro;
     font-size: 0.92rem;
+  }
+}
+
+.cuotas-course {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  color: $texto-oscuro;
+
+  > svg {
+    margin-top: 0.15rem;
+    color: $verde-petroleo;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-weight: 500;
+    color: $texto-oscuro;
+    font-size: 0.9rem;
     line-height: 1.3;
   }
 
   &__code {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
     font-size: 0.72rem;
     color: $gris-texto;
     margin-top: 0.15rem;
@@ -188,31 +241,43 @@
   }
 }
 
-// ─── Etiquetas de modalidad (pill) ───────────────────────────────────────────
-.pill {
-  display: inline-block;
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  background: $fondo-app;
-  color: $texto-medio;
-  font-size: 0.78rem;
-  font-weight: 500;
-  border: 1px solid $gris-borde-sutil;
+.cuotas-receipt {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+
+  > svg {
+    margin-top: 0.15rem;
+    color: $verde-petroleo;
+    flex-shrink: 0;
+  }
+
+  &__num {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: $texto-oscuro;
+    line-height: 1.3;
+  }
+
+  &__method {
+    font-size: 0.74rem;
+    color: $gris-texto;
+    margin-top: 0.15rem;
+  }
 }
 
-// ─── Unidad de negocio ───────────────────────────────────────────────────────
-.bu {
-  display: inline-block;
-  padding: 0.22rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
+.cuotas-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
 
-  &--residencias        { background: $azul-bg;     color: $azul; }
-  &--prematuros         { background: $violeta-bg;  color: $violeta; }
-  &--editorial          { background: $verde-bg;    color: $verde; }
-  &--formacion_superior { background: $ambar-bg;    color: $ambar; }
-  &--otros              { background: $fondo-app;   color: $gris-texto; }
+  &__surcharge {
+    font-size: 0.7rem;
+    color: $ambar;
+    font-weight: 500;
+  }
 }
 
 // ─── Precio ──────────────────────────────────────────────────────────────────
@@ -223,11 +288,13 @@
   font-weight: 600;
   color: $texto-oscuro;
   font-variant-numeric: tabular-nums;
+
+  > svg { color: $gris-texto-sutil; }
 }
 
 .muted { color: $gris-texto-sutil; }
 
-// ─── Badges activos / inactivos ──────────────────────────────────────────────
+// ─── Badges ──────────────────────────────────────────────────────────────────
 .badge {
   display: inline-flex;
   align-items: center;
@@ -236,11 +303,51 @@
   font-size: 0.75rem;
   font-weight: 600;
 
-  &--activo   { background: $verde-bg; color: $verde; }
-  &--inactivo { background: $rojo-bg;  color: $rojo;  }
+  &--activo      { background: $verde-bg;  color: $verde; }   // PAID
+  &--pendiente   { background: $azul-bg;   color: $azul;  }   // PENDING
+  &--inactivo    { background: $rojo-bg;   color: $rojo;  }   // OVERDUE
+  &--suspendida  { background: $ambar-bg;  color: $ambar; }   // SUSPENDED
+  &--moodle      {
+    margin-left: 0.35rem;
+    background: $ambar-bg;
+    color: $ambar;
+    font-size: 0.7rem;
+  }
 }
 
-// ─── Search (reutilizable — si no se globaliza aún) ──────────────────────────
+// ─── Acciones ────────────────────────────────────────────────────────────────
+.row-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radio-md;
+    color: $gris-texto;
+    cursor: pointer;
+    transition: background $transicion, color $transicion, border-color $transicion;
+
+    &:hover {
+      background: $verde-petroleo-suave;
+      color: $verde-petroleo;
+      border-color: $verde-petroleo-suave;
+    }
+
+    &--primary {
+      background: $verde-petroleo-suave;
+      color: $verde-petroleo;
+    }
+  }
+}
+
+// ─── Search ──────────────────────────────────────────────────────────────────
 .search {
   position: relative;
   max-width: 460px;
@@ -274,36 +381,7 @@
   }
 }
 
-// ─── Acciones por fila (Eye / Pencil) ────────────────────────────────────────
-.row-actions {
-  display: inline-flex;
-  gap: 0.35rem;
-  justify-content: flex-end;
-
-  &__btn {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: $radio-md;
-    color: $gris-texto;
-    cursor: pointer;
-    transition: background $transicion, color $transicion, border-color $transicion;
-
-    &:hover {
-      background: $verde-petroleo-suave;
-      color: $verde-petroleo;
-      border-color: $verde-petroleo-suave;
-    }
-  }
-}
-
-// ─── Header ordenable + paginación: mismos estilos que Alumnos ──────────────
-// (duplicados aquí para que Cursos no dependa de Alumnos.scss; a futuro
-//  mover ambos a un partial compartido cuando aparezca el tercer listado).
+// ─── Header ordenable ────────────────────────────────────────────────────────
 .th-sortable {
   cursor: pointer;
   user-select: none;
@@ -328,6 +406,7 @@
   &:not(&--active) &__icon { opacity: 0.45; }
 }
 
+// ─── Pager ───────────────────────────────────────────────────────────────────
 .pager {
   display: flex;
   justify-content: center;
