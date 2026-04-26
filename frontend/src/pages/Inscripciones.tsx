@@ -1,41 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
-  BookOpen, ArrowUp, ArrowDown, ArrowUpDown,
-  CalendarDays, Tag, GraduationCap, CircleDollarSign,
-  Eye, Pencil,
+  FileText, ArrowUp, ArrowDown, ArrowUpDown,
+  UserCircle2, GraduationCap, Eye, Pencil, Tag,
 } from 'lucide-react'
-import { coursesApi } from '../api/courses'
+import { enrollmentsApi } from '../api/enrollments'
 import type { PageResponse } from '../types/common'
-import type { Course, BusinessUnit, CourseCreateRequest } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS } from '../types/course'
+import type {
+  Enrollment,
+  EnrollmentStatus,
+  EnrollmentCreateRequest,
+} from '../types/enrollment'
+import { ENROLLMENT_STATUSES, ENROLLMENT_STATUS_LABELS } from '../types/enrollment'
 import EmptyState from '../components/EmptyState'
-import CourseForm from '../components/CourseForm'
-import CourseDetail from '../components/CourseDetail'
-import './Cursos.scss'
+import EnrollmentForm from '../components/EnrollmentForm'
+import EnrollmentDetail from '../components/EnrollmentDetail'
+import './Inscripciones.scss'
 
 const PAGE_SIZE = 10
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'modality' | 'coursePrice' | 'active'
+type SortField =
+  | 'enrollmentDate'
+  | 'studentLastName'
+  | 'courseName'
+  | 'totalPrice'
+  | 'status'
 type SortState = { field: SortField; dir: SortDir } | null
 
-type BUFilter = BusinessUnit | 'TODAS'
+type StatusFilter = EnrollmentStatus | 'TODAS'
 
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create' }
-  | { kind: 'edit';   course: Course }
-  | { kind: 'detail'; course: Course }
+  | { kind: 'edit';   en: Enrollment }
+  | { kind: 'detail'; en: Enrollment }
 
-export default function Cursos() {
+export default function Inscripciones() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
-  const [bu,        setBu]        = useState<BUFilter>('TODAS')
+  const [status,    setStatus]    = useState<StatusFilter>('TODAS')
   const [page,      setPage]      = useState(0)
-  const [sort,      setSort]      = useState<SortState>({ field: 'name', dir: 'asc' })
+  const [sort,      setSort]      = useState<SortState>({ field: 'enrollmentDate', dir: 'desc' })
 
-  const [data,    setData]    = useState<PageResponse<Course> | null>(null)
+  const [data,    setData]    = useState<PageResponse<Enrollment> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
@@ -49,20 +57,37 @@ export default function Cursos() {
 
   useEffect(() => {
     setLoading(true); setError(null)
-    coursesApi.list({
-      q:             debounced || undefined,
-      businessUnit:  bu === 'TODAS' ? undefined : bu,
+    // `q` se manda al mock (lo filtra server-side) y al backend real (lo ignora).
+    // Para cuando conecte al backend, agregar filtro client-side ver `filtered`.
+    enrollmentsApi.list({
+      q:      debounced || undefined,
+      status: status === 'TODAS' ? undefined : status,
       page,
-      size:          PAGE_SIZE,
-      sort:          sort ? `${sort.field},${sort.dir}` : undefined,
+      size:   PAGE_SIZE,
+      sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, bu, page, sort, reload])
+  }, [debounced, status, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
-  const courses    = data?.content       ?? []
+
+  // Filtro client-side por `q` (apellido alumno / email / curso / código) — el
+  // backend real no tiene full-text search sobre enrollments. Los mocks lo
+  // soportan server-side, así que esto es redundante con el mock pero correcto.
+  const filtered = useMemo(() => {
+    const items = data?.content ?? []
+    if (!debounced) return items
+    const needle = debounced.toLowerCase()
+    return items.filter(en =>
+      en.student.lastName.toLowerCase().includes(needle) ||
+      en.student.firstName.toLowerCase().includes(needle) ||
+      en.student.email.toLowerCase().includes(needle) ||
+      en.course.name.toLowerCase().includes(needle) ||
+      (en.course.code?.toLowerCase().includes(needle) ?? false)
+    )
+  }, [data, debounced])
 
   function toggleSort(field: SortField) {
     setSort(prev => {
@@ -78,20 +103,38 @@ export default function Cursos() {
     setReload(r => r + 1)
   }
 
-  const buOptions = useMemo<BUFilter[]>(() => ['TODAS', ...BUSINESS_UNITS], [])
+  async function handleStatusAction(
+    en: Enrollment,
+    action: 'suspend' | 'reactivate' | 'cancel',
+  ) {
+    try {
+      const fn = action === 'suspend'    ? enrollmentsApi.suspend
+              : action === 'reactivate' ? enrollmentsApi.reactivate
+              :                            enrollmentsApi.cancel
+      await fn(en.id)
+      handleSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error')
+    }
+  }
+
+  const statusOptions = useMemo<StatusFilter[]>(
+    () => ['TODAS', ...ENROLLMENT_STATUSES],
+    [],
+  )
 
   return (
-    <div className="cursos">
-      <header className="cursos__header">
-        <div className="cursos__header-text">
-          <h2 className="cursos__title">
-            <span className="cursos__title-icon"><BookOpen size={22} strokeWidth={2} /></span>
-            Cursos
+    <div className="inscripciones">
+      <header className="inscripciones__header">
+        <div className="inscripciones__header-text">
+          <h2 className="inscripciones__title">
+            <span className="inscripciones__title-icon"><FileText size={22} strokeWidth={2} /></span>
+            Inscripciones
           </h2>
-          <p className="cursos__subtitle">
+          <p className="inscripciones__subtitle">
             {total > 0
-              ? `${total} ${total === 1 ? 'curso en catálogo' : 'cursos en catálogo'}`
-              : 'Catálogo de cursos del instituto'}
+              ? `${total} ${total === 1 ? 'inscripción registrada' : 'inscripciones registradas'}`
+              : 'Gestioná las inscripciones a los cursos'}
           </p>
         </div>
         <button
@@ -99,133 +142,136 @@ export default function Cursos() {
           type="button"
           onClick={() => setPanel({ kind: 'create' })}
         >
-          <Plus size={16} strokeWidth={2.2} /> Nuevo curso
+          <Plus size={16} strokeWidth={2.2} /> Nueva inscripción
         </button>
       </header>
 
-      <div className="cursos__toolbar">
+      <div className="inscripciones__toolbar">
         <div className="search">
           <Search size={16} strokeWidth={1.8} className="search__icon" />
           <input
             type="text"
-            placeholder="Buscar por nombre, código o modalidad…"
+            placeholder="Buscar por alumno, email o curso…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="search__input"
           />
         </div>
 
-        <div className="cursos__chips" role="tablist" aria-label="Unidad de negocio">
-          {buOptions.map(opt => (
+        <div className="inscripciones__chips" role="tablist" aria-label="Estado">
+          {statusOptions.map(opt => (
             <button
               key={opt}
               type="button"
-              className={`chip ${bu === opt ? 'chip--active' : ''}`}
-              onClick={() => { setBu(opt); setPage(0) }}
+              className={`chip ${status === opt ? 'chip--active' : ''}`}
+              onClick={() => { setStatus(opt); setPage(0) }}
               role="tab"
-              aria-selected={bu === opt}
+              aria-selected={status === opt}
             >
-              {opt === 'TODAS' ? 'Todas' : BUSINESS_UNIT_LABELS[opt]}
+              {opt === 'TODAS' ? 'Todas' : ENROLLMENT_STATUS_LABELS[opt]}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="cursos__table-wrap">
-        {loading && <div className="cursos__loading">Cargando…</div>}
+      <div className="inscripciones__table-wrap">
+        {loading && <div className="inscripciones__loading">Cargando…</div>}
 
         {!loading && error && (
           <EmptyState
-            icon={BookOpen}
-            message="No se pudieron cargar los cursos"
+            icon={FileText}
+            message="No se pudieron cargar las inscripciones"
             hint={error}
           />
         )}
 
-        {!loading && !error && courses.length === 0 && (
+        {!loading && !error && filtered.length === 0 && (
           <EmptyState
-            icon={BookOpen}
+            icon={FileText}
             message="Sin resultados"
-            hint={debounced ? `No hay cursos para "${debounced}"` : 'No hay cursos cargados.'}
+            hint={debounced
+              ? `No hay inscripciones para "${debounced}"`
+              : 'No hay inscripciones cargadas.'}
           />
         )}
 
-        {!loading && !error && courses.length > 0 && (
-          <table className="cursos-table">
+        {!loading && !error && filtered.length > 0 && (
+          <table className="inscripciones-table">
             <thead>
               <tr>
                 <SortableTh
+                  label="Alumno"
+                  field="studentLastName"
+                  sort={sort}
+                  onClick={() => toggleSort('studentLastName')}
+                />
+                <SortableTh
                   label="Curso"
-                  field="name"
+                  field="courseName"
                   sort={sort}
-                  onClick={() => toggleSort('name')}
+                  onClick={() => toggleSort('courseName')}
                 />
                 <SortableTh
-                  label="Modalidad"
-                  field="modality"
+                  label="Fecha"
+                  field="enrollmentDate"
                   sort={sort}
-                  onClick={() => toggleSort('modality')}
+                  onClick={() => toggleSort('enrollmentDate')}
                 />
-                <th>Unidad</th>
-                <th>Examen</th>
                 <SortableTh
-                  label="Precio curso"
-                  field="coursePrice"
+                  label="Total"
+                  field="totalPrice"
                   sort={sort}
-                  onClick={() => toggleSort('coursePrice')}
+                  onClick={() => toggleSort('totalPrice')}
                   className="col-precio"
                 />
                 <SortableTh
                   label="Estado"
-                  field="active"
+                  field="status"
                   sort={sort}
-                  onClick={() => toggleSort('active')}
+                  onClick={() => toggleSort('status')}
                   className="col-estado"
                 />
                 <th className="col-acciones" />
               </tr>
             </thead>
             <tbody>
-              {courses.map(c => (
-                <tr key={c.id} className="cursos-table__row">
+              {filtered.map(en => (
+                <tr key={en.id} className="inscripciones-table__row">
                   <td>
-                    <div className="curso-cell">
-                      <div className="curso-cell__icon">
-                        <GraduationCap size={22} strokeWidth={1.5} />
+                    <div className="insc-cell">
+                      <div className="insc-cell__avatar">
+                        <UserCircle2 size={26} strokeWidth={1.4} />
                       </div>
-                      <div className="curso-cell__text">
-                        <div className="curso-cell__name">{c.name}</div>
-                        {c.code && (
-                          <div className="curso-cell__code">
-                            <Tag size={12} strokeWidth={1.8} /> {c.code}
+                      <div>
+                        <div className="insc-cell__name">
+                          {en.student.lastName}, {en.student.firstName}
+                        </div>
+                        <div className="insc-cell__email">{en.student.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="insc-course">
+                      <GraduationCap size={16} strokeWidth={1.6} />
+                      <div>
+                        <div className="insc-course__name">{en.course.name}</div>
+                        {en.course.code && (
+                          <div className="insc-course__code">
+                            <Tag size={11} strokeWidth={1.8} /> {en.course.code}
                           </div>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td>
-                    {c.modality
-                      ? <span className="pill">{c.modality}</span>
-                      : <span className="muted">—</span>}
-                  </td>
-                  <td>
-                    <span className={`bu bu--${c.businessUnit.toLowerCase()}`}>
-                      {BUSINESS_UNIT_LABELS[c.businessUnit]}
-                    </span>
-                  </td>
-                  <td className="td-date">
-                    {c.examDate
-                      ? <><CalendarDays size={13} strokeWidth={1.8} /> {formatDate(c.examDate)}</>
-                      : <span className="muted">—</span>}
-                  </td>
+                  <td className="td-date">{formatDate(en.enrollmentDate)}</td>
                   <td className="col-precio">
-                    {c.coursePrice != null
-                      ? <span className="price"><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(c.coursePrice)}</span>
+                    {en.totalPrice != null
+                      ? <span className="price">{formatPrice(en.totalPrice)}</span>
                       : <span className="muted">—</span>}
                   </td>
                   <td>
-                    <span className={`badge ${c.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                      {c.active ? 'Activo' : 'Inactivo'}
+                    <span className={`badge ${statusBadgeClass(en.status)}`}>
+                      {ENROLLMENT_STATUS_LABELS[en.status]}
                     </span>
                   </td>
                   <td className="col-acciones">
@@ -233,7 +279,7 @@ export default function Cursos() {
                       <button
                         className="row-actions__btn"
                         type="button"
-                        onClick={() => setPanel({ kind: 'detail', course: c })}
+                        onClick={() => setPanel({ kind: 'detail', en })}
                         aria-label="Ver detalle"
                         title="Ver detalle"
                       >
@@ -242,7 +288,7 @@ export default function Cursos() {
                       <button
                         className="row-actions__btn"
                         type="button"
-                        onClick={() => setPanel({ kind: 'edit', course: c })}
+                        onClick={() => setPanel({ kind: 'edit', en })}
                         aria-label="Editar"
                         title="Editar"
                       >
@@ -268,31 +314,43 @@ export default function Cursos() {
       )}
 
       {panel.kind === 'create' && (
-        <CourseForm
+        <EnrollmentForm
           mode="create"
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
-          onSubmit={(payload: CourseCreateRequest) => coursesApi.create(payload)}
+          onSubmit={(payload) => enrollmentsApi.create(payload as EnrollmentCreateRequest)}
         />
       )}
       {panel.kind === 'edit' && (
-        <CourseForm
+        <EnrollmentForm
           mode="edit"
-          initial={panel.course}
+          initial={panel.en}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
-          onSubmit={(payload) => coursesApi.update(panel.course.id, payload)}
+          onSubmit={(payload) => enrollmentsApi.update(panel.en.id, payload)}
         />
       )}
       {panel.kind === 'detail' && (
-        <CourseDetail
-          course={panel.course}
+        <EnrollmentDetail
+          en={panel.en}
           onClose={() => setPanel({ kind: 'closed' })}
-          onEdit={() => setPanel({ kind: 'edit', course: panel.course })}
+          onEdit={() => setPanel({ kind: 'edit', en: panel.en })}
+          onSuspend={() => handleStatusAction(panel.en, 'suspend')}
+          onReactivate={() => handleStatusAction(panel.en, 'reactivate')}
+          onCancel={() => handleStatusAction(panel.en, 'cancel')}
         />
       )}
     </div>
   )
+}
+
+function statusBadgeClass(s: EnrollmentStatus): string {
+  switch (s) {
+    case 'ACTIVE':    return 'badge--activo'
+    case 'COMPLETED': return 'badge--completada'
+    case 'SUSPENDED': return 'badge--suspendida'
+    case 'CANCELLED': return 'badge--inactivo'
+  }
 }
 
 // ─── Sortable <th> ───────────────────────────────────────────────────────────
@@ -399,15 +457,13 @@ function buildPageNumbers(current: number, total: number): (number | '…')[] {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatPrice(n: number): string {
   return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
+    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n)
 }
 
 function formatDate(iso: string): string {
-  // iso viene como YYYY-MM-DD (LocalDate). Se parsea a mano para que no corra TZ.
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
-  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const d = new Date(iso)
+  return d.toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  })
 }

@@ -59,25 +59,31 @@
 
 ## Fran / frontend
 
-**Fase actual:** SPA — Fase 1 cerrada (Alumnos CRUD + Cursos listado). Sidebar reorganizado. `frontend/ROADMAP.md` escrito para guiar las próximas sesiones.
+**Fase actual:** SPA — Módulo 3 cerrado (**Cuotas y Pagos** con tabs). Próximo: Módulo 4 (Descuentos / DiscountCampaigns).
 
 **En qué estoy ahora:**
-- **Alumnos** completo (CRUD + modal form + modal detail + toggle activo).
-- **Cursos** como listado (buscador + filtro `businessUnit` + sort + paginación); **falta CourseForm + CourseDetail** — próximo paso.
-- **Sidebar reorganizado:** sección `Diplomas` eliminada; `Diplomaturas` (ex `Diplomas` en UI) + `Liquidaciones` movidas a **Finanzas**. Rutas `/diplomaturas` y `/liquidaciones` registradas en App.tsx (placeholder por ahora). Backend sigue usando `/api/v1/diplomas` — **solo cambia el label/ruta del SPA**.
-- **ROADMAP** en `frontend/ROADMAP.md`: patrón UX canónico + lista ordenada de 11 módulos pendientes con endpoints, campos, sort default, validaciones y mocks a extender. Pensado para que cualquier sesión de Claude entre en frío y sepa exactamente qué construir.
+- **Alumnos** completo (CRUD + form + detail + toggle activo).
+- **Cursos** completo (CRUD + CourseForm sin límite máximo de precio + CourseDetail).
+- **Inscripciones** completo (CRUD + EnrollmentForm + EnrollmentDetail; alta dispara generación de cronograma de cuotas server-side, el SPA consulta).
+- **Cuotas y Pagos** (`/cuotas`) — página única con dos tabs:
+  - Tab **Cuotas**: listado read-only con filtro por estado (TODAS / PENDING / OVERDUE / SUSPENDED / PAID), sort default `dueDate asc`, badges con `moodleSuspended`, acción admin `waive-surcharge` cuando hay recargo y status ≠ PAID, atajo "Registrar pago" desde la fila.
+  - Tab **Pagos**: listado con sort default `paymentDate desc`, modal `PaymentDetail` read-only.
+  - Botón "Registrar pago" siempre visible; modal `PaymentForm` con dropdown de cuotas pendientes (auto-fill de `amount` desde `totalDue`), `paymentMethod` (7 enum values), `paymentDate` (default hoy), `notes` opcional.
+  - Mock: `MOCK_INSTALLMENTS` generado desde 7 inscripciones seed (~37 cuotas con mix de estados); `MOCK_PAYMENTS` derivado de cuotas PAID + 4 pagos de matrícula sueltos (sin `installmentId`). Crear pago marca cuota como PAID en el store mock.
 - Capa mock (`src/api/mock/handlers.ts`) sigue activa con `VITE_USE_MOCK=true`.
 
 **Próximo paso:**
-- Completar CRUD de **Cursos** (CourseForm create/edit + CourseDetail) siguiendo el patrón Alumnos.
-- Después: **Inscripciones** (`/api/v1/enrollments`) — crear enrollment dispara la generación automática del cronograma de cuotas server-side, el SPA solo consulta.
-- Orden completo: ver `frontend/ROADMAP.md`.
+- **Módulo 4 — Descuentos** (`/descuentos`, endpoint `/api/v1/discount-campaigns`). CRUD de campañas (nombre, % descuento, fecha desde/hasta, cursos aplicables). Ver `frontend/ROADMAP.md`.
+- Después en orden: Diplomaturas, Liquidaciones, Presupuesto, Contactos, Editorial (Libros/Ventas/Autores), Personal+Horas, Notificaciones.
 
 **Bloqueado por el otro:** nada. Backend Fases 1–8 expuesto en Swagger `localhost:8080/swagger-ui.html`.
 
 **Notas para Santi:**
 - Sección `Diplomas` eliminada del Sidebar del SPA. Ruta `/diplomas` ya no existe en el front — si alguien la linkea desde email/notificación, redirigir a `/diplomaturas`. Endpoints backend intactos.
 - Los mocks siguen esperando `200` en GET vacío (no 204) para no romper `.json()`.
-- `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting).
+- `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting). Ídem `Installment.dueDate` y `Payment.paymentDate`.
 - `BusinessUnit` tipado como `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'` — avisame si agregás un valor al enum backend.
+- `PaymentMethod` espejado: `TRANSFERENCIA | EFECTIVO | TARJETA_CREDITO | TARJETA_DEBITO | MERCADO_PAGO | DEBITO_AUTOMATICO | OTRO`.
+- `InstallmentStatus`: `PENDING | PAID | OVERDUE | SUSPENDED`.
+- Recibo del front: el mock genera `IMD-YYYYMMDD-NNNNNN`. Asumo el backend hace lo mismo en `Payment.receiptNumber` autogenerado server-side — el SPA solo lo muestra.
 - Campos del Excel aún sin modelar en Student: `interview_status`, `Ausente plat NOV/ENE`, `Pago chq` — quedan como nota amarilla en el form.
