@@ -41,9 +41,11 @@ const NAV: NavGroup[] = [
   {
     title: 'Finanzas',
     items: [
-      { to: '/cuotas',      icon: CreditCard, label: 'Cuotas y Pagos' },
-      { to: '/descuentos',  icon: Tag,        label: 'Descuentos'     },
-      { to: '/presupuesto', icon: Wallet,     label: 'Presupuesto'    },
+      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos' },
+      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'     },
+      { to: '/diplomaturas',  icon: GraduationCap, label: 'Diplomaturas'   },
+      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones'  },
+      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'    },
     ],
   },
   {
@@ -52,13 +54,6 @@ const NAV: NavGroup[] = [
       { to: '/libros',  icon: Book,        label: 'Libros'  },
       { to: '/ventas',  icon: ShoppingBag, label: 'Ventas'  },
       { to: '/autores', icon: PenTool,     label: 'Autores' },
-    ],
-  },
-  {
-    title: 'Diplomas',
-    items: [
-      { to: '/diplomas',      icon: GraduationCap, label: 'Diplomas'      },
-      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones' },
     ],
   },
   {

@@ -1,6 +1,6 @@
 # Prompt de bootstrap para Claude Code — IMEDBA
 
-> **Para el socio (o quien sea el segundo dev):** copiá y pegá el bloque de abajo **tal cual** en tu Claude Code, la primera vez que abrás el proyecto. Una sola vez es suficiente. Después de eso, cada sesión nueva arrancá simplemente pidiéndole a Claude que "lea el diario y el estado".
+> **Para el Fran (o quien sea el segundo dev):** copiá y pegá el bloque de abajo **tal cual** en tu Claude Code, la primera vez que abrás el proyecto. Una sola vez es suficiente. Después de eso, cada sesión nueva arrancá simplemente pidiéndole a Claude que "lea el diario y el estado".
 >
 > **Para Santi:** el mismo prompt te sirve si resetea el contexto, cambiás de máquina, o querés forzar un re-sync.
 
@@ -27,7 +27,7 @@ Arrancás sesión en el proyecto IMEDBA. Antes de que te pida nada:
 6. Devolveme un resumen en 5 bullets:
    - Fase actual del proyecto.
    - En qué está Santi.
-   - En qué está el socio.
+   - En qué está el Fran.
    - Últimos 2 problemas técnicos que aparecieron (del DIARIO).
    - Próxima tarea lógica según el estado.
 

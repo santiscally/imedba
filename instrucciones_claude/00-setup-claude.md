@@ -23,7 +23,7 @@ Copiá y pegá **tal cual** el prompt que está en `PROMPT-BOOTSTRAP.md` (en la 
 2. Lea las últimas ~10 entradas del `DIARIO.md`.
 3. Lea `ESTADO.md`.
 4. Lea los docs de `instrucciones_claude/` relevantes para tu rol.
-5. Confirme que entendió el split de propiedad (**Santi = backend/infra**, **socio = frontend**).
+5. Confirme que entendió el split de propiedad (**Santi = backend/infra**, **Fran = frontend**).
 6. Te devuelva un resumen de 5 bullets del estado actual.
 
 No hace falta que hagas nada más. A partir de ese momento, en cada sesión nueva Claude va a leer `CLAUDE.md` automáticamente (porque está en la raíz) y, si le decís "arrancás sesión, leé el diario y el estado", va a hacer lo mismo en 1 llamada.
@@ -40,9 +40,9 @@ No hace falta que hagas nada más. A partir de ese momento, en cada sesión nuev
 | Área | Dueño | Claude del otro puede... |
 |---|---|---|
 | `backend/`, `docker-compose*.yml`, `keycloak/`, `nginx/`, `scripts/`, `Makefile`, `.env.example`, raíz | **Santi** | leer; tocar solo si Santi lo pide explícito |
-| `frontend/` | **Socio** | leer; tocar solo si el socio lo pide explícito |
+| `frontend/` | **Fran** | leer; tocar solo si el Fran lo pide explícito |
 | `instrucciones_claude/DIARIO.md` | compartido (append-only) | ambos agregan entradas, nadie edita las viejas |
 | `instrucciones_claude/ESTADO.md` | compartido (cada uno su sección) | solo toca la propia |
-| `CLAUDE.md`, otros `instrucciones_claude/*.md` | **Santi** | cambios los hace Santi; el socio puede proponerlos |
+| `CLAUDE.md`, otros `instrucciones_claude/*.md` | **Santi** | cambios los hace Santi; el Fran puede proponerlos |
 
 Si a tu Claude le pedís algo que cae en un área que no te pertenece, tiene que **parar y avisar** antes de modificar nada.

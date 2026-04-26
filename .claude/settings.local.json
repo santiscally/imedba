@@ -37,7 +37,8 @@
       "Bash(node /c/Users/Santi/.claude/workspace/scripts/track-file-changes.js)",
       "Bash(git add *)",
       "Bash(git rm *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

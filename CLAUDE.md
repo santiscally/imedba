@@ -5,7 +5,7 @@
 Este monorepo lo construyen dos personas:
 
 - **`backend/`, `docker-compose*.yml`, `keycloak/`, `nginx/`, `db/`, `scripts/`, `.env.example`, raíz (README, CLAUDE.md)** → **Santi** (backend / DevOps / DB / Keycloak).
-- **`frontend/`** → **Socio** (React 18+/TS/Vite). No tocar salvo pedido explícito del usuario. Leerlo está permitido.
+- **`frontend/`** → **Fran** (React 18+/TS/Vite). No tocar salvo pedido explícito del usuario. Leerlo está permitido.
 
 Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avisar** antes de tocar nada.
 
@@ -14,7 +14,7 @@ Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avis
 - Backend: Java 21 + Spring Boot 3.3.x + Spring Data JPA + Flyway + MapStruct + Spring Security OAuth2 Resource Server.
 - DB: PostgreSQL 16.
 - Auth: Keycloak 25 (OIDC/JWT). Realm `imedba`. Clients `imedba-frontend` (public SPA) e `imedba-backend` (confidential resource server).
-- Frontend: React 18+/TS/Vite (propiedad del socio).
+- Frontend: React 18+/TS/Vite (propiedad del Fran).
 - Infra: Docker + Docker Compose. Don Web en producción.
 - Email: SendGrid API v3.
 - LMS: Moodle (integración REST, fase futura).
@@ -56,12 +56,12 @@ Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avis
 8. Hardening + deploy
 9. Refinamiento post-reunión IMEDBA (segmentación Residencias↔FS, workflow aprobación, comisiones, abonos)
 
-## Coordinación entre los dos Claudes (Santi + socio)
+## Coordinación entre los dos Claudes (Santi + Fran)
 
 Dos personas trabajan en este repo con dos Claudes distintos. Para que no se pisen ni re-descubran cosas ya resueltas:
 
 - **`instrucciones_claude/DIARIO.md`** — bitácora append-only. Al **cerrar una tarea no trivial** (feature, bug-fix, decisión arquitectónica, fix de build, cambio en infra), agregar una entrada con el formato del header del archivo. Al **arrancar sesión**, leer las últimas ~10 entradas.
-- **`instrucciones_claude/ESTADO.md`** — snapshot del presente. Dos secciones separadas ("Santi / backend" y "Socio / frontend"). **Solo editar la sección del dueño activo.** Jamás tocar la sección del otro (causa merge conflicts). Al empezar/terminar tarea, sobreescribir la sección propia.
+- **`instrucciones_claude/ESTADO.md`** — snapshot del presente. Dos secciones separadas ("Santi / backend" y "Fran / frontend"). **Solo editar la sección del dueño activo.** Jamás tocar la sección del otro (causa merge conflicts). Al empezar/terminar tarea, sobreescribir la sección propia.
 - **`PROMPT-BOOTSTRAP.md`** — prompt one-shot para que el Claude del otro dev quede sincronizado con las mismas reglas. Se corre una sola vez por máquina.
 - **`instrucciones_claude/00-setup-claude.md`** — instructivo humano de setup y convención de uso.
 
@@ -117,13 +117,13 @@ Reglas duras:
 
 ## Contrato front ↔ back
 
-- **Paginación.** Respuesta unificada `PageResponse<T>` con `content, page, size, totalElements, totalPages, first, last`. El front mapea 1:1 — al crear un nuevo DTO en el back, el socio agrega un `type` espejo en `frontend/src/types/`. No hay codegen: se sincroniza a mano.
+- **Paginación.** Respuesta unificada `PageResponse<T>` con `content, page, size, totalElements, totalPages, first, last`. El front mapea 1:1 — al crear un nuevo DTO en el back, el Fran agrega un `type` espejo en `frontend/src/types/`. No hay codegen: se sincroniza a mano.
 - **JWT — dos namespaces de authorities.** El backend mapea dos fuentes de Keycloak:
   - `realm_access.roles` → prefijo `ROLE_` (ej. `ROLE_admin`, `ROLE_vendedora`).
   - `resource_access.imedba-backend.roles` → authority pelado (ej. `students:read`, `budget:write`).
   Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")` sobre los del segundo namespace.
 - **CORS.** El back acepta `http://localhost:5173` en dev. En prod se configura vía `APP_CORS_ALLOWED_ORIGINS`.
-- **Mocks frontend.** `frontend/src/api/mock/handlers.ts` replica las respuestas del backend (forma + paginación + sort). Se activa con `VITE_USE_MOCK=true` en `frontend/.env`. Permite al socio trabajar sin que el backend esté corriendo; al apuntar al back real es un solo flag.
+- **Mocks frontend.** `frontend/src/api/mock/handlers.ts` replica las respuestas del backend (forma + paginación + sort). Se activa con `VITE_USE_MOCK=true` en `frontend/.env`. Permite al Fran trabajar sin que el backend esté corriendo; al apuntar al back real es un solo flag.
 
 ## Secretos
 

@@ -1,6 +1,6 @@
 # DIARIO — Bitácora compartida de Claudes
 
-> **Qué es esto.** Una bitácora append-only donde cada Claude (el de Santi y el del socio) deja registro de **qué hizo**, **por qué**, **qué errores se encontraron**, y **qué debería saber el otro**. Sirve para que la próxima sesión (cualquiera de los dos) arranque con contexto real de lo que ya pasó.
+> **Qué es esto.** Una bitácora append-only donde cada Claude (el de Santi y el del Fran) deja registro de **qué hizo**, **por qué**, **qué errores se encontraron**, y **qué debería saber el otro**. Sirve para que la próxima sesión (cualquiera de los dos) arranque con contexto real de lo que ya pasó.
 >
 > **Regla de uso para el Claude que esté activo:**
 > 1. Al **arrancar sesión**: leer las últimas ~10 entradas (las más recientes arriba).
@@ -17,7 +17,7 @@
 ## Formato de entrada
 
 ```markdown
-## YYYY-MM-DD — <autor: Santi|Socio> — <área: backend|frontend|infra|db|auth|...>
+## YYYY-MM-DD — <autor: Santi|Fran> — <área: backend|frontend|infra|db|auth|...>
 **Qué:** <qué cambió en 1-2 líneas>
 **Por qué:** <motivación; requisito / bug / decisión>
 **Problemas:** <errores que aparecieron y cómo se resolvieron; omitir si no hubo>
@@ -29,8 +29,20 @@
 
 ## Entradas
 
+## 2026-04-24 — Fran — frontend
+**Qué:** (1) Sidebar reorganizado: eliminada la sección **Diplomas**; **Diplomaturas** (ex "Diplomas" en UI) + **Liquidaciones** ahora viven dentro de **Finanzas**. Rutas renombradas en `App.tsx`: `/diplomas` → `/diplomaturas` (placeholder). (2) Nuevo archivo `frontend/ROADMAP.md` con el patrón UX canónico a replicar (debounce 300ms + sort 3-estados + `buildPageNumbers` + panel modal create/edit/detail + soft delete + formatters AR) y la lista ordenada de 11 módulos pendientes (Cursos CRUD completo, Inscripciones, Cuotas/Pagos, Descuentos, Diplomaturas, Liquidaciones, Presupuesto, Contactos, Editorial trio, Personal+Horas, Notificaciones) con endpoints backend, types espejo a crear, campos, sort default, validaciones y authorities Keycloak. El ROADMAP está pensado para que una sesión nueva de Claude entre en frío y pueda construir el próximo módulo sin re-descubrir el patrón.
+**Por qué:** el label "Diplomas" en UI no matchea cómo se refiere el instituto a los programas de formación superior — se llaman diplomaturas. Además, agrupar diplomaturas+liquidaciones dentro de Finanzas deja más claro que son un vertical financiero (reparto de socias, liquidación mensual) y no un módulo académico. Backend no se toca: entidades, tablas y endpoints siguen con `diploma*` como nombre técnico.
+**Impacto para el otro:** ninguno en backend. Si alguna notificación SendGrid linkea a `/diplomas` del SPA, redirigir a `/diplomaturas` (la ruta vieja ya no existe). Endpoints `/api/v1/diplomas`, `/api/v1/diploma-enrollments`, `/api/v1/diploma-settlements` intactos — solo cambia el label en el front.
+**Refs:** `frontend/src/components/Sidebar.tsx`, `frontend/src/App.tsx`, `frontend/ROADMAP.md` (nuevo), `instrucciones_claude/ESTADO.md` (sección Fran actualizada).
+
+## 2026-04-24 — Fran — infra/naming
+**Qué:** Rename `Socio`/`socio` → `Fran` en todos los `.md` del repo (`CLAUDE.md`, `PROMPT-BOOTSTRAP.md`, `README.md`, `instrucciones_claude/00-setup-claude.md`, `DIARIO.md`, `ESTADO.md`). El rol "socio = dueño de `frontend/`" pasa a llamarse "Fran". `Santi` queda igual.
+**Por qué:** Fran prefiere usar su nombre real en la documentación en lugar del rol genérico `Socio`. Clarifica cuál de los dos devs/Claudes se está referenciando.
+**Impacto para el otro:** ninguno de fondo — es un rename de rol. Santi sigue siendo dueño de `backend/`, infra, docker, keycloak, nginx, raíz. Fran sigue siendo dueño de `frontend/`. Reglas de propiedad y coordinación intactas. En entradas nuevas del DIARIO usar `<autor: Santi|Fran>`. En `ESTADO.md` la sección antes titulada `## Socio / frontend` ahora es `## Fran / frontend`.
+**Refs:** `CLAUDE.md`, `PROMPT-BOOTSTRAP.md`, `README.md`, `instrucciones_claude/00-setup-claude.md`, `instrucciones_claude/DIARIO.md`, `instrucciones_claude/ESTADO.md`.
+
 ## 2026-04-24 — Santi — planificación/arquitectura
-**Qué:** Cerrado el plan de **Fase 9** tras analizar las dos transcripciones de la reunión IMEDBA del 2026-04-24 (Jaque + Nico + Francisco + Santi). Documentos modificados: `04-plan-de-fases.md` (sección nueva Fase 9 detallada con sub-fases 9.a a 9.f), `CLAUDE.md` (Fase 9 sumada al listado + referencia al doc nuevo), `ESTADO.md` (próximo paso reescrito + notas para el socio con todos los cambios que le tocan), y archivo nuevo `instrucciones_claude/07-requerimientos-reunion-20260424.md` con el resumen completo de la reunión y citas literales de las transcripciones para que cualquiera de los dos Claudes pueda recuperar contexto. Fase 9 cubre: (a) segmentación Residencias↔Formación Superior con authorities `residencias:*` y `formacion_superior:*` filtrando server-side + reubicación de Prematuros como diplomatura DENTRO de FS (no business_unit paralela) + `country VARCHAR(2)` en courses; (b) workflow de aprobación de inscripciones — estado nuevo `PENDING_APPROVAL` y authority `enrollments:approve` para socios, mover hooks de Moodle/cuotas/welcome+contract de `create` a `approve`; (c) entidad `Commission` (id, diploma_id, número secuencial, start/end, status OPEN/ACTIVE/CLOSED, max_capacity opcional) con FK desde DiplomaEnrollment; (d) entidad `RecurringService` para abonos con flujo PENDING_INVOICE → INVOICE_RECEIVED → PAID + auto-link a budget al pagar + scheduler mensual que resetea estado y avanza next_due_date; (e) búsquedas insensibles a tildes con `unaccent` PostgreSQL extension; (f) pendientes externos (Moodle esperando token, Excel de precios diferido, proyecciones excluidas). Migraciones planificadas: V016 (segmentación + unaccent), V017 (approval), V018 (commissions), V019 (recurring services).
+**Qué:** Cerrado el plan de **Fase 9** tras analizar las dos transcripciones de la reunión IMEDBA del 2026-04-24 (Jaque + Nico + Fran + Santi). Documentos modificados: `04-plan-de-fases.md` (sección nueva Fase 9 detallada con sub-fases 9.a a 9.f), `CLAUDE.md` (Fase 9 sumada al listado + referencia al doc nuevo), `ESTADO.md` (próximo paso reescrito + notas para Fran con todos los cambios que le tocan), y archivo nuevo `instrucciones_claude/07-requerimientos-reunion-20260424.md` con el resumen completo de la reunión y citas literales de las transcripciones para que cualquiera de los dos Claudes pueda recuperar contexto. Fase 9 cubre: (a) segmentación Residencias↔Formación Superior con authorities `residencias:*` y `formacion_superior:*` filtrando server-side + reubicación de Prematuros como diplomatura DENTRO de FS (no business_unit paralela) + `country VARCHAR(2)` en courses; (b) workflow de aprobación de inscripciones — estado nuevo `PENDING_APPROVAL` y authority `enrollments:approve` para socios, mover hooks de Moodle/cuotas/welcome+contract de `create` a `approve`; (c) entidad `Commission` (id, diploma_id, número secuencial, start/end, status OPEN/ACTIVE/CLOSED, max_capacity opcional) con FK desde DiplomaEnrollment; (d) entidad `RecurringService` para abonos con flujo PENDING_INVOICE → INVOICE_RECEIVED → PAID + auto-link a budget al pagar + scheduler mensual que resetea estado y avanza next_due_date; (e) búsquedas insensibles a tildes con `unaccent` PostgreSQL extension; (f) pendientes externos (Moodle esperando token, Excel de precios diferido, proyecciones excluidas). Migraciones planificadas: V016 (segmentación + unaccent), V017 (approval), V018 (commissions), V019 (recurring services).
 **Por qué:** la reunión expuso varios desajustes entre el plan original y la operación real de IMEDBA. El más fuerte es la segmentación: Jaque y Nico fueron explícitos en que los dos equipos (residencias y formación superior) no se ven entre sí ni necesitan verse — son procesos administrativos y financieros completamente separados (cita Jaque min 30:17 transcript 1: "no existe ninguna conexión a hoy de todos estos años que los de formación superior vean lo que hace residencias"). El workflow de aprobación también es operativo crítico: hoy las vendedoras cargan pero el OK final lo da Nico o un socio, y recién ahí se dispara el alta en Moodle + contrato + sistema de cobros (cita Nico min 59:42: "necesitamos que toda la primera parte la pueda hacer la vendedora... pero el OK para darle el alta a la plataforma sea mío"). Las comisiones aparecieron como concepto nuevo recién en la reunión (cita min 35:00: "comisión uno dos tres, que es por cada seis meses"). La agenda de vencimientos de proveedores con flujo de factura ya existía conceptualmente para docentes (Fase 6) y se replica acá.
 **Problemas:** ninguno técnico. Decisiones / aclaraciones del ping-pong con Santi:
   - **Prematuros dentro de Formación Superior, no como pilar separado**. Santi dudó al respecto y pidió que revise — re-leí las transcripciones y hay tres citas que lo dejan claro (Jaque min 22:25, Nico transcript 2 min 09:23, Nico transcript 2 min 02:25 al enumerar "Organización madre de residencias editorial formación Superior y otros"). Dato actual `BusinessUnit.PREMATUROS` en el enum se elimina y se migra a `FORMACION_SUPERIOR` en V016.
@@ -41,18 +53,18 @@
   - **Excluido**: proyecciones / plan de negocios (punto de equilibrio, escenarios, costo fijo/variable). Diferido para después: Excel de fijación de precios de cursos nuevos.
   - **Moodle**: Santi ya escribió al programador de Moodle el 2026-04-24 pidiendo API, API key y documentación. Esperando respuesta. La implementación del cliente (Fase 7) puede arrancar contra la spec estándar.
   - **Próxima reunión IMEDBA**: viernes 15 de mayo 11:00 (fallback 29).
-**Impacto para el otro:** el socio (Francisco) tiene varios cambios estructurales en el SPA antes de avanzar más:
-  1. Reorganizar menú: dos secciones académicas separadas (Residencias / FS), Diplomatura dentro de Finanzas, Horas dentro de Administración.
+**Impacto para el otro:** Fran tiene varios cambios estructurales en el SPA antes de avanzar más:
+  1. Reorganizar menú: dos secciones académicas separadas (Residencias / FS), Diplomatura dentro de Finanzas, Horas dentro de Administración. (parte de esto Fran ya empezó hoy mismo con la reubicación Diplomaturas+Liquidaciones a Finanzas).
   2. Sacar `PREMATUROS` del filtro de business_unit en el catálogo de cursos.
   3. Agregar filtro `country` en courses de residencias.
   4. Vista nueva "Pendientes de aprobación" para socios.
   5. Selector de comisión en alta de inscripción a diplomatura.
   6. Vista "Abonos" en Finanzas con la agenda mensual.
   7. Authorities nuevas en los guards: `residencias:*`, `formacion_superior:*`, `enrollments:approve`, `recurring_services:*`.
-  Toda la lista detallada en `ESTADO.md` sección "Notas para el socio".
+  Toda la lista detallada en `ESTADO.md` sección "Notas para Fran".
 **Refs:** `instrucciones_claude/07-requerimientos-reunion-20260424.md` (resumen completo + citas), `04-plan-de-fases.md` (Fase 9), `CLAUDE.md`, `ESTADO.md`. Transcripciones originales en `C:\Users\Santi\Documents\Santi\personal\freelance\clientes\IMEDBA\reu imedba-24-04-26{,v2}.pdf`.
 
-## 2026-04-24 — Socio — frontend
+## 2026-04-24 — Fran — frontend
 **Qué:** Cerrado módulo Alumnos del SPA y primer corte de Cursos. **Alumnos:** listado con buscador debounced (300ms), sort 3-estados (asc → desc → sin orden) en `Apellido`, `Universidad` y `Estado`, paginación numerada con elipsis (`buildPageNumbers`), acciones por fila (ver / editar). Modal `StudentForm` (alta + edición con validación client-side: requeridos, email regex, max lengths del backend @Size) y modal `StudentDetail` (read-only con secciones Contacto / Datos personales / Sistema / Observaciones). Icono `Users` al lado del título. **Cursos:** listado con filtro por `businessUnit` (chips Todas/Residencias/Prematuros/Editorial/Formación Superior/Otros), sort en Curso/Modalidad/Precio curso/Estado, badge coloreado por unidad, precio en ARS, fecha de examen con parseo manual de `LocalDate`. **Capa mock:** `src/api/mock/handlers.ts` ahora router completo GET/POST/PUT/DELETE para students y courses con `buildPage<T>` que emula `PageResponse<T>`. `applySort` genérico con soporte para boolean (active). Types espejados: `types/student.ts`, `types/course.ts`. Data seed de cursos desde Excel `precio de lista` (17 cursos reales). **Client unificado:** `api/client.ts` colapsa GET/POST/PUT/DELETE en `request<T>()` que respeta `VITE_USE_MOCK` y agrega Content-Type solo cuando hay body.
 **Por qué:** dejar los dos primeros listados navegables en dev contra mocks antes de cablear Keycloak + backend real. Así el ciclo de iteración es frontend-puro y se gira el switch a `/api/v1` cuando aparezca Swagger estable.
 **Problemas:** ninguno blocking. Decisiones:
@@ -82,7 +94,7 @@
   - Compilación falló inicialmente con `.permissionsPolicyHeader(...)` (método que no existe en Spring Security 6.3). El nombre correcto es `.permissionsPolicy(Customizer)`. Además, encadenar con `.contentSecurityPolicy(...)` después de `.permissionsPolicy(...)` rompe porque el returntype no es `HeadersConfigurer` en mi versión; fix: usar lambda con statements separados en vez de cadena fluida (`headers.frameOptions(...); headers.permissionsPolicy(...); headers.contentSecurityPolicy(...);`).
   Decisiones:
   - Rate limit en nginx, no en backend: nginx lo hace más barato, no ensucia el dominio y permite bypasear el rate limit si se necesita (ej. tests de carga internos, por IP whitelist).
-  - CSP con `'unsafe-inline'` en script-src y style-src: React + algunas libs de UI inyectan estilos inline y necesitan eval para hot-reload. Si se endurece más, romper las CSP del frontend. Puede apretarse cuando el socio confirme que no usa eval ni scripts inline.
+  - CSP con `'unsafe-inline'` en script-src y style-src: React + algunas libs de UI inyectan estilos inline y necesitan eval para hot-reload. Si se endurece más, romper las CSP del frontend. Puede apretarse cuando el Fran confirme que no usa eval ni scripts inline.
   - Backup comprimido con gzip -9: ~10x menos disco a cambio de un par de segundos extra en el dump. pg_dump + psql para restore (no pg_restore) porque el output es plain SQL.
   - Actuator /prometheus ni /metrics expuestos en prod (sólo /health, /info). Si hace falta Grafana, se activa a demanda.
   - Healthcheck apunta a `/actuator/health/readiness` en vez de `/actuator/health`: el primero incluye sólo señales de que la app está lista para recibir tráfico (DB up, etc.), el segundo también incluye liveness.
@@ -153,7 +165,7 @@
 **Qué:** agregado sistema de sincronización entre Claudes (DIARIO.md, ESTADO.md, 00-setup-claude.md) + endurecido CLAUDE.md con sección de coordinación entre devs.
 **Por qué:** dos personas trabajando con dos Claudes distintos sobre el mismo repo; sin contexto compartido cada Claude re-descubre cosas ya resueltas y pisa convenciones.
 **Problemas:** ninguno.
-**Impacto para el otro:** socio tiene que correr el prompt de bootstrap (ver `instrucciones_claude/00-setup-claude.md`) la primera vez que abra Claude Code en este repo. A partir de ahí, su Claude va a leer estos archivos automáticamente al arrancar.
+**Impacto para el otro:** Fran tiene que correr el prompt de bootstrap (ver `instrucciones_claude/00-setup-claude.md`) la primera vez que abra Claude Code en este repo. A partir de ahí, su Claude va a leer estos archivos automáticamente al arrancar.
 **Refs:** `CLAUDE.md`, `instrucciones_claude/00-setup-claude.md`, `instrucciones_claude/ESTADO.md`.
 
 ## 2026-04-20 — Santi — infra
