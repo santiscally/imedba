@@ -1,0 +1,625 @@
+@use '../styles/variables' as *;
+
+.presupuesto {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1500px;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__header-text { min-width: 0; }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.2rem 0;
+  }
+
+  &__title-icon {
+    width: 34px; height: 34px;
+    border-radius: $radio-md;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__subtitle {
+    font-size: 0.9rem;
+    color: $gris-texto;
+    margin: 0;
+  }
+
+  &__period {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: flex-start;
+  }
+
+  &__toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  &__table-wrap {
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    overflow: hidden;
+    min-height: 200px;
+  }
+
+  &__loading {
+    padding: 2.5rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+}
+
+// ─── Period nav ─────────────────────────────────────────────────────────────
+.period-nav {
+  width: 36px; height: 36px;
+  border: 1px solid $gris-borde;
+  background: $blanco;
+  border-radius: $radio-md;
+  cursor: pointer;
+  color: $texto-medio;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background $transicion, border-color $transicion, color $transicion;
+
+  &:hover {
+    background: $verde-petroleo-overlay;
+    border-color: $verde-petroleo;
+    color: $verde-petroleo;
+  }
+}
+
+.period-current {
+  font-size: 1rem;
+  font-weight: 600;
+  color: $texto-oscuro;
+  text-transform: capitalize;
+  min-width: 180px;
+  text-align: center;
+}
+
+// ─── KPI Grid ───────────────────────────────────────────────────────────────
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.kpi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border-radius: $radio-lg;
+  background: $blanco;
+  border: 1px solid $gris-borde-sutil;
+  transition: box-shadow $transicion;
+
+  &:hover { box-shadow: $sombra-sm; }
+
+  &__icon {
+    width: 38px; height: 38px;
+    border-radius: $radio-md;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__body { min-width: 0; flex: 1; }
+
+  &__label {
+    font-size: 0.78rem;
+    color: $gris-texto;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+  }
+
+  &__value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+
+  &__sub {
+    margin-top: 0.3rem;
+    font-size: 0.74rem;
+    color: $gris-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--income   .kpi__icon { background: $verde-bg;     color: $verde; }
+  &--expense  .kpi__icon { background: $rojo-bg;      color: $rojo; }
+  &--positive .kpi__icon { background: $verde-bg;     color: $verde; }
+  &--negative .kpi__icon { background: $rojo-bg;      color: $rojo; }
+  &--projected .kpi__icon { background: $azul-bg;     color: $azul; }
+
+  &--negative .kpi__value { color: $rojo; }
+  &--positive .kpi__value { color: $verde; }
+}
+
+// ─── Chart card ─────────────────────────────────────────────────────────────
+.chart-card {
+  background: $blanco;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-lg;
+  padding: 1rem 1.1rem 0.6rem;
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+  }
+
+  &__legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-size: 0.78rem;
+    color: $gris-texto;
+  }
+
+  &__error, &__empty {
+    padding: 2rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+
+  &--income  { background: $verde; }
+  &--expense { background: $rojo; }
+}
+
+// ─── Chart svg ──────────────────────────────────────────────────────────────
+.chart {
+  width: 100%;
+
+  &__svg {
+    width: 100%;
+    height: 220px;
+    display: block;
+  }
+
+  &__grid {
+    stroke: $gris-borde-sutil;
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+  }
+
+  &__y-label {
+    fill: $gris-texto-sutil;
+    font-size: 10px;
+    text-anchor: end;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  &__x-label {
+    fill: $gris-texto;
+    font-size: 11px;
+    font-weight: 500;
+    text-anchor: middle;
+    text-transform: capitalize;
+
+    &--sel { fill: $verde-petroleo; font-weight: 700; }
+  }
+
+  &__bar-group {
+    cursor: pointer;
+
+    &:hover .chart__hover { fill: $verde-petroleo-overlay; }
+
+    &--sel .chart__hover { fill: $verde-petroleo-overlay; }
+  }
+
+  &__hover {
+    fill: transparent;
+    transition: fill $transicion;
+  }
+
+  &__bar {
+    rx: 2;
+    transition: opacity $transicion;
+
+    &--income  { fill: $verde; }
+    &--expense { fill: $rojo; }
+  }
+}
+
+// ─── Chips & filtros ────────────────────────────────────────────────────────
+.chip {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid $gris-borde;
+  border-radius: 999px;
+  background: $blanco;
+  color: $texto-medio;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transicion, border-color $transicion, color $transicion;
+
+  &:hover:not(&--active) {
+    background: $verde-petroleo-overlay;
+    border-color: $verde-petroleo;
+    color: $verde-petroleo;
+  }
+
+  &--active {
+    background: $verde-petroleo;
+    border-color: $verde-petroleo;
+    color: $blanco;
+    box-shadow: $sombra-sm;
+  }
+}
+
+.chip-sep {
+  display: inline-block;
+  width: 1px; height: 26px;
+  background: $gris-borde-sutil;
+  margin: 0 0.4rem;
+}
+
+.cat-select {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  background: $blanco;
+  font-size: 0.85rem;
+  color: $texto-oscuro;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: $verde-petroleo;
+    box-shadow: 0 0 0 3px $verde-petroleo-suave;
+  }
+}
+
+// ─── Search ─────────────────────────────────────────────────────────────────
+.search {
+  position: relative;
+  max-width: 500px;
+
+  &__icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $gris-texto-sutil;
+    pointer-events: none;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 0.65rem 0.9rem 0.65rem 2.35rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    font-size: 0.9rem;
+    color: $texto-oscuro;
+    transition: border-color $transicion, box-shadow $transicion;
+
+    &::placeholder { color: $gris-texto-sutil; }
+
+    &:focus {
+      outline: none;
+      border-color: $verde-petroleo;
+      box-shadow: 0 0 0 3px $verde-petroleo-suave;
+    }
+  }
+}
+
+// ─── Tabla ──────────────────────────────────────────────────────────────────
+.presupuesto-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr {
+    background: $fondo-app;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+
+    &.col-fecha    { width: 140px; }
+    &.col-tipo     { width: 110px; }
+    &.col-cat      { width: 200px; }
+    &.col-unidad   { width: 160px; }
+    &.col-precio   { width: 200px; text-align: right; }
+    &.col-acciones { width: 80px;  text-align: right; }
+  }
+
+  td {
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+    vertical-align: middle;
+
+    &.col-precio   { text-align: right; }
+    &.col-acciones { text-align: right; }
+  }
+
+  &__row {
+    transition: background $transicion;
+
+    &:hover { background: $verde-petroleo-overlay; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+.cell-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  > svg { color: $gris-texto-sutil; flex-shrink: 0; }
+}
+
+// ─── Concept cell ───────────────────────────────────────────────────────────
+.concept-cell {
+  &__name {
+    color: $texto-oscuro;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  &__sub {
+    margin-top: 0.2rem;
+    font-size: 0.74rem;
+    color: $gris-texto;
+  }
+}
+
+.tag-proj {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  background: $azul-bg;
+  color: $azul;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+}
+
+.tag-icon { color: $gris-texto-sutil; }
+
+.bu-pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  background: $fondo-app;
+  color: $texto-medio;
+  border: 1px solid $gris-borde-sutil;
+}
+
+// ─── Pills tipo ─────────────────────────────────────────────────────────────
+.pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+
+  &--income  { background: $verde-bg; color: $verde; }
+  &--expense { background: $rojo-bg;  color: $rojo; }
+}
+
+// ─── Monto con signo ────────────────────────────────────────────────────────
+.amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  > svg { color: $gris-texto-sutil; }
+
+  &--income  { color: $verde; }
+  &--expense { color: $rojo; }
+}
+
+.muted { color: $gris-texto-sutil; }
+
+// ─── Acciones ───────────────────────────────────────────────────────────────
+.row-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+
+  &__btn {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radio-md;
+    color: $gris-texto;
+    cursor: pointer;
+    transition: background $transicion, color $transicion, border-color $transicion;
+
+    &:hover {
+      background: $verde-petroleo-suave;
+      color: $verde-petroleo;
+      border-color: $verde-petroleo-suave;
+    }
+  }
+}
+
+// ─── Sortable th ────────────────────────────────────────────────────────────
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color $transicion, background $transicion;
+
+  &:hover { color: $texto-oscuro; }
+
+  &--active { color: $verde-petroleo; }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__icon { display: inline-flex; align-items: center; opacity: 0.9; }
+
+  &:not(&--active) &__icon { opacity: 0.45; }
+}
+
+// ─── Pager ──────────────────────────────────────────────────────────────────
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0 1rem;
+    background: $blanco;
+    color: $texto-medio;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background $transicion, border-color $transicion, color $transicion;
+
+    &:hover:not(:disabled) {
+      background: $verde-petroleo-overlay;
+      border-color: $verde-petroleo;
+      color: $verde-petroleo;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__numbers {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  &__num {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 0.6rem;
+    background: $blanco;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: $texto-medio;
+    cursor: pointer;
+    transition: background $transicion, border-color $transicion, color $transicion;
+
+    &:hover:not(&--active) {
+      background: $verde-petroleo-overlay;
+      border-color: $verde-petroleo;
+      color: $verde-petroleo;
+    }
+
+    &--active {
+      background: $verde-petroleo;
+      border-color: $verde-petroleo;
+      color: $blanco;
+      cursor: default;
+      box-shadow: $sombra-sm;
+    }
+  }
+
+  &__dots {
+    min-width: 26px;
+    text-align: center;
+    color: $gris-texto-sutil;
+    user-select: none;
+  }
+}
+
+// ─── Checkbox row (usado en BudgetEntryForm) ─────────────────────────────────
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  padding: 0.4rem 0;
+
+  &__opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    color: $texto-medio;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: $verde-petroleo;
+    }
+  }
+}

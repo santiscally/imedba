@@ -1,0 +1,78 @@
+@use '../styles/variables' as *;
+
+.detail--lg { max-width: 880px !important; }
+
+.detail__sum {
+  margin-left: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: $gris-texto;
+
+  &--err { color: $rojo; font-weight: 600; }
+}
+
+.partners-table {
+  margin-top: 0.85rem;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-md;
+  overflow: hidden;
+  background: $blanco;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.85rem;
+    background: $fondo-app;
+    color: $gris-texto;
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  &__empty {
+    padding: 0.85rem;
+    text-align: center;
+    color: $gris-texto-sutil;
+    font-size: 0.85rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+    background: $fondo-app;
+    font-weight: 600;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  &__name  { color: $texto-oscuro; font-weight: 500; }
+  &__pct   { width: 80px;  text-align: right; font-variant-numeric: tabular-nums; color: $texto-oscuro; font-weight: 600; }
+  &__email { color: $texto-medio; }
+}
+
+.cell-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  > svg { color: $gris-texto-sutil; flex-shrink: 0; }
+}
+
+.muted { color: $gris-texto-sutil; }

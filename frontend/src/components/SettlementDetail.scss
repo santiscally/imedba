@@ -1,0 +1,119 @@
+@use '../styles/variables' as *;
+
+.detail--lg { max-width: 880px !important; }
+
+.detail__sum {
+  margin-left: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: $gris-texto;
+}
+
+.detail__row--hl .detail__row-value {
+  color: $verde-petroleo;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail__footer--sm {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.detail__locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: $verde;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  background: $verde-bg;
+  border-radius: $radio-md;
+}
+
+.partners-table {
+  margin-top: 0.5rem;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-md;
+  overflow: hidden;
+  background: $blanco;
+
+  &__empty {
+    padding: 0.85rem;
+    text-align: center;
+    color: $gris-texto-sutil;
+    font-size: 0.85rem;
+  }
+
+  &__note {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.74rem;
+    color: $gris-texto-sutil;
+    background: $fondo-app;
+    border-top: 1px solid $gris-borde-sutil;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+    background: $fondo-app;
+    font-weight: 600;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  &__name   { color: $texto-oscuro; font-weight: 500; }
+  &__pct    { width: 70px; text-align: right; font-variant-numeric: tabular-nums; color: $texto-oscuro; font-weight: 600; }
+  &__amount { width: 150px; text-align: right; font-variant-numeric: tabular-nums; color: $texto-oscuro; font-weight: 600; }
+  &__email  { color: $texto-medio; }
+  &__paid   { width: 80px; text-align: center; }
+}
+
+.paid-yes {
+  display: inline-flex;
+  width: 22px; height: 22px;
+  align-items: center;
+  justify-content: center;
+  background: $verde-bg;
+  color: $verde;
+  border-radius: 999px;
+}
+
+.cell-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  > svg { color: $gris-texto-sutil; flex-shrink: 0; }
+}
+
+.muted { color: $gris-texto-sutil; }
+
+// Form hint usado por SettlementForm
+.form__hint {
+  background: $verde-petroleo-overlay;
+  border: 1px solid $verde-petroleo-suave;
+  color: $texto-medio;
+  border-radius: $radio-md;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+
+  strong { color: $texto-oscuro; }
+  em     { color: $verde-petroleo; font-style: normal; font-weight: 600; }
+}

@@ -9,6 +9,11 @@ import { MOCK_COURSES } from './courses.data'
 import { MOCK_ENROLLMENTS } from './enrollments.data'
 import { MOCK_INSTALLMENTS } from './installments.data'
 import { MOCK_PAYMENTS } from './payments.data'
+import { MOCK_DISCOUNT_CAMPAIGNS } from './discount-campaigns.data'
+import { MOCK_DIPLOMAS } from './diplomas.data'
+import { MOCK_DIPLOMA_SETTLEMENTS } from './diploma-settlements.data'
+import { MOCK_BUDGET_ENTRIES } from './budget.data'
+import { MOCK_CONTACTS } from './contacts.data'
 import type { Course, CourseCreateRequest, CourseUpdateRequest } from '../../types/course'
 import type {
   Enrollment,
@@ -21,6 +26,36 @@ import type {
   InstallmentStatus,
 } from '../../types/installment'
 import type { Payment, PaymentCreateRequest } from '../../types/payment'
+import type {
+  DiscountCampaign,
+  DiscountCampaignCreateRequest,
+  DiscountCampaignUpdateRequest,
+} from '../../types/discount-campaign'
+import type {
+  Diploma,
+  DiplomaCreateRequest,
+  DiplomaUpdateRequest,
+} from '../../types/diploma'
+import type {
+  DiplomaSettlement,
+  DiplomaSettlementCreateRequest,
+} from '../../types/diploma-settlement'
+import type {
+  BudgetEntry,
+  BudgetEntryCreateRequest,
+  BudgetSummary,
+  CategoryBreakdown,
+  MonthlyFlow,
+  EntryType as BudgetEntryType,
+  BudgetCategory,
+  BudgetBusinessUnit,
+} from '../../types/budget'
+import type {
+  Contact,
+  ContactCreateRequest,
+  ContactUpdateRequest,
+  ContactType,
+} from '../../types/contact'
 
 // Router de mocks: interpreta método + path + query string y devuelve
 // respuestas con la misma forma (PageResponse, lista, objeto) que el backend.
@@ -35,6 +70,11 @@ let coursesStore:     Course[]     = [...MOCK_COURSES]
 let enrollmentsStore: Enrollment[] = [...MOCK_ENROLLMENTS]
 let installmentsStore: Installment[] = [...MOCK_INSTALLMENTS]
 let paymentsStore:     Payment[]     = [...MOCK_PAYMENTS]
+let discountCampaignsStore: DiscountCampaign[] = [...MOCK_DISCOUNT_CAMPAIGNS]
+let diplomasStore:           Diploma[]          = [...MOCK_DIPLOMAS]
+let settlementsStore:        DiplomaSettlement[] = [...MOCK_DIPLOMA_SETTLEMENTS]
+let budgetEntriesStore:      BudgetEntry[]       = [...MOCK_BUDGET_ENTRIES]
+let contactsStore:           Contact[]           = [...MOCK_CONTACTS]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function buildPage<T>(items: T[], page: number, size: number): PageResponse<T> {
@@ -384,6 +424,263 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     return delay(found as unknown as T)
   }
 
+  // ═══════ DISCOUNT CAMPAIGNS ═══════
+  if (pathname === '/discount-campaigns') {
+    if (method === 'GET') {
+      const q           = params.get('q')?.trim() ?? ''
+      const activeParam = params.get('active')
+      const active      = activeParam === null ? null : activeParam === 'true'
+      const page        = Number(params.get('page') ?? 0)
+      const size        = Number(params.get('size') ?? 20)
+      const sort        = params.get('sort')
+
+      let items = discountCampaignsStore
+      if (q) {
+        const needle = q.toLowerCase()
+        items = items.filter(c =>
+          c.name.toLowerCase().includes(needle) ||
+          (c.description?.toLowerCase().includes(needle) ?? false)
+        )
+      }
+      if (active !== null) items = items.filter(c => c.active === active)
+
+      items = applySort(items, sort, {
+        name:         (c: DiscountCampaign) => c.name,
+        discountType: (c: DiscountCampaign) => c.discountType,
+        value:        (c: DiscountCampaign) => c.value,
+        validFrom:    (c: DiscountCampaign) => c.validFrom,
+        validTo:      (c: DiscountCampaign) => c.validTo,
+        active:       (c: DiscountCampaign) => c.active,
+      })
+
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createDiscountCampaign(body as DiscountCampaignCreateRequest) as unknown as T)
+    }
+  }
+
+  const discountMatch = pathname.match(/^\/discount-campaigns\/([a-f0-9-]+)$/i)
+  if (discountMatch) {
+    const id = discountMatch[1]
+    const idx = discountCampaignsStore.findIndex(c => c.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+
+    if (method === 'GET')    return delay(discountCampaignsStore[idx] as unknown as T)
+    if (method === 'PUT')    return delay(updateDiscountCampaign(id, body as DiscountCampaignUpdateRequest) as unknown as T)
+    if (method === 'DELETE') { discountCampaignsStore.splice(idx, 1); return delay(undefined as unknown as T) }
+  }
+
+  // ═══════ DIPLOMAS (List sin paginar — refleja DiplomaController) ═══════
+  if (pathname === '/diplomas') {
+    if (method === 'GET') {
+      const onlyActiveParam = params.get('onlyActive')
+      const onlyActive = onlyActiveParam === null ? null : onlyActiveParam === 'true'
+      let items = diplomasStore
+      if (onlyActive === true)  items = items.filter(d => d.active === true)
+      if (onlyActive === false) items = items.filter(d => d.active === false)
+      return delay(items as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createDiploma(body as DiplomaCreateRequest) as unknown as T)
+    }
+  }
+
+  const diplomaDeactivate = pathname.match(/^\/diplomas\/([a-f0-9-]+)\/deactivate$/i)
+  if (diplomaDeactivate && method === 'PUT') {
+    const id = diplomaDeactivate[1]
+    const idx = diplomasStore.findIndex(d => d.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    diplomasStore[idx] = {
+      ...diplomasStore[idx],
+      active:    false,
+      updatedAt: new Date().toISOString(),
+    }
+    return delay(undefined as unknown as T)
+  }
+
+  const diplomaMatch = pathname.match(/^\/diplomas\/([a-f0-9-]+)$/i)
+  if (diplomaMatch) {
+    const id = diplomaMatch[1]
+    const idx = diplomasStore.findIndex(d => d.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+
+    if (method === 'GET') return delay(diplomasStore[idx] as unknown as T)
+    if (method === 'PUT') return delay(updateDiploma(id, body as DiplomaUpdateRequest) as unknown as T)
+  }
+
+  // ═══════ DIPLOMA SETTLEMENTS ═══════
+  if (pathname === '/diploma-settlements') {
+    if (method === 'GET') {
+      const diplomaId = params.get('diplomaId') ?? ''
+      if (!diplomaId) return reject('diplomaId requerido', 400)
+      const items = settlementsStore
+        .filter(s => s.diplomaId === diplomaId)
+        .slice()
+        .sort((a, b) => (b.periodYear - a.periodYear) || (b.periodMonth - a.periodMonth))
+      return delay(items as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createSettlement(body as DiplomaSettlementCreateRequest) as unknown as T)
+    }
+  }
+
+  const settlementAction = pathname.match(/^\/diploma-settlements\/([a-f0-9-]+)\/(recompute|approve|mark-paid)$/i)
+  if (settlementAction && method === 'PUT') {
+    const [, id, action] = settlementAction
+    const idx = settlementsStore.findIndex(s => s.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    const cur = settlementsStore[idx]
+    let next: DiplomaSettlement
+    if (action === 'recompute') {
+      if (cur.status !== 'DRAFT') return reject('Solo se puede recomputar en estado DRAFT', 409)
+      next = { ...computeSettlement(cur.diplomaId, cur.periodMonth, cur.periodYear, cur.totalCollected, cur.id, cur.createdAt), status: 'DRAFT' }
+    } else if (action === 'approve') {
+      if (cur.status !== 'DRAFT') return reject('Solo se puede aprobar desde DRAFT', 409)
+      next = { ...cur, status: 'APPROVED', updatedAt: new Date().toISOString() }
+    } else {
+      if (cur.status !== 'APPROVED') return reject('Solo se puede pagar desde APPROVED', 409)
+      next = { ...cur, status: 'PAID', updatedAt: new Date().toISOString() }
+    }
+    settlementsStore[idx] = next
+    return delay(next as unknown as T)
+  }
+
+  const settlementMatch = pathname.match(/^\/diploma-settlements\/([a-f0-9-]+)$/i)
+  if (settlementMatch && method === 'GET') {
+    const id = settlementMatch[1]
+    const found = settlementsStore.find(s => s.id === id)
+    if (!found) return reject('HTTP 404', 404)
+    return delay(found as unknown as T)
+  }
+
+  // ═══════ BUDGET ═══════
+  if (pathname === '/budget/entries') {
+    if (method === 'GET') {
+      const type         = params.get('type')         ?? ''
+      const category     = params.get('category')     ?? ''
+      const businessUnit = params.get('businessUnit') ?? ''
+      const from         = params.get('from')         ?? ''
+      const to           = params.get('to')           ?? ''
+      const projectedRaw = params.get('projected')
+      const projected    = projectedRaw === null ? null : projectedRaw === 'true'
+      const page         = Number(params.get('page') ?? 0)
+      const size         = Number(params.get('size') ?? 20)
+      const sort         = params.get('sort')
+
+      let items = budgetEntriesStore
+      if (type)         items = items.filter(e => e.entryType === type as BudgetEntryType)
+      if (category)     items = items.filter(e => e.category  === category as BudgetCategory)
+      if (businessUnit) items = items.filter(e => e.businessUnit === businessUnit as BudgetBusinessUnit)
+      if (from)         items = items.filter(e => e.entryDate >= from)
+      if (to)           items = items.filter(e => e.entryDate <= to)
+      if (projected !== null) items = items.filter(e => (e.projected ?? false) === projected)
+
+      items = applySort(items, sort, {
+        entryDate:    (e: BudgetEntry) => e.entryDate,
+        amount:       (e: BudgetEntry) => e.amount,
+        entryType:    (e: BudgetEntry) => e.entryType,
+        category:     (e: BudgetEntry) => e.category,
+        businessUnit: (e: BudgetEntry) => e.businessUnit,
+        concept:      (e: BudgetEntry) => e.concept,
+      })
+
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createBudgetEntry(body as BudgetEntryCreateRequest) as unknown as T)
+    }
+  }
+
+  const budgetEntryMatch = pathname.match(/^\/budget\/entries\/([a-f0-9-]+)$/i)
+  if (budgetEntryMatch && method === 'GET') {
+    const id = budgetEntryMatch[1]
+    const found = budgetEntriesStore.find(e => e.id === id)
+    if (!found) return reject('HTTP 404', 404)
+    return delay(found as unknown as T)
+  }
+
+  if (pathname === '/budget/dashboard/summary' && method === 'GET') {
+    const year  = Number(params.get('year'))
+    const month = Number(params.get('month'))
+    return delay(computeSummary(year, month) as unknown as T)
+  }
+
+  if (pathname === '/budget/dashboard/breakdown' && method === 'GET') {
+    const year  = Number(params.get('year'))
+    const month = Number(params.get('month'))
+    return delay(computeBreakdown(year, month) as unknown as T)
+  }
+
+  if (pathname === '/budget/dashboard/monthly-flow' && method === 'GET') {
+    const year  = Number(params.get('year'))
+    return delay(computeMonthlyFlow(year) as unknown as T)
+  }
+
+  // ═══════ CONTACTS ═══════
+  if (pathname === '/contacts') {
+    if (method === 'GET') {
+      const q           = params.get('q')?.trim() ?? ''
+      const typeParam   = params.get('type') ?? ''
+      const activeParam = params.get('active')
+      const active      = activeParam === null ? null : activeParam === 'true'
+      const page        = Number(params.get('page') ?? 0)
+      const size        = Number(params.get('size') ?? 20)
+      const sort        = params.get('sort')
+
+      let items = contactsStore
+      if (typeParam)        items = items.filter(c => c.contactType === typeParam as ContactType)
+      if (active !== null)  items = items.filter(c => c.active === active)
+      if (q) {
+        const needle = q.toLowerCase()
+        items = items.filter(c =>
+          (c.firstName?.toLowerCase().includes(needle)       ?? false) ||
+          (c.lastName?.toLowerCase().includes(needle)        ?? false) ||
+          (c.companyName?.toLowerCase().includes(needle)     ?? false) ||
+          (c.email?.toLowerCase().includes(needle)           ?? false) ||
+          (c.roleDescription?.toLowerCase().includes(needle) ?? false)
+        )
+      }
+
+      items = applySort(items, sort, {
+        lastName:    (c: Contact) => c.lastName ?? c.companyName,
+        companyName: (c: Contact) => c.companyName ?? c.lastName,
+        firstName:   (c: Contact) => c.firstName,
+        contactType: (c: Contact) => c.contactType,
+        email:       (c: Contact) => c.email,
+        active:      (c: Contact) => c.active,
+      })
+
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createContact(body as ContactCreateRequest) as unknown as T)
+    }
+  }
+
+  const contactDeactivate = pathname.match(/^\/contacts\/([a-f0-9-]+)\/deactivate$/i)
+  if (contactDeactivate && method === 'PUT') {
+    const id = contactDeactivate[1]
+    const idx = contactsStore.findIndex(c => c.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    contactsStore[idx] = {
+      ...contactsStore[idx],
+      active:    false,
+      updatedAt: new Date().toISOString(),
+    }
+    return delay(undefined as unknown as T)
+  }
+
+  const contactMatch = pathname.match(/^\/contacts\/([a-f0-9-]+)$/i)
+  if (contactMatch) {
+    const id = contactMatch[1]
+    const idx = contactsStore.findIndex(c => c.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+
+    if (method === 'GET') return delay(contactsStore[idx] as unknown as T)
+    if (method === 'PUT') return delay(updateContact(id, body as ContactUpdateRequest) as unknown as T)
+  }
+
   // Dashboard y otros: sin mock → reject → useFetch muestra empty state.
   return reject(`Mock no implementado: ${method} ${pathname}`, 501)
 }
@@ -603,4 +900,293 @@ function createPayment(data: PaymentCreateRequest): Payment {
   }
 
   return created
+}
+
+// ─── Discount Campaigns ──────────────────────────────────────────────────────
+function createDiscountCampaign(data: DiscountCampaignCreateRequest): DiscountCampaign {
+  const now = new Date().toISOString()
+  const created: DiscountCampaign = {
+    id:           crypto.randomUUID(),
+    name:         data.name,
+    description:  data.description ?? null,
+    discountType: data.discountType,
+    value:        data.value,
+    validFrom:    data.validFrom ?? null,
+    validTo:      data.validTo   ?? null,
+    active:       data.active ?? true,
+    createdAt:    now,
+    updatedAt:    now,
+  }
+  discountCampaignsStore = [created, ...discountCampaignsStore]
+  return created
+}
+
+function updateDiscountCampaign(id: string, data: DiscountCampaignUpdateRequest): DiscountCampaign {
+  const idx = discountCampaignsStore.findIndex(c => c.id === id)
+  const current = discountCampaignsStore[idx]
+  const updated: DiscountCampaign = {
+    ...current,
+    name:         data.name,
+    description:  data.description ?? null,
+    discountType: data.discountType,
+    value:        data.value,
+    validFrom:    data.validFrom ?? null,
+    validTo:      data.validTo   ?? null,
+    active:       data.active ?? current.active,
+    updatedAt:    new Date().toISOString(),
+  }
+  discountCampaignsStore[idx] = updated
+  return updated
+}
+
+// ─── Diplomas ────────────────────────────────────────────────────────────────
+function createDiploma(data: DiplomaCreateRequest): Diploma {
+  const now = new Date().toISOString()
+  const created: Diploma = {
+    id:                 crypto.randomUUID(),
+    name:               data.name,
+    universityName:     data.universityName    ?? null,
+    description:        data.description       ?? null,
+    enrollmentPrice:    data.enrollmentPrice   ?? null,
+    coursePrice:        data.coursePrice       ?? null,
+    taxCommissionPct:   data.taxCommissionPct  ?? null,
+    secretarySalary:    data.secretarySalary   ?? null,
+    advertisingAmount:  data.advertisingAmount ?? null,
+    adminPct:           data.adminPct          ?? null,
+    universityPct:      data.universityPct     ?? null,
+    imedbaPct:          data.imedbaPct         ?? null,
+    partnersConfig:     data.partnersConfig    ?? null,
+    active:             true,
+    createdAt:          now,
+    updatedAt:          now,
+  }
+  diplomasStore = [created, ...diplomasStore]
+  return created
+}
+
+// ─── Settlement engine (espejo del SettlementEngine.java backend) ─────────────
+// Algoritmo: tax = total*tax%; netoTrasFijos = total - tax - secretarySalary - advertising
+// adminAmount   = netoTrasFijos * adminPct/100
+// universityAmt = netoTrasFijos * universityPct/100
+// imedbaAmount  = netoTrasFijos * imedbaPct/100
+// partner.amount= netoTrasFijos * partner.pct/100
+function r2(n: number): number { return Math.round(n * 100) / 100 }
+
+function computeSettlement(
+  diplomaId: string,
+  periodMonth: number,
+  periodYear: number,
+  totalCollected: number,
+  id?: string,
+  createdAt?: string,
+): DiplomaSettlement {
+  const dip = diplomasStore.find(d => d.id === diplomaId)
+  if (!dip) throw new Error('Diplomatura inexistente')
+  const taxPct       = dip.taxCommissionPct   ?? 0
+  const secretary    = dip.secretarySalary    ?? 0
+  const advertising  = dip.advertisingAmount  ?? 0
+  const adminPct     = dip.adminPct           ?? 0
+  const universityPct= dip.universityPct      ?? 0
+  const imedbaPct    = dip.imedbaPct          ?? 0
+  const partners     = dip.partnersConfig     ?? []
+
+  const taxAmount       = r2(totalCollected * taxPct / 100)
+  const netoTrasFijos   = r2(totalCollected - taxAmount - secretary - advertising)
+  const adminAmount     = r2(netoTrasFijos * adminPct      / 100)
+  const universityAmount= r2(netoTrasFijos * universityPct / 100)
+  const imedbaAmount    = r2(netoTrasFijos * imedbaPct     / 100)
+  const partnersDistribution = partners.map(p => ({
+    name:   p.name,
+    pct:    p.pct,
+    amount: r2(netoTrasFijos * p.pct / 100),
+    email:  p.email,
+    paid:   false,
+  }))
+  const partnersTotal = r2(partnersDistribution.reduce((acc, p) => acc + p.amount, 0))
+
+  const now = new Date().toISOString()
+  return {
+    id:                  id ?? crypto.randomUUID(),
+    diplomaId,
+    diplomaName:         dip.name,
+    periodMonth,
+    periodYear,
+    totalCollected,
+    taxCommissionAmount: taxAmount,
+    secretaryAmount:     secretary,
+    advertisingAmount:   advertising,
+    adminAmount,
+    universityAmount,
+    imedbaAmount,
+    partnersTotal,
+    partnersDistribution,
+    status:              'DRAFT',
+    createdAt:           createdAt ?? now,
+    updatedAt:           now,
+  }
+}
+
+function createSettlement(data: DiplomaSettlementCreateRequest): DiplomaSettlement {
+  const created = computeSettlement(data.diplomaId, data.periodMonth, data.periodYear, data.totalCollected)
+  settlementsStore = [created, ...settlementsStore]
+  return created
+}
+
+// ─── Budget ──────────────────────────────────────────────────────────────────
+function createBudgetEntry(data: BudgetEntryCreateRequest): BudgetEntry {
+  const now = new Date().toISOString()
+  const [y, m] = data.entryDate.split('-').map(Number)
+  const created: BudgetEntry = {
+    id:               crypto.randomUUID(),
+    entryType:        data.entryType,
+    category:         data.category,
+    subcategory:      data.subcategory     ?? null,
+    businessUnit:     data.businessUnit    ?? null,
+    concept:          data.concept,
+    amount:           data.amount,
+    entryDate:        data.entryDate,
+    periodMonth:      m,
+    periodYear:       y,
+    paymentMethod:    data.paymentMethod   ?? null,
+    recurring:        data.recurring       ?? null,
+    cash:             data.cash            ?? null,
+    projected:        data.projected       ?? false,
+    referenceNumber:  data.referenceNumber ?? null,
+    receiptFilePath:  data.receiptFilePath ?? null,
+    contactId:        data.contactId       ?? null,
+    enrollmentId:     data.enrollmentId    ?? null,
+    paymentId:        null,
+    bookSaleId:       null,
+    notes:            data.notes ?? null,
+    registeredBy:     null,
+    createdAt:        now,
+    updatedAt:        now,
+  }
+  budgetEntriesStore = [created, ...budgetEntriesStore]
+  return created
+}
+
+function computeSummary(year: number, month: number): BudgetSummary {
+  const inMonth = budgetEntriesStore.filter(
+    e => e.periodYear === year && e.periodMonth === month,
+  )
+  let totalIncome = 0, totalExpense = 0, projectedIncome = 0, projectedExpense = 0
+  for (const e of inMonth) {
+    if (e.projected) {
+      if (e.entryType === 'INCOME') projectedIncome  += e.amount
+      else                          projectedExpense += e.amount
+    } else {
+      if (e.entryType === 'INCOME') totalIncome  += e.amount
+      else                          totalExpense += e.amount
+    }
+  }
+  return {
+    year, month,
+    totalIncome,
+    totalExpense,
+    balance: totalIncome - totalExpense,
+    projectedIncome,
+    projectedExpense,
+  }
+}
+
+function computeBreakdown(year: number, month: number): CategoryBreakdown[] {
+  const inMonth = budgetEntriesStore.filter(
+    e => e.periodYear === year && e.periodMonth === month && !e.projected,
+  )
+  // Group by (entryType, category, businessUnit)
+  const map = new Map<string, CategoryBreakdown>()
+  for (const e of inMonth) {
+    const key = `${e.entryType}|${e.category}|${e.businessUnit ?? ''}`
+    const cur = map.get(key)
+    if (cur) cur.total += e.amount
+    else map.set(key, {
+      entryType:    e.entryType,
+      category:     e.category,
+      businessUnit: e.businessUnit,
+      total:        e.amount,
+    })
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total)
+}
+
+// ─── Contacts ────────────────────────────────────────────────────────────────
+function createContact(data: ContactCreateRequest): Contact {
+  const now = new Date().toISOString()
+  const created: Contact = {
+    id:               crypto.randomUUID(),
+    contactType:      data.contactType,
+    firstName:        data.firstName       ?? null,
+    lastName:         data.lastName        ?? null,
+    companyName:      data.companyName     ?? null,
+    email:            data.email           ?? null,
+    phone:            data.phone           ?? null,
+    roleDescription:  data.roleDescription ?? null,
+    keycloakUserId:   data.keycloakUserId  ?? null,
+    active:           true,
+    notes:            data.notes           ?? null,
+    createdAt:        now,
+    updatedAt:        now,
+  }
+  contactsStore = [created, ...contactsStore]
+  return created
+}
+
+function updateContact(id: string, data: ContactUpdateRequest): Contact {
+  const idx = contactsStore.findIndex(c => c.id === id)
+  const current = contactsStore[idx]
+  const updated: Contact = {
+    ...current,
+    contactType:      data.contactType,
+    firstName:        data.firstName       ?? null,
+    lastName:         data.lastName        ?? null,
+    companyName:      data.companyName     ?? null,
+    email:            data.email           ?? null,
+    phone:            data.phone           ?? null,
+    roleDescription:  data.roleDescription ?? null,
+    keycloakUserId:   data.keycloakUserId  ?? null,
+    notes:            data.notes           ?? null,
+    updatedAt:        new Date().toISOString(),
+  }
+  contactsStore[idx] = updated
+  return updated
+}
+
+function computeMonthlyFlow(year: number): MonthlyFlow[] {
+  const result: MonthlyFlow[] = []
+  for (let m = 1; m <= 12; m++) {
+    const inMonth = budgetEntriesStore.filter(
+      e => e.periodYear === year && e.periodMonth === m && !e.projected,
+    )
+    let income = 0, expense = 0
+    for (const e of inMonth) {
+      if (e.entryType === 'INCOME') income  += e.amount
+      else                          expense += e.amount
+    }
+    result.push({ year, month: m, income, expense, balance: income - expense })
+  }
+  return result
+}
+
+function updateDiploma(id: string, data: DiplomaUpdateRequest): Diploma {
+  const idx = diplomasStore.findIndex(d => d.id === id)
+  const current = diplomasStore[idx]
+  const updated: Diploma = {
+    ...current,
+    name:               data.name,
+    universityName:     data.universityName    ?? null,
+    description:        data.description       ?? null,
+    enrollmentPrice:    data.enrollmentPrice   ?? null,
+    coursePrice:        data.coursePrice       ?? null,
+    taxCommissionPct:   data.taxCommissionPct  ?? null,
+    secretarySalary:    data.secretarySalary   ?? null,
+    advertisingAmount:  data.advertisingAmount ?? null,
+    adminPct:           data.adminPct          ?? null,
+    universityPct:      data.universityPct     ?? null,
+    imedbaPct:          data.imedbaPct         ?? null,
+    partnersConfig:     data.partnersConfig    ?? null,
+    updatedAt:          new Date().toISOString(),
+  }
+  diplomasStore[idx] = updated
+  return updated
 }

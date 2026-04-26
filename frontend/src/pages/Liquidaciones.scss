@@ -1,0 +1,272 @@
+@use '../styles/variables' as *;
+
+.liquidaciones {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1500px;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__header-text { min-width: 0; }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.2rem 0;
+  }
+
+  &__title-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: $radio-md;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__subtitle {
+    font-size: 0.9rem;
+    color: $gris-texto;
+    margin: 0;
+  }
+
+  &__toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  &__table-wrap {
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    overflow: hidden;
+    min-height: 200px;
+  }
+
+  &__loading {
+    padding: 2.5rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+}
+
+.diploma-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 540px;
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: $gris-texto;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__input {
+    padding: 0.65rem 0.9rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    font-size: 0.92rem;
+    color: $texto-oscuro;
+    cursor: pointer;
+    transition: border-color $transicion, box-shadow $transicion;
+
+    &:focus {
+      outline: none;
+      border-color: $verde-petroleo;
+      box-shadow: 0 0 0 3px $verde-petroleo-suave;
+    }
+  }
+}
+
+.chip {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid $gris-borde;
+  border-radius: 999px;
+  background: $blanco;
+  color: $texto-medio;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transicion, border-color $transicion, color $transicion;
+
+  &:hover:not(&--active) {
+    background: $verde-petroleo-overlay;
+    border-color: $verde-petroleo;
+    color: $verde-petroleo;
+  }
+
+  &--active {
+    background: $verde-petroleo;
+    border-color: $verde-petroleo;
+    color: $blanco;
+    box-shadow: $sombra-sm;
+  }
+}
+
+.liquidaciones-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr {
+    background: $fondo-app;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+
+    &.col-periodo  { width: 220px; }
+    &.col-precio   { width: 200px; text-align: right; }
+    &.col-estado   { width: 130px; }
+    &.col-acciones { width: 170px; text-align: right; }
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+    vertical-align: middle;
+
+    &.col-precio   { text-align: right; }
+    &.col-acciones { text-align: right; }
+  }
+
+  &__row {
+    transition: background $transicion;
+
+    &:hover { background: $verde-petroleo-overlay; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+.cell-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  > svg { color: $gris-texto-sutil; flex-shrink: 0; }
+}
+
+.periodo {
+  text-transform: capitalize;
+  color: $texto-oscuro;
+  font-weight: 500;
+}
+
+.price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  color: $texto-oscuro;
+  font-variant-numeric: tabular-nums;
+
+  > svg { color: $gris-texto-sutil; }
+}
+
+.muted { color: $gris-texto-sutil; font-size: 0.78rem; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &--activo     { background: $verde-bg;  color: $verde; }    // PAID
+  &--pendiente  { background: $azul-bg;   color: $azul; }     // DRAFT
+  &--suspendida { background: $ambar-bg;  color: $ambar; }    // APPROVED
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radio-md;
+    color: $gris-texto;
+    cursor: pointer;
+    transition: background $transicion, color $transicion, border-color $transicion;
+
+    &:hover {
+      background: $verde-petroleo-suave;
+      color: $verde-petroleo;
+      border-color: $verde-petroleo-suave;
+    }
+
+    &--primary {
+      background: $verde-petroleo-suave;
+      color: $verde-petroleo;
+    }
+  }
+}
+
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color $transicion, background $transicion;
+
+  &:hover { color: $texto-oscuro; }
+
+  &--active { color: $verde-petroleo; }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.9;
+  }
+
+  &:not(&--active) &__icon { opacity: 0.45; }
+}
