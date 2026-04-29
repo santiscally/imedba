@@ -29,6 +29,19 @@
 
 ## Entradas
 
+## 2026-04-29 — Santi — backend/infra
+**Qué:** Fix arranque backend: `SendGridMailSender` reemplazó `@ConditionalOnProperty` por `@ConditionalOnExpression(hasText(...))`. Con `SENDGRID_API_KEY=` (vacío) la property existía como empty-string y Spring la consideraba "presente", instanciando la clase y tirando `IllegalStateException`. Ahora `hasText` detecta blank y deja el `NoopMailSender` activo en dev.
+**Por qué:** el `.env` de dev tiene `SENDGRID_API_KEY=` vacío sin API key real.
+**Refs:** `backend/src/main/java/com/imedba/modules/notification/mail/SendGridMailSender.java`
+
+## 2026-04-29 — Santi — frontend (blocker documentado para Fran)
+**Qué:** Detectados dos blockers que impiden probar el SPA contra el backend real. Documentados en notas para Fran en `ESTADO.md`.
+**Por qué:** primera sesión de pruebas end-to-end. El back no registraba ningún request porque el SPA nunca llegaba a él.
+**Problemas:**
+  - **Blocker 1 — API URL relativa:** `frontend/src/api/client.ts` usa `VITE_API_URL ?? '/api/v1'`. Como no hay `.env` con `VITE_API_URL` en el front, todas las llamadas van a `localhost:5173/api/v1/...`. El nginx del contenedor SPA (sin bloque proxy para `/api/`) devuelve `index.html` para cualquier ruta desconocida → el browser recibe HTML en vez de JSON. El backend nunca ve los requests.
+  - **Blocker 2 — Sin header Authorization:** `client.ts` no adjunta token JWT. Todos los endpoints del backend requieren `Authorization: Bearer <token>` (Spring Security OAuth2 resource server). Sin él, el backend devuelve 401/403 y no puede filtrar por rol ni por authority.
+**Impacto para el otro:** Ver sección "Notas para Fran" en `ESTADO.md` para los pasos exactos de corrección.
+
 ## 2026-04-25 — Fran — frontend
 **Qué:** Cerrados Módulos 2 y 3 del SPA (**Inscripciones** + **Cuotas y Pagos**). **Inscripciones** (`/inscripciones`): CRUD completo con `EnrollmentForm` (alumno+curso pickers, modalidad, descuento, payment plan) y `EnrollmentDetail`; alta dispara generación de cronograma server-side, el SPA solo consulta. **Cuotas y Pagos** (`/cuotas`): página única con dos tabs sobre un mismo header + buscador compartido. Tab **Cuotas** = listado read-only, filtro por estado (chips: TODAS / PENDING / OVERDUE / SUSPENDED / PAID), sort default `dueDate asc`, columnas alumno+curso+#cuota+vencimiento+monto(con sub-línea de recargo)+estado(con badge `moodleSuspended`)+acciones (waive-surcharge admin si `surcharge>0` y status≠PAID, atajo "Registrar pago"). Tab **Pagos** = listado con sort default `paymentDate desc`, modal `PaymentDetail` read-only. Botón "Registrar pago" siempre visible; `PaymentForm` con dropdown de cuotas PENDING+OVERDUE (auto-fill `amount` desde `totalDue`), 7 valores de `paymentMethod`, `paymentDate` (default hoy), `notes` opcional. **Mock:** `MOCK_INSTALLMENTS` generado por `SeedRow` (7 inscripciones seed × patrón de estados → ~37 cuotas con mix PAID/PENDING/OVERDUE/SUSPENDED). `MOCK_PAYMENTS` derivado de cuotas PAID + 4 matrículas sueltas (sin `installmentId`). Crear pago en el mock marca la cuota como PAID. Quitada la cota máxima de precio en `CourseForm` (ahora solo valida `>0`, `step="any"`).
 **Por qué:** seguir el `frontend/ROADMAP.md` en orden. Tabs en lugar de dos páginas separadas porque cuotas y pagos comparten alumno+curso como dimensión y filtros — UX más compacto y matchea el flujo real (ver cuota vencida → registrar pago en un click). Generador de mocks para no escribir 37 cuotas a mano y poder iterar variedad de estados.

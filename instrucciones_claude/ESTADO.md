@@ -55,6 +55,34 @@
 - Endpoints previos (Fase 2/3/4/5) siguen vigentes: `/api/v1/installments`, `/api/v1/payments`, `/api/v1/discount-campaigns`, `/api/v1/notifications`, `/api/v1/authors`, `/api/v1/books`, `/api/v1/book-sales`, `/api/v1/contacts`, `/api/v1/budget/**`.
 - Usuarios de prueba en Keycloak (password `test1234`): `admin@imedba.dev`, `vendedora@imedba.dev`, `secretaria@imedba.dev`, `editorial@imedba.dev`, `contable@imedba.dev`, `viewer@imedba.dev`.
 
+### ⚠️ BLOCKERS para pruebas end-to-end (detectados 2026-04-29)
+
+**Blocker 1 — API URL relativa (ningún request llega al backend)**
+`frontend/src/api/client.ts` línea 3: `const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'`
+Sin `VITE_API_URL` seteado, las llamadas van a `localhost:5173/api/v1/...`. El nginx del contenedor SPA no tiene proxy para `/api/` y devuelve `index.html` a todo. El backend nunca recibe nada.
+
+**Fix (dos opciones, elegí una):**
+- **Opción A** (recomendada para dev con Docker): crear `frontend/.env` (no commitearlo) con `VITE_API_URL=http://localhost:8080/api/v1` y rebuilder el contenedor (`docker compose up -d --build frontend`).
+- **Opción B**: agregar bloque proxy en `frontend/nginx.conf`: `location /api/ { proxy_pass http://backend:8080; }` antes del bloque SPA fallback y rebuilder.
+
+**Blocker 2 — Sin header Authorization (backend devuelve 401/403)**
+`client.ts` no incluye `Authorization: Bearer <token>`. El backend es un resource server OAuth2 — todos los endpoints requieren JWT. Sin token, Spring Security rechaza la request antes de llegar al handler (por eso tampoco filtra por rol).
+
+**Fix**: integrar la obtención del access token de Keycloak (PKCE flow, client `imedba-frontend`, realm `imedba`, URL `http://localhost:8081`). Agregar a `client.ts`:
+```ts
+headers: {
+  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+}
+```
+
+**Sobre roles y permisos — qué hay en el backend:**
+El backend maneja dos tipos de authorities en el JWT (ver `CLAUDE.md` sección "Contrato front ↔ back"):
+- `ROLE_admin`, `ROLE_vendedora`, `ROLE_secretaria`, `ROLE_editorial`, `ROLE_contable`, `ROLE_viewer` → vienen de `realm_access.roles` en el JWT.
+- Authorities de permiso granular (ej. `students:read`, `enrollments:write`, `budget:read`, etc.) → vienen de `resource_access.imedba-backend.roles`.
+
+Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado completo de authorities por módulo está en Swagger (`http://localhost:8080/swagger-ui.html`) y en los archivos de `SecurityConfig`. El filtrado server-side de datos (ej. vendedora solo ve sus inscripciones) ya está implementado en el backend — condicionado a que el request incluya el JWT.
+
 ---
 
 ## Fran / frontend
