@@ -29,6 +29,19 @@
 
 ## Entradas
 
+## 2026-04-29 — Santi — backend/infra
+**Qué:** Fix arranque backend: `SendGridMailSender` reemplazó `@ConditionalOnProperty` por `@ConditionalOnExpression(hasText(...))`. Con `SENDGRID_API_KEY=` (vacío) la property existía como empty-string y Spring la consideraba "presente", instanciando la clase y tirando `IllegalStateException`. Ahora `hasText` detecta blank y deja el `NoopMailSender` activo en dev.
+**Por qué:** el `.env` de dev tiene `SENDGRID_API_KEY=` vacío sin API key real.
+**Refs:** `backend/src/main/java/com/imedba/modules/notification/mail/SendGridMailSender.java`
+
+## 2026-04-29 — Santi — frontend (blocker documentado para Fran)
+**Qué:** Detectados dos blockers que impiden probar el SPA contra el backend real. Documentados en notas para Fran en `ESTADO.md`.
+**Por qué:** primera sesión de pruebas end-to-end. El back no registraba ningún request porque el SPA nunca llegaba a él.
+**Problemas:**
+  - **Blocker 1 — API URL relativa:** `frontend/src/api/client.ts` usa `VITE_API_URL ?? '/api/v1'`. Como no hay `.env` con `VITE_API_URL` en el front, todas las llamadas van a `localhost:5173/api/v1/...`. El nginx del contenedor SPA (sin bloque proxy para `/api/`) devuelve `index.html` para cualquier ruta desconocida → el browser recibe HTML en vez de JSON. El backend nunca ve los requests.
+  - **Blocker 2 — Sin header Authorization:** `client.ts` no adjunta token JWT. Todos los endpoints del backend requieren `Authorization: Bearer <token>` (Spring Security OAuth2 resource server). Sin él, el backend devuelve 401/403 y no puede filtrar por rol ni por authority.
+**Impacto para el otro:** Ver sección "Notas para Fran" en `ESTADO.md` para los pasos exactos de corrección.
+
 ## 2026-04-25 — Fran — frontend (módulo 8: Contactos)
 **Qué:** Cerrado **Módulo 8 — Contactos** (`/contactos`, `/api/v1/contacts`). CRUD paginado con **validación condicional según `contactType`** (replica CHECK del backend): EMPLEADO exige `firstName + lastName`, PROVEEDOR exige `companyName`. **Form:** switch radio EMPLEADO/PROVEEDOR cambia qué campos son required y los placeholders/labels (e.g. "Rol / cargo" vs "Servicio"). Email opcional pero validado con regex + max 255. **Listado:** buscador (apellido/nombre/razón social/email/rol), chips Todos/Empleado/Proveedor + Todos/Activos/Inactivos, sort 3-estados en 4 columnas. Columna principal con avatar verde+UserCircle para empleados, avatar azul+Building2 para proveedores; sub-línea con dato secundario (e.g. companyName en empleados, persona física en proveedores). Email en columna como link `mailto:`. Pills coloreadas por tipo. **Soft delete** vía `PUT /{id}/deactivate`. **Mock:** 9 seeds — 4 empleados (secretaria académica, contadora externa, IT, diseñadora editorial inactiva) + 5 proveedores (imprenta Trama, CloudHost, limpieza, estudio jurídico, distribuidora cancelada). Sort en mock con fallback chain `lastName ?? companyName` para que el orden alfabético funcione mezclando ambos tipos. **Detail:** secciones Identificación / Contacto / Sistema (con `keycloakUserId` si está) / Notas. Avatar grande según tipo.
 **Por qué:** seguir el orden del `frontend/ROADMAP.md` (módulo 8 = Contactos, después de Presupuesto). Backend ya tiene CHECK de validación cruzada y el endpoint es estable.
