@@ -41,7 +41,8 @@
       "Bash(npx tsc *)",
       "Bash(echo \"exit=$?\")",
       "Bash(npx eslint *)",
-      "Bash(curl -s http://localhost:8080/v3/api-docs)"
+      "Bash(curl -s http://localhost:8080/v3/api-docs)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

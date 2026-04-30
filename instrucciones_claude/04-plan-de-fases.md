@@ -320,6 +320,137 @@ Sistema en producción, equipo capacitado, datos migrados.
 
 ---
 
+## Fase 9: Refinamiento post-reunión IMEDBA (24-04-2026)
+
+> **Origen**: reunión con Jaquelina, Nico y equipo IMEDBA el 2026-04-24. Ver `07-requerimientos-reunion-20260424.md` para el detalle completo y transcripciones.
+
+### Objetivo
+Ajustar el sistema a los requerimientos reales de operación de IMEDBA: dos equipos operativos que no deben verse entre sí, workflow de aprobación de inscripciones, comisiones de diplomatura, agenda de vencimientos de proveedores.
+
+### 9.a — Segmentación por área (Residencias ↔ Formación Superior)
+
+**Contexto**: IMEDBA tiene dos equipos operativos separados. El equipo de Residencias Médicas no debe ver información de Formación Superior, y viceversa. Sólo los 3 socios (rol_admin) ven ambos.
+
+#### Backend
+- [ ] Authorities nuevas en Keycloak: `residencias:read`, `residencias:write`, `formacion_superior:read`, `formacion_superior:write`. `ROLE_admin` (socios) tiene las 4.
+- [ ] Realm export actualizado (`keycloak/realms/imedba-realm.json`) con nuevos roles.
+- [ ] Filtrado server-side en endpoints afectados: students, courses, enrollments, installments, payments, budget, settlements. Basado en authorities del JWT — si no tenés `formacion_superior:read`, no ves entities de FS.
+- [ ] Migración `V016__segmentacion.sql`:
+  - Eliminar `PREMATUROS` del CHECK de `courses.business_unit` (datos existentes migrados a `FORMACION_SUPERIOR`).
+  - Agregar columna `country VARCHAR(2)` a `courses` (default `'AR'`, valores futuros: `UY`, otros).
+  - `CREATE EXTENSION IF NOT EXISTS unaccent` para búsquedas sin tilde.
+- [ ] Enum `BusinessUnit` Java queda: `RESIDENCIAS`, `EDITORIAL`, `FORMACION_SUPERIOR`, `GENERAL`.
+- [ ] Tests de segmentación: un JWT con sólo `residencias:read` no debe listar un curso de Formación Superior (403/filtrado).
+
+#### Frontend (socio)
+- [ ] Menú: reemplazar "Académico" por dos entradas "Académico Residencias Médicas" y "Académico Formación Superior". Cada uno lista sus alumnos, cursos e inscripciones.
+- [ ] Para socios (con ambas authorities): ver filtro arriba para intercambiar áreas o pestañas.
+- [ ] Filtro por `country` en catálogo de cursos (Argentina, Uruguay, futuro "Exterior").
+- [ ] Reubicar "Diplomatura" dentro de **Finanzas** (vive allí porque contiene liquidación).
+- [ ] Reubicar "Horas" (docentes) dentro de **Administración / Personal**.
+
+### 9.b — Workflow de aprobación de inscripciones
+
+**Contexto**: hoy la vendedora crea inscripción → ACTIVE directo. IMEDBA pide que quede en estado "pendiente" hasta que un socio dé el OK final. Al aprobar: se dispara Moodle + contrato + cobros. Aplica tanto a `Enrollment` (cursos) como a `DiplomaEnrollment` (diplomaturas).
+
+#### Backend
+- [ ] Nuevo estado `PENDING_APPROVAL` en `EnrollmentStatus` y `DiplomaEnrollmentStatus`.
+- [ ] Authority nueva `enrollments:approve` (equivale a `ROLE_admin`, sólo socios).
+- [ ] Endpoints nuevos:
+  - `PUT /api/v1/enrollments/{id}/approve`
+  - `PUT /api/v1/enrollments/{id}/reject`
+  - `PUT /api/v1/diploma-enrollments/{id}/approve`
+  - `PUT /api/v1/diploma-enrollments/{id}/reject`
+- [ ] Migración `V017__approval_workflow.sql`:
+  - Relajar CHECK de `enrollment.status` y `diploma_enrollment.status` para aceptar `PENDING_APPROVAL`.
+  - Agregar `approved_at TIMESTAMP NULL`, `approved_by UUID NULL`, `rejection_reason TEXT NULL` en ambas tablas.
+- [ ] Mover hooks side-effect de `create` a `approve`:
+  - Generación de cuotas (`InstallmentGenerator`) → dispara en approve.
+  - Notificaciones WELCOME + CONTRACT → disparan en approve.
+  - Moodle sync (`ensureUserAndEnrol`) → dispara en approve.
+- [ ] Al crear, estado inicial = `PENDING_APPROVAL`, no se generan cuotas ni notificaciones.
+- [ ] Tests de approval flow: create queda pendiente, approve dispara todo el downstream.
+
+#### Frontend (socio)
+- [ ] Vista "Inscripciones pendientes de aprobación" (dashboard principal de socios).
+- [ ] Botones "Aprobar" / "Rechazar" (con input de `rejection_reason`) en detalle de inscripción.
+
+### 9.c — Comisiones de diplomatura
+
+**Contexto**: cada diplomatura se cohorta en comisiones consecutivas cada 6 meses. Hoy están por la #10; la #11 arranca en agosto. Cada alumno inscripto queda vinculado a una comisión.
+
+#### Backend
+- [ ] Nueva entidad `Commission` en `modules/commission/`:
+  - `id UUID`
+  - `diploma_id UUID` (FK)
+  - `number INTEGER` — secuencial, único por diploma_id
+  - `start_date LocalDate`, `end_date LocalDate`
+  - `status` — OPEN (aceptando inscripciones) / ACTIVE (en curso) / CLOSED
+  - `max_capacity INTEGER NULL` (opcional)
+  - BaseEntity.
+- [ ] Migración `V018__commissions.sql`:
+  - Tabla `commissions`.
+  - `commission_id UUID NULL` en `diploma_enrollments` (FK).
+  - UNIQUE(diploma_id, number).
+- [ ] CRUD endpoints `/api/v1/commissions`.
+- [ ] Al dar de alta `DiplomaEnrollment`, se elige una `commission_id` de las que están en status OPEN o ACTIVE.
+- [ ] Reporte: alumnos por comisión.
+
+#### Frontend (socio)
+- [ ] Selector de comisión al inscribir alumno a diplomatura.
+- [ ] Filtro por comisión en listado de alumnos de FS.
+- [ ] ABM de comisiones dentro de "Diplomaturas".
+
+### 9.d — Abonos / servicios recurrentes
+
+**Contexto**: IMEDBA necesita agendar vencimientos mensuales de proveedores (alquiler, servicios, etc.) con el mismo flujo de factura que ya hicimos para horas docentes (`PENDING_INVOICE → INVOICE_RECEIVED → PAID`). Al marcar PAID, el egreso se auto-linkea al presupuesto.
+
+> **⚠️ Aclaración pendiente**: en el ping-pong del plan, point D dijo "alternativa simple" (extender `budget_entries` con flag) pero la pregunta 4 dijo "entidad propia". Se resuelve con **entidad propia** (`RecurringService`). Si Santi confirma cambio a "alternativa simple", esta sección se refactoriza.
+
+#### Backend
+- [ ] Nueva entidad `RecurringService` en `modules/recurringservice/`:
+  - `id UUID`
+  - `name VARCHAR(200)` — descripción legible ("alquiler oficina", "contador", etc.)
+  - `contact_id UUID NULL` (FK a `contacts` — proveedor).
+  - `amount NUMERIC(12,2)`
+  - `periodicity VARCHAR(20)` — MONTHLY / QUARTERLY / YEARLY
+  - `next_due_date LocalDate`
+  - `status VARCHAR(30)` — PENDING_INVOICE / INVOICE_RECEIVED / PAID
+  - `invoice_received_at TIMESTAMP NULL`, `invoice_file_path VARCHAR(500) NULL`
+  - `paid_at TIMESTAMP NULL`
+  - `active BOOLEAN`
+  - BaseEntity.
+- [ ] Migración `V019__recurring_services.sql` — tabla + índice en `next_due_date WHERE active=true`.
+- [ ] Endpoints:
+  - `GET/POST /api/v1/recurring-services` (filtros `status`, `upcomingDays`, `contactId`).
+  - `PUT /api/v1/recurring-services/{id}/invoice-received` (body: `{filePath}`).
+  - `PUT /api/v1/recurring-services/{id}/mark-paid` → auto-linkea egreso a `budget_entries` (categoría según tipo).
+- [ ] Scheduler mensual (1er día del mes 06:00 Buenos Aires):
+  - Para cada `RecurringService` activo y con status `PAID` o con `next_due_date <= today`, resetea a `PENDING_INVOICE` y recalcula `next_due_date` según `periodicity`.
+  - Alternativa: mantener historial con una tabla `recurring_service_occurrences` (postergado; mientras, el RecurringService se "reusa" con reset de estado).
+- [ ] Authority nueva `recurring_services:read/write`.
+- [ ] Tests: estado inicial, transición invoice-received, markPaid auto-linkea budget, scheduler resetea.
+
+#### Frontend (socio)
+- [ ] Vista "Abonos" dentro de Finanzas.
+- [ ] Agenda mensual de vencimientos con estados visibles y acciones por row.
+
+### 9.e — Búsquedas sin tilde obligatoria
+
+- [ ] Backend: Specs usan `unaccent(LOWER(campo)) LIKE unaccent(LOWER(:q))` para `students.firstName`, `lastName`, `courses.name`, etc.
+- [ ] Extensión PostgreSQL `unaccent` habilitada en V016.
+
+### 9.f — Pendientes externos (fuera del scope de esta fase)
+
+- **Moodle**: Santi ya escribió al programador de Moodle (2026-04-24) pidiendo API, API key y documentación. Esperando respuesta. La implementación del cliente (Fase 7) puede avanzar contra la spec estándar mientras tanto; se conecta cuando llega el token.
+- **Excel de fijación de precios de cursos** — diferido para evaluación posterior. Jaque pasó dos plantillas de la consultora; no entran ahora.
+- **Excel de proyecciones / plan de negocios** (punto de equilibrio, escenarios pesimista/moderado/optimista, costo fijo/variable) — **excluido explícitamente**, IMEDBA no quiere incluirlo por ahora.
+
+### Entregable
+Sistema adaptado a la operación real de IMEDBA: dos equipos trabajando en paralelo sin interferencia, inscripciones con OK de socio, comisiones de diplomatura trackeadas y agenda de vencimientos de proveedores con flujo de factura.
+
+---
+
 ## Resumen de Fases
 
 | Fase | Módulo | Semanas | Dependencias |
@@ -333,7 +464,8 @@ Sistema en producción, equipo capacitado, datos migrados.
 | 6 | Docentes y Formación Superior | 13-15 | Fase 5 + Resolver reglas pendientes |
 | 7 | Integración Moodle | 15-17 | Fase 2 + Contacto programador Moodle |
 | 8 | Refinamiento y Deploy | 17-19 | Todas las anteriores |
+| 9 | Refinamiento post-reunión IMEDBA | 19-21 | Fases 1-7 cerradas |
 
-**Tiempo total estimado: ~19 semanas (4.5 meses)**
+**Tiempo total estimado: ~21 semanas (5 meses)**
 
 > Nota: Las fases 4, 5 y 6 pueden ejecutarse parcialmente en paralelo si hay más de un desarrollador.
