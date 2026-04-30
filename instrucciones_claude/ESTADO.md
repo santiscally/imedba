@@ -87,9 +87,18 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 
 ## Fran / frontend
 
-**Fase actual:** SPA — Módulo 8 cerrado (**Contactos**). Próximo: Módulo 9 (Editorial — Autores / Libros / Ventas).
+**Fase actual:** SPA — Blockers 1 y 2 resueltos (auth contra Keycloak real cableada). Listo para smoke test contra backend. Próximo módulo: 9 (Editorial — Autores / Libros / Ventas).
 
 **En qué estoy ahora:**
+- **Auth contra Keycloak real** (resuelve blockers 1 y 2 que documentaste):
+  - `frontend/.env` ahora tiene `VITE_API_URL`, `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID`. `frontend/.env.example` commiteado como guía. Mientras `VITE_USE_MOCK=true`, todo sigue funcionando con fixtures (modo demo). Para probar contra backend real: `VITE_USE_MOCK=false` + backend levantado.
+  - **OIDC PKCE manual** en `src/lib/auth.ts` (sin dep externa, ~250 líneas): `login()` redirige a Keycloak, `handleCallback()` intercambia code por tokens, `getAccessToken()` con refresh automático y coalescing de refreshes concurrentes, `logout()` con `id_token_hint`. Tokens en localStorage (access/refresh/id + expires_at con margen de 30s).
+  - `client.ts` ahora inyecta `Authorization: Bearer <token>` en cada request, llamando `await getAccessToken()` (refresca si está vencido). Si `VITE_USE_MOCK=true`, salta todo y usa el mock.
+  - `RequireAuth` wrapper sobre todas las rutas privadas. Si no hay sesión, redirige a Keycloak y guarda el `returnPath`. En modo mock se considera siempre autenticado.
+  - Nueva ruta `/auth/callback` (procesa el `code` de Keycloak y vuelve al `returnPath`).
+  - `Login.tsx`: el botón ahora dice "Ingresar con Keycloak" (o "Entrar (demo)" en mock). Si ya hay sesión activa, salta al dashboard. Form de email/password viejo eliminado (Keycloak hace su propio login).
+  - Sidebar tiene footer con nombre + email del usuario logueado y botón "Cerrar sesión" que dispara `logout()`.
+  - `currentUser()`, `hasRole(role)`, `hasAuthority(authority)` exportados de `lib/auth.ts` para guards futuros (cuando implementemos las authorities granulares de Fase 9).
 - **Alumnos** completo (CRUD + form + detail + toggle activo).
 - **Cursos** completo (CRUD + CourseForm sin límite máximo de precio + CourseDetail).
 - **Inscripciones** completo (CRUD + EnrollmentForm + EnrollmentDetail; alta dispara generación de cronograma de cuotas server-side, el SPA consulta).
@@ -143,6 +152,11 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 **Bloqueado por el otro:** nada. Backend Fases 1–8 expuesto en Swagger `localhost:8080/swagger-ui.html`.
 
 **Notas para Santi:**
+- **Auth resuelto** (blockers que documentaste el 29/04). Para que el SPA hable con backend real:
+  1. En `frontend/.env`: setear `VITE_USE_MOCK=false`. Las vars de Keycloak ya están en `.env.example` con valores por defecto del compose.
+  2. La redirección post-login va a `/auth/callback`. Asegurate de que el client `imedba-frontend` en Keycloak tenga `http://localhost:5173/*` en *Valid Redirect URIs* y `http://localhost:5173` en *Web Origins* (CORS). Si no, pegá un grito.
+  3. Backend tiene que aceptar CORS desde `localhost:5173` (en `.env` raíz `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173`).
+- **Authorities en JWT:** `currentUser().roles` lee `realm_access.roles` (admin/vendedora/etc.); `currentUser().authorities` lee `resource_access.imedba-backend.roles` (students:read, etc.). Helpers `hasRole()` y `hasAuthority()` listos para guards de UI cuando los necesitemos en Fase 9 (segmentación Residencias↔FS).
 - Sección `Diplomas` eliminada del Sidebar del SPA. Ruta `/diplomas` ya no existe en el front — si alguien la linkea desde email/notificación, redirigir a `/diplomaturas`. Endpoints backend intactos.
 - Los mocks siguen esperando `200` en GET vacío (no 204) para no romper `.json()`.
 - `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting). Ídem `Installment.dueDate` y `Payment.paymentDate`.

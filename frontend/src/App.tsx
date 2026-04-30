@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login         from './pages/Login'
+import AuthCallback  from './pages/AuthCallback'
 import Layout        from './components/Layout'
+import RequireAuth   from './components/RequireAuth'
 import Dashboard     from './pages/Dashboard'
 import Alumnos       from './pages/Alumnos'
 import Cursos        from './pages/Cursos'
@@ -21,9 +23,10 @@ const MODULES = [
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/"              element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
-      <Route element={<Layout />}>
+      <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="/dashboard"     element={<Dashboard />} />
         <Route path="/alumnos"       element={<Alumnos />} />
         <Route path="/cursos"        element={<Cursos />} />

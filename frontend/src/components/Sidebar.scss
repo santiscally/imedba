@@ -207,3 +207,62 @@
     padding: 0.65rem;
   }
 }
+
+// ─── Footer (user + logout) ──────────────────────────────────────────────────
+.sidebar__footer {
+  margin-top: auto;
+  padding: 0.85rem 0.75rem 1rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sidebar__user {
+  padding: 0 0.5rem;
+  min-width: 0;
+}
+
+.sidebar__user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar__user-email {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar__logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: $radio-md;
+  color: rgba(255,255,255,0.78);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background $transicion, color $transicion, border-color $transicion;
+
+  &:hover {
+    background: rgba(255,255,255,0.08);
+    color: $blanco;
+    border-color: rgba(255,255,255,0.2);
+  }
+}
+
+.sidebar--collapsed .sidebar__logout {
+  justify-content: center;
+  padding: 0.55rem;
+}

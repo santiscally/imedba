@@ -1,18 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo_imedba.png'
+import { isAuthenticated, login } from '../lib/auth'
 import './Login.scss'
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 export default function Login() {
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Si ya hay sesión activa, saltar directo al dashboard.
+  useEffect(() => {
+    if (!USE_MOCK && isAuthenticated()) navigate('/dashboard', { replace: true })
+  }, [navigate])
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => navigate('/dashboard'), 900)
+    if (USE_MOCK) {
+      // Modo mock: bypass auth, navegamos directo.
+      setTimeout(() => navigate('/dashboard'), 600)
+      return
+    }
+    await login('/dashboard')
   }
 
   return (
@@ -26,37 +37,17 @@ export default function Login() {
       <div className="login-form-side">
         <div className="login-card">
           <h1>Bienvenido</h1>
-          <p className="login-card__subtitle">Ingresá con tu cuenta institucional</p>
+          <p className="login-card__subtitle">
+            {USE_MOCK
+              ? 'Modo demo (sin backend). Hacé clic para ingresar.'
+              : 'Ingresá con tu cuenta institucional'}
+          </p>
 
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="usuario@imedba.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="password">Contraseña</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-              />
-            </div>
-
+          <form onSubmit={handleSignIn} noValidate>
             <button type="submit" className="btn-ingresar" disabled={loading}>
-              {loading ? 'Ingresando...' : 'Ingresar'}
+              {loading
+                ? 'Redirigiendo…'
+                : USE_MOCK ? 'Entrar (demo)' : 'Ingresar con Keycloak'}
             </button>
           </form>
         </div>

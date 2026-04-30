@@ -6,11 +6,14 @@ import {
   Book, ShoppingBag, PenTool,
   GraduationCap, Calculator,
   Briefcase, Clock, Mail, Bell,
-  ChevronLeft,
+  ChevronLeft, LogOut,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import logo from '../assets/logo_imedba.png'
+import { currentUser, logout } from '../lib/auth'
 import './Sidebar.scss'
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 interface NavItem {
   to:    string
@@ -117,6 +120,41 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
         ))}
       </nav>
 
+      <SidebarFooter collapsed={collapsed} />
+
     </aside>
+  )
+}
+
+function SidebarFooter({ collapsed }: { collapsed: boolean }) {
+  const user = USE_MOCK ? null : currentUser()
+  const handleLogout = () => {
+    if (USE_MOCK) {
+      window.location.assign('/')
+    } else {
+      logout()
+    }
+  }
+  return (
+    <div className="sidebar__footer">
+      {!collapsed && (
+        <div className="sidebar__user">
+          <div className="sidebar__user-name">
+            {user?.fullName ?? user?.username ?? user?.email ?? (USE_MOCK ? 'Demo' : '—')}
+          </div>
+          {user?.email && (
+            <div className="sidebar__user-email">{user.email}</div>
+          )}
+        </div>
+      )}
+      <button
+        className="sidebar__logout"
+        onClick={handleLogout}
+        title={collapsed ? 'Cerrar sesión' : undefined}
+      >
+        <LogOut size={16} />
+        {!collapsed && <span>Cerrar sesión</span>}
+      </button>
+    </div>
   )
 }
