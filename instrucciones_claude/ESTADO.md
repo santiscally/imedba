@@ -12,9 +12,24 @@
 
 ## Santi / backend / infra / db / auth
 
-**Fase actual:** 8 cerrada. Plan de Fase 9 armado tras reunión IMEDBA 2026-04-24 (ver `07-requerimientos-reunion-20260424.md`). Fase 7 (Moodle) pausada esperando token del programador de Moodle.
+**Fase actual:** 8 cerrada. 3 fixes hechos hoy (2026-05-12) antes de arrancar Fase 9.a — ver DIARIO. Plan de Fase 9 armado tras reunión IMEDBA 2026-04-24 (ver `07-requerimientos-reunion-20260424.md`). Fase 7 (Moodle) pausada esperando token del programador de Moodle.
 
 **En qué estoy ahora:**
+- **Fixes 2026-05-12** (ver DIARIO):
+  - Swagger UI navegable: `SecurityConfig` tiene cadena dedicada con CSP relajado para `/swagger-ui/**` + `/v3/api-docs/**`. En prod sigue off (apiDocsEnabled=false).
+  - Admin Keycloak: ahora `admin/admin` en `http://localhost:8081/admin/`. `.env` alineado.
+  - Login del SPA: pasó de PKCE-redirect a ROPC (form propio email+password). `frontend/src/lib/auth.ts` exporta `loginWithPassword(username, password)`. `imedba-frontend` ya tenía Direct Access Grants habilitado en el realm export.
+- **Fase 9.a parcial — courses segmentado** (2026-05-13, ver DIARIO):
+  - V015 aplicada: `unaccent` + columna `country` + datos migrados (PREMATUROS→FORMACION_SUPERIOR, OTROS→GENERAL).
+  - Enums Java BusinessUnit unificados a {RESIDENCIAS, EDITORIAL, FORMACION_SUPERIOR, GENERAL}.
+  - `SegmentationFilter` (en `common/security/`) calcula BUs visibles según authorities del JWT.
+  - `CourseRepository.search` requiere `allowedUnits`; `CourseService` aplica el filtro en list/get/create/update/delete.
+  - Realm export ampliado con 7 authorities nuevas + 4 built-in clientScopes (estos últimos *faltaban* del export original — bug histórico que también explica por qué nunca venía `realm_access.roles` en el JWT).
+  - **End-to-end auth verificado**: ROPC → JWT con roles → backend valida firma sin iss → @PreAuthorize pasa.
+- **Pendientes inmediatos Fase 9.a:**
+  1. Extender `SegmentationFilter` a students/enrollments/installments/payments/budget/settlements (Students no tiene BU directa — pertenece transitiva via Course).
+  2. Asignar composites VENDEDORA→residencias:* y SECRETARIA_FS→formacion_superior:* en el Keycloak corriendo (solo en JSON ahora). O hacer `docker compose down -v` reset clean.
+  3. Crear test usuario con solo `residencias:read` y probar denial.
 - Fase 8 completa (hardening + deploy): `application-prod.yml` con swagger off + actuator restringido + Hikari/Tomcat tuning. `SecurityConfig` con headers defensivos. Nginx con CSP + rate limit (20 req/s `/api`, 5 req/s token endpoint Keycloak). Scripts `backup-db.sh` / `restore-db.sh`. `.github/workflows/backend-ci.yml`. `docker-compose.prod.yml` con deploy limits + healthcheck.
 - Fase 9 planificada post-reunión IMEDBA 2026-04-24. Scope: (a) segmentación Residencias↔Formación Superior por authorities + reubicación de Prematuros como diplomatura dentro de FS + `country` en courses; (b) workflow de aprobación de inscripciones (PENDING_APPROVAL → approve por socio dispara Moodle + contrato + cuotas); (c) entidad Commission para cohortes de diplomatura; (d) RecurringService para abonos con flujo de factura; (e) búsquedas sin tilde. Plan detallado en `04-plan-de-fases.md` §Fase 9.
 - Fase 7 (Moodle) — ya le escribí al programador de Moodle (2026-04-24) pidiendo API, API key y documentación. Esperando respuesta. El cliente REST puede empezar a codearse ahora contra la spec estándar; se cablea cuando llega el token.
@@ -30,6 +45,7 @@
 **Bloqueado por el otro:** nada.
 
 **Notas para Fran:**
+- **🐛 Bug auth descubierto 2026-05-20** (ver DIARIO): entrando directo a ruta protegida (ej. `/dashboard`) sin sesión, `RequireAuth.tsx:21` llama a `login()` (PKCE redirect) en vez de mandar al `/` interno. El form ROPC propio queda eludido. **Fix sugerido:** reemplazar el `useEffect` + `void login(loc.pathname + loc.search)` por `<Navigate to="/" replace state={{ from: loc }}/>`. Es un remanente del flow viejo que quedó después del pivote a ROPC del 2026-05-12.
 - **⚠️ Reunión IMEDBA 2026-04-24 — LEER ANTES DE SEGUIR TOCANDO EL SPA.** Resumen completo en `instrucciones_claude/07-requerimientos-reunion-20260424.md` y plan de Fase 9 en `04-plan-de-fases.md`. Puntos que te tocan directo:
   1. **Menú se reorganiza**: en vez de "Académico" solo, van a ser DOS entradas "Académico Residencias Médicas" y "Académico Formación Superior". IMEDBA tiene dos equipos separados que no deben verse entre sí — esto no es opcional.
   2. **"Diplomatura" pasa a estar dentro de "Finanzas"** (no como sección propia) — esto ya lo hiciste hoy 👍. "Horas" pasa a "Administración/Personal".
