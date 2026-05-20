@@ -279,7 +279,7 @@
       "bearerOnly": false,
       "standardFlowEnabled": false,
       "serviceAccountsEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "attributes": {
         "use.refresh.tokens": "true"
       }
