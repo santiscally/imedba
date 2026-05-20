@@ -29,7 +29,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
     @DisplayName("POST /courses crea, filtro por businessUnit funciona")
     void create_and_filter_by_business_unit() throws Exception {
         createCourse("Curso A", "RES-01", BusinessUnit.RESIDENCIAS, true);
-        createCourse("Curso B", "PRE-01", BusinessUnit.PREMATUROS, true);
+        createCourse("Curso B", "PRE-01", BusinessUnit.FORMACION_SUPERIOR, true);
         createCourse("Curso C", "RES-02", BusinessUnit.RESIDENCIAS, false);
 
         mockMvc.perform(get("/api/v1/courses").param("businessUnit", "RESIDENCIAS").with(reader()))
@@ -46,9 +46,9 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
     @Test
     @DisplayName("POST /courses con code duplicado → 409")
     void duplicate_code_is_409() throws Exception {
-        createCourse("X", "DUP-01", BusinessUnit.OTROS, true);
+        createCourse("X", "DUP-01", BusinessUnit.GENERAL, true);
         var dup = new CourseCreateRequest(
-                "Y", "DUP-01", null, BusinessUnit.OTROS, null,
+                "Y", "DUP-01", null, BusinessUnit.GENERAL, null, "AR",
                 BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, true);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,7 +58,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
 
     private void createCourse(String name, String code, BusinessUnit bu, boolean active) throws Exception {
         var req = new CourseCreateRequest(
-                name, code, null, bu, "VIRTUAL",
+                name, code, null, bu, "VIRTUAL", "AR",
                 new BigDecimal("10000.00"), new BigDecimal("50000.00"),
                 null, null, null, active);
         mockMvc.perform(post("/api/v1/courses").with(writer())

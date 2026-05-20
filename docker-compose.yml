@@ -66,7 +66,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-imedba}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-imedba}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-imedba_dev}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/imedba}
+      # En dev NO validamos iss (mismatch localhost:8081 vs keycloak:8080 interno).
+      # Spring valida firma vía JWK; alcanza para dev local.
+      # Prod (override) sí setea issuer-uri al dominio público.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/realms/imedba/protocol/openid-connect/certs}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}

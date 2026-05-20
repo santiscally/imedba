@@ -13,6 +13,7 @@ public record CourseResponse(
         String description,
         BusinessUnit businessUnit,
         String modality,
+        String country,
         BigDecimal enrollmentPrice,
         BigDecimal coursePrice,
         LocalDate examDate,

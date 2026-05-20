@@ -28,7 +28,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:http://localhost:8081/realms/imedba}
+          # En dev no validamos `iss`: el browser pide tokens a localhost:8081
+          # mientras que el backend ve Keycloak por la red interna como
+          # `http://keycloak:8080`. Spring valida firma vía JWK; eso alcanza para
+          # dev local. En prod (application-prod.yml) seteamos ambos contra el
+          # dominio público.
           jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:http://localhost:8081/realms/imedba/protocol/openid-connect/certs}
 
 server:

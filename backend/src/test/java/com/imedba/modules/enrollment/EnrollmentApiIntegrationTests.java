@@ -129,7 +129,7 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
         // Seller B crea otra (requiere otro curso para esquivar unique)
         Course other = courseRepository.save(Course.builder()
                 .name("Otra").code("OTRA-01")
-                .businessUnit(BusinessUnit.OTROS).active(Boolean.TRUE)
+                .businessUnit(BusinessUnit.GENERAL).active(Boolean.TRUE)
                 .enrollmentPrice(BigDecimal.ZERO).coursePrice(new BigDecimal("1000"))
                 .build());
         var reqB = new EnrollmentCreateRequest(
