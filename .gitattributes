@@ -1,0 +1,21 @@
+# Normalización de fin de línea. Evita que checkouts en Windows (autocrlf)
+# rompan scripts ejecutados en contenedores Linux (ej. mvnw → exit 127).
+* text=auto eol=lf
+
+# Scripts Unix: SIEMPRE LF (se ejecutan en contenedores Linux)
+mvnw      text eol=lf
+*.sh      text eol=lf
+
+# Scripts Windows: CRLF
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+
+# Binarios: sin conversión
+*.jar     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary

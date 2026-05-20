@@ -65,7 +65,9 @@
       "Bash(bash \"C:/tmp/kc-fix.sh\")",
       "Bash(unzip -p \"Archivos varios imedba.xlsx\" xl/workbook.xml)",
       "Bash(ls *.xlsx 2>&1 && unzip -p \"Archivos varios imedba.xlsx\" xl/workbook.xml 2>/dev/null > /tmp/wb.xml && tr '>' '>\\\\n' < /tmp/wb.xml | grep \"sheet name\" | head)",
-      "Bash(node convert.js \"/c/Users/Fran/Desktop/Simple_Apps/imedba/instrucciones_claude/Archivos varios imedba.xlsx\" \"/c/tmp/imedba-excel\")"
+      "Bash(node convert.js \"/c/Users/Fran/Desktop/Simple_Apps/imedba/instrucciones_claude/Archivos varios imedba.xlsx\" \"/c/tmp/imedba-excel\")",
+      "Bash(git checkout *)",
+      "Bash(git commit *)"
     ],
     "additionalDirectories": [
       "\\tmp"
