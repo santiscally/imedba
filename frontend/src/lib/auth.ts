@@ -90,7 +90,40 @@ function isAccessTokenExpired(): boolean {
   return Date.now() >= at
 }
 
-// ─── Login (redirect a Keycloak) ─────────────────────────────────────────────
+// ─── Login con usuario/contraseña (Direct Access Grants / ROPC) ──────────────
+// Form propio del SPA: el usuario tipea email+password, hacemos POST al token
+// endpoint con grant_type=password y guardamos los tokens. Sin redirección.
+// El client `imedba-frontend` tiene `directAccessGrantsEnabled=true` en el realm.
+export async function loginWithPassword(username: string, password: string): Promise<void> {
+  const body = new URLSearchParams({
+    grant_type: 'password',
+    client_id:  KC_CLIENT,
+    username,
+    password,
+    scope:      'openid profile email',
+  })
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    body.toString(),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    let detail = `${res.status}`
+    try {
+      const parsed = JSON.parse(text) as { error?: string; error_description?: string }
+      if (parsed.error_description) detail = parsed.error_description
+      else if (parsed.error) detail = parsed.error
+    } catch {
+      if (text) detail = text
+    }
+    throw new Error(detail)
+  }
+  const tokens: TokenResponse = await res.json()
+  saveTokens(tokens)
+}
+
+// ─── Login con redirect a Keycloak (PKCE) — disponible si se quiere volver ───
 export async function login(returnPath = '/dashboard'): Promise<void> {
   const verifier  = randomString(64)
   const challenge = await sha256Base64Url(verifier)
