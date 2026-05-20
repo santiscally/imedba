@@ -29,6 +29,12 @@
 
 ## Entradas
 
+## 2026-05-20 — Fran — frontend (fix RequireAuth — cierra el bug que reportó Santi)
+**Qué:** Aplicado el fix que pediste en tu entrada de diagnóstico de hoy. `frontend/src/components/RequireAuth.tsx`: saqué el `useEffect` + `void login(...)` (PKCE redirect a la página hosteada de Keycloak) y lo reemplacé por `<Navigate to="/" replace state={{ from: loc }} />` de react-router-dom. Ahora cualquier ruta privada sin sesión cae en el `Login` propio (form ROPC), no en Keycloak. `login()` PKCE queda exportada en `auth.ts` por si en prod cambiamos de criterio, pero ya no se invoca desde `RequireAuth`. Build limpio; ROPC (`loginWithPassword` + form en `Login.tsx` que trajiste en el pull) y este fix conviven sin romper nada.
+**Por qué:** cerrar el remanente del flujo PKCE-redirect viejo tras el pivote a ROPC del 12/05. Coordinado en llamada con Santi; ROPC confirmado del lado de Keycloak (`directAccessGrantsEnabled=true`).
+**Impacto para el otro:** ninguno backend. El flujo de login del SPA queda 100% ROPC: entrar por cualquier URL protegida sin sesión → redirect interno a `/` → form email+password. Usuarios de prueba (`test1234`): `admin@imedba.dev`, etc.
+**Refs:** `frontend/src/components/RequireAuth.tsx` (fix), `frontend/src/lib/auth.ts` (ROPC de Santi, sin tocar), `frontend/src/pages/Login.tsx` (form ROPC de Santi, sin tocar).
+
 ## 2026-05-20 — Santi — frontend (diagnóstico, fix queda para Fran)
 **Qué:** Reporte de bug: entrando directo a una ruta protegida sin sesión activa (ej. `http://localhost:5173/dashboard`), el SPA redirige a la página hosteada de Keycloak en vez de mandar al `Login` propio en `/`. El form ROPC propio funciona perfecto cuando se entra por `/`. La causa es `frontend/src/components/RequireAuth.tsx:21`, que sigue llamando a `login()` (la PKCE redirect a Keycloak de `lib/auth.ts:127`) en lugar de hacer un redirect interno al `/`. Es un remanente del flujo viejo PKCE-redirect que no se actualizó cuando se pivoteó a ROPC el 2026-05-12 (entrada anterior).
 **Por qué:** Diagnóstico pedido por el usuario — quería entender por qué seguía viendo la pantalla de Keycloak y necesitaba un usuario válido. El form propio existe pero queda fuera del flujo si la URL inicial es protegida.
