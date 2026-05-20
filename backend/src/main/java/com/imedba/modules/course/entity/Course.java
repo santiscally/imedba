@@ -44,6 +44,11 @@ public class Course extends BaseEntity {
     @Column(name = "modality", length = 50)
     private String modality;
 
+    /** ISO 3166-1 alpha-2. Fase 9.a (V015): default 'AR'. */
+    @Default
+    @Column(name = "country", nullable = false, length = 2)
+    private String country = "AR";
+
     @Column(name = "enrollment_price", precision = 12, scale = 2)
     private BigDecimal enrollmentPrice;
 

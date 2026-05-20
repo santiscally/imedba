@@ -36,9 +36,10 @@ public class CourseController {
     public PageResponse<CourseResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) BusinessUnit businessUnit,
+            @RequestParam(required = false) String country,
             @RequestParam(required = false) Boolean active,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return PageResponse.of(service.list(q, businessUnit, active, pageable));
+        return PageResponse.of(service.list(q, businessUnit, country, active, pageable));
     }
 
     @GetMapping("/{id}")
