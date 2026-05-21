@@ -43,9 +43,28 @@ Referencia canónica: [`src/pages/Alumnos.tsx`](src/pages/Alumnos.tsx) + [`src/c
 
 ---
 
+## Estado de módulos (2026-05-21)
+
+- ✅ **Hechos:** Cursos (CRUD + alumnos del curso), Inscripciones, Cuotas y Pagos (3 tabs: Cuotas / Pagos / Histórico, pago múltiple, deshacer pago, filtros), Descuentos, Diplomaturas, Liquidaciones, Presupuesto, Contactos. (Módulos 1–8 de la lista de abajo.)
+- ⏳ **Pendientes:** Módulo 9 (Editorial: Autores / Libros / Ventas), 10 (Personal + Horas), 11 (Notificaciones).
+- 🔧 **Correcciones post-review de Santi (2026-05-20, ver DIARIO/ESTADO):** 6 puntos de UX a corregir antes de seguir (EnrollmentForm precios read-only, lógica campo "Libro", helper text en examDate, verificar dashboard Presupuesto contra back real, forms que piden datos de más). El **403** en cuotas/pagos/descuentos es de authorities Keycloak (lado Santi), no del front.
+
+---
+
+## Pendientes que dependen del backend (Santi) — el SPA ya está listo
+
+> El front ya invoca estos contratos; funcionan en **mock**. Contra el backend real quedan pendientes hasta que Santi los implemente.
+
+- **`DELETE /api/v1/payments/{id}`** — "Deshacer pago". Hoy devuelve **500** (no existe; pagos append-only). Debe anular el pago y revertir la cuota imputada a PENDING/OVERDUE. El botón queda visible en el SPA (anda en mock). **No construir backend desde el front** (decisión 2026-05-21).
+- **`courseId` opcional** en `GET /api/v1/installments` y `GET /api/v1/payments` — filtro por curso de Cuotas/Pagos/Histórico. El SPA ya manda el param; Spring lo ignora sin romper → hoy el filtro por curso **solo filtra en mock**.
+- (resuelto front) Params de `/payments` alineados a `from`/`to` (Instant) + `method`.
+- (resuelto front) Descuentos: DTO alineado a `discountValue`/`startDate`/`endDate` (fix del 400).
+
+---
+
 ## Módulos pendientes (orden recomendado)
 
-### 1. Cursos — completar CRUD
+### 1. Cursos — completar CRUD ✅ HECHO
 - **Hoy:** read-only. **Falta:** `CourseForm` (create/edit) + `CourseDetail`.
 - **Endpoints:** `POST /api/v1/courses`, `PUT /{id}`, `GET /{id}`.
 - **Types:** ampliar [`src/types/course.ts`](src/types/course.ts) con `CourseCreateRequest`, `CourseUpdateRequest`.

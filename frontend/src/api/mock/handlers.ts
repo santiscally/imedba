@@ -151,6 +151,21 @@ function enrStudentId(enrollmentId: string): string | null {
   return enrollmentsStore.find(e => e.id === enrollmentId)?.student.id ?? null
 }
 
+function enrCourseId(enrollmentId: string): string | null {
+  return enrollmentsStore.find(e => e.id === enrollmentId)?.course.id ?? null
+}
+
+// Segmentación por unidad de negocio (Fase 9). El SPA manda `businessUnit`;
+// el mock resuelve la BU del curso para filtrar enrollments y students.
+function courseBusinessUnit(courseId: string): string | null {
+  return coursesStore.find(c => c.id === courseId)?.businessUnit ?? null
+}
+
+function studentInBusinessUnit(studentId: string, bu: string): boolean {
+  return enrollmentsStore.some(
+    e => e.student.id === studentId && courseBusinessUnit(e.course.id) === bu)
+}
+
 function enrMatches(enrollmentId: string, needle: string): boolean {
   const e = enrollmentsStore.find(en => en.id === enrollmentId)
   if (!e) return false
@@ -180,12 +195,14 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
   // ═══════ STUDENTS ═══════
   if (pathname === '/students') {
     if (method === 'GET') {
-      const q    = params.get('q')?.trim() ?? ''
+      const q            = params.get('q')?.trim() ?? ''
+      const businessUnit = params.get('businessUnit') ?? ''
       const page = Number(params.get('page') ?? 0)
       const size = Number(params.get('size') ?? 20)
       const sort = params.get('sort')
 
       let items = q ? studentsStore.filter(s => matchStudent(s, q)) : studentsStore
+      if (businessUnit) items = items.filter(s => studentInBusinessUnit(s.id, businessUnit))
       items = applySort(items, sort, {
         firstName:  (s: Student) => s.firstName,
         lastName:   (s: Student) => s.lastName,
@@ -257,19 +274,21 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
   // ═══════ ENROLLMENTS ═══════
   if (pathname === '/enrollments') {
     if (method === 'GET') {
-      const q         = params.get('q')?.trim() ?? ''
-      const studentId = params.get('studentId') ?? ''
-      const courseId  = params.get('courseId')  ?? ''
-      const status    = params.get('status')    ?? ''
+      const q            = params.get('q')?.trim() ?? ''
+      const studentId    = params.get('studentId') ?? ''
+      const courseId     = params.get('courseId')  ?? ''
+      const status       = params.get('status')    ?? ''
+      const businessUnit = params.get('businessUnit') ?? ''
       const page      = Number(params.get('page') ?? 0)
       const size      = Number(params.get('size') ?? 20)
       const sort      = params.get('sort')
 
       let items = enrollmentsStore
-      if (q)         items = items.filter(en => matchEnrollment(en, q))
-      if (studentId) items = items.filter(en => en.student.id === studentId)
-      if (courseId)  items = items.filter(en => en.course.id  === courseId)
-      if (status)    items = items.filter(en => en.status === status as EnrollmentStatus)
+      if (q)            items = items.filter(en => matchEnrollment(en, q))
+      if (studentId)    items = items.filter(en => en.student.id === studentId)
+      if (courseId)     items = items.filter(en => en.course.id  === courseId)
+      if (status)       items = items.filter(en => en.status === status as EnrollmentStatus)
+      if (businessUnit) items = items.filter(en => courseBusinessUnit(en.course.id) === businessUnit)
 
       items = applySort(items, sort, {
         enrollmentDate: (en: Enrollment) => en.enrollmentDate,
@@ -320,6 +339,7 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     const q            = params.get('q')?.trim() ?? ''
     const enrollmentId = params.get('enrollmentId') ?? ''
     const studentId    = params.get('studentId')    ?? ''
+    const courseId     = params.get('courseId')     ?? ''
     const status       = params.get('status')       ?? ''
     const dueFrom      = params.get('dueFrom')      ?? ''
     const dueTo        = params.get('dueTo')        ?? ''
@@ -334,6 +354,7 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     }
     if (enrollmentId) items = items.filter(i => i.enrollmentId === enrollmentId)
     if (studentId)    items = items.filter(i => enrStudentId(i.enrollmentId) === studentId)
+    if (courseId)     items = items.filter(i => enrCourseId(i.enrollmentId) === courseId)
     if (status)       items = items.filter(i => i.status === status as InstallmentStatus)
     if (dueFrom)      items = items.filter(i => i.dueDate >= dueFrom)
     if (dueTo)        items = items.filter(i => i.dueDate <= dueTo)
@@ -386,9 +407,10 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
       const q             = params.get('q')?.trim() ?? ''
       const enrollmentId  = params.get('enrollmentId')  ?? ''
       const studentId     = params.get('studentId')     ?? ''
-      const paymentMethod = params.get('paymentMethod') ?? ''
-      const dateFrom      = params.get('dateFrom')      ?? ''
-      const dateTo        = params.get('dateTo')        ?? ''
+      const courseId      = params.get('courseId')       ?? ''
+      const pmethod       = params.get('method')        ?? ''
+      const from          = params.get('from')          ?? ''
+      const to            = params.get('to')            ?? ''
       const page          = Number(params.get('page') ?? 0)
       const size          = Number(params.get('size') ?? 20)
       const sort          = params.get('sort')
@@ -403,9 +425,10 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
       }
       if (enrollmentId)  items = items.filter(p => p.enrollmentId === enrollmentId)
       if (studentId)     items = items.filter(p => enrStudentId(p.enrollmentId) === studentId)
-      if (paymentMethod) items = items.filter(p => p.paymentMethod === paymentMethod)
-      if (dateFrom)      items = items.filter(p => p.paymentDate >= dateFrom)
-      if (dateTo)        items = items.filter(p => p.paymentDate <= dateTo)
+      if (courseId)      items = items.filter(p => enrCourseId(p.enrollmentId) === courseId)
+      if (pmethod)       items = items.filter(p => p.paymentMethod === pmethod)
+      if (from)          items = items.filter(p => p.paymentDate >= from)
+      if (to)            items = items.filter(p => p.paymentDate <= to)
 
       items = applySort(items, sort, {
         paymentDate:   (p: Payment) => p.paymentDate,
@@ -427,6 +450,29 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     const found = paymentsStore.find(p => p.id === id)
     if (!found) return reject('HTTP 404', 404)
     return delay(found as unknown as T)
+  }
+  // Deshacer un pago: lo elimina y, si estaba imputado a una cuota, la vuelve a
+  // dejar impaga (PENDING / OVERDUE según la fecha de hoy).
+  if (paymentMatch && method === 'DELETE') {
+    const id = paymentMatch[1]
+    const idx = paymentsStore.findIndex(p => p.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    const removed = paymentsStore[idx]
+    paymentsStore.splice(idx, 1)
+    if (removed.installmentId) {
+      const iIdx = installmentsStore.findIndex(i => i.id === removed.installmentId)
+      if (iIdx >= 0) {
+        const inst = installmentsStore[iIdx]
+        const today = new Date().toISOString().slice(0, 10)
+        installmentsStore[iIdx] = {
+          ...inst,
+          status:    inst.dueDate < today ? 'OVERDUE' : 'PENDING',
+          paidAt:    null,
+          updatedAt: new Date().toISOString(),
+        }
+      }
+    }
+    return delay(undefined as unknown as T)
   }
 
   // ═══════ DISCOUNT CAMPAIGNS ═══════
@@ -450,12 +496,12 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
       if (active !== null) items = items.filter(c => c.active === active)
 
       items = applySort(items, sort, {
-        name:         (c: DiscountCampaign) => c.name,
-        discountType: (c: DiscountCampaign) => c.discountType,
-        value:        (c: DiscountCampaign) => c.value,
-        validFrom:    (c: DiscountCampaign) => c.validFrom,
-        validTo:      (c: DiscountCampaign) => c.validTo,
-        active:       (c: DiscountCampaign) => c.active,
+        name:          (c: DiscountCampaign) => c.name,
+        discountType:  (c: DiscountCampaign) => c.discountType,
+        discountValue: (c: DiscountCampaign) => c.discountValue,
+        startDate:     (c: DiscountCampaign) => c.startDate,
+        endDate:       (c: DiscountCampaign) => c.endDate,
+        active:        (c: DiscountCampaign) => c.active,
       })
 
       return delay(buildPage(items, page, size) as unknown as T)
@@ -743,6 +789,7 @@ function createCourse(data: CourseCreateRequest): Course {
     description:          data.description          ?? null,
     businessUnit:         data.businessUnit,
     modality:             data.modality             ?? null,
+    country:              data.country              ?? 'AR',
     enrollmentPrice:      data.enrollmentPrice      ?? null,
     coursePrice:          data.coursePrice          ?? null,
     examDate:             data.examDate             ?? null,
@@ -905,15 +952,15 @@ function createDiscountCampaign(data: DiscountCampaignCreateRequest): DiscountCa
   const now = new Date().toISOString()
   const created: DiscountCampaign = {
     id:           crypto.randomUUID(),
-    name:         data.name,
-    description:  data.description ?? null,
-    discountType: data.discountType,
-    value:        data.value,
-    validFrom:    data.validFrom ?? null,
-    validTo:      data.validTo   ?? null,
-    active:       data.active ?? true,
-    createdAt:    now,
-    updatedAt:    now,
+    name:          data.name,
+    description:   data.description ?? null,
+    discountType:  data.discountType,
+    discountValue: data.discountValue,
+    startDate:     data.startDate,
+    endDate:       data.endDate,
+    active:        data.active ?? true,
+    createdAt:     now,
+    updatedAt:     now,
   }
   discountCampaignsStore = [created, ...discountCampaignsStore]
   return created
@@ -924,14 +971,14 @@ function updateDiscountCampaign(id: string, data: DiscountCampaignUpdateRequest)
   const current = discountCampaignsStore[idx]
   const updated: DiscountCampaign = {
     ...current,
-    name:         data.name,
-    description:  data.description ?? null,
-    discountType: data.discountType,
-    value:        data.value,
-    validFrom:    data.validFrom ?? null,
-    validTo:      data.validTo   ?? null,
-    active:       data.active ?? current.active,
-    updatedAt:    new Date().toISOString(),
+    name:          data.name,
+    description:   data.description ?? null,
+    discountType:  data.discountType,
+    discountValue: data.discountValue,
+    startDate:     data.startDate,
+    endDate:       data.endDate,
+    active:        data.active ?? current.active,
+    updatedAt:     new Date().toISOString(),
   }
   discountCampaignsStore[idx] = updated
   return updated

@@ -7,6 +7,7 @@ import type {
   BusinessUnit,
 } from '../types/course'
 import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, MODALITIES_SUGERIDAS } from '../types/course'
+import { COUNTRIES, COUNTRY_LABELS } from '../types/country'
 import './StudentForm.scss'
 
 type Payload = CourseCreateRequest | CourseUpdateRequest
@@ -25,6 +26,7 @@ interface FormState {
   description:     string
   businessUnit:    BusinessUnit
   modality:        string
+  country:         string
   enrollmentPrice: string
   coursePrice:     string
   examDate:        string
@@ -38,6 +40,7 @@ function initialState(c?: Course): FormState {
     description:     c?.description     ?? '',
     businessUnit:    c?.businessUnit    ?? 'RESIDENCIAS',
     modality:        c?.modality        ?? '',
+    country:         c?.country         ?? 'AR',
     enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
     coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
     examDate:        c?.examDate        ?? '',
@@ -90,6 +93,7 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       description:     state.description.trim() || null,
       businessUnit:    state.businessUnit,
       modality:        state.modality.trim()    || null,
+      country:         state.country            || null,
       enrollmentPrice: state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
       coursePrice:     state.coursePrice        ? Number(state.coursePrice)     : null,
       examDate:        state.examDate           || null,
@@ -174,6 +178,17 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               <datalist id="modalidades-sugeridas">
                 {MODALITIES_SUGERIDAS.map(m => <option key={m} value={m} />)}
               </datalist>
+            </Field>
+
+            <Field label="País">
+              <select
+                value={state.country}
+                onChange={e => setField('country', e.target.value)}
+              >
+                {COUNTRIES.map(c => (
+                  <option key={c} value={c}>{COUNTRY_LABELS[c]}</option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Fecha de examen" error={errors.examDate}>

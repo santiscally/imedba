@@ -5,6 +5,7 @@ import {
   Eye, Pencil,
 } from 'lucide-react'
 import { studentsApi } from '../api/students'
+import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import type { PageResponse } from '../types/common'
 import type { Student, StudentCreateRequest } from '../types/student'
 import EmptyState from '../components/EmptyState'
@@ -37,23 +38,29 @@ export default function Alumnos() {
 
   const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
 
+  const { unidad } = useUnidad()
+  const unidadBu = unidadBusinessUnit(unidad)
+
   // Debounce del search — 300ms — resetea a page 0.
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
 
+  useEffect(() => { setPage(0) }, [unidad])
+
   useEffect(() => {
     setLoading(true); setError(null)
     studentsApi.list({
-      q:    debounced || undefined,
+      q:            debounced || undefined,
+      businessUnit: unidadBu,
       page,
       size: PAGE_SIZE,
       sort: sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, page, sort, reload])
+  }, [debounced, unidadBu, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0

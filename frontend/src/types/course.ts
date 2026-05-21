@@ -1,29 +1,31 @@
 import type { Instant, UUID } from './common'
 
 // Refleja com.imedba.modules.course.entity.BusinessUnit
+// Fase 9.a (V015): unificado — PREMATUROS pasó a ser una diplomatura dentro de
+// FORMACION_SUPERIOR y OTROS se renombró a GENERAL.
 export type BusinessUnit =
   | 'RESIDENCIAS'
-  | 'PREMATUROS'
   | 'EDITORIAL'
   | 'FORMACION_SUPERIOR'
-  | 'OTROS'
+  | 'GENERAL'
 
 export const BUSINESS_UNITS: BusinessUnit[] = [
   'RESIDENCIAS',
-  'PREMATUROS',
   'EDITORIAL',
   'FORMACION_SUPERIOR',
-  'OTROS',
+  'GENERAL',
 ]
 
-// Etiquetas visibles (orden del Excel)
+// Etiquetas visibles
 export const BUSINESS_UNIT_LABELS: Record<BusinessUnit, string> = {
   RESIDENCIAS:        'Residencias',
-  PREMATUROS:         'Prematuros',
   EDITORIAL:          'Editorial',
   FORMACION_SUPERIOR: 'Formación Superior',
-  OTROS:              'Otros',
+  GENERAL:            'General',
 }
+
+// El catálogo de países vive en types/country.ts (reutilizable). Course.country
+// guarda el código ISO-2 (ver Country / COUNTRIES / COUNTRY_LABELS).
 
 // Modalidades observadas en `precio de lista` y `excel datos alumnos`
 // (texto libre en el backend — VARCHAR 50 — pero mantenemos este listado
@@ -48,6 +50,7 @@ export interface Course {
   description:          string | null
   businessUnit:         BusinessUnit
   modality:             string | null
+  country:              string | null   // ISO-2 (AR/UY); default 'AR' en backend
   enrollmentPrice:      number | null   // BigDecimal en backend → number en JS
   coursePrice:          number | null
   examDate:             string | null   // LocalDate ISO (YYYY-MM-DD)
@@ -65,6 +68,7 @@ export interface CourseCreateRequest {
   description?:          string | null
   businessUnit:          BusinessUnit             // required
   modality?:             string | null            // max 50
+  country?:              string | null            // ISO-2 (AR/UY), default AR
   enrollmentPrice?:      number | null            // ≥ 0
   coursePrice?:          number | null            // ≥ 0
   examDate?:             string | null            // YYYY-MM-DD

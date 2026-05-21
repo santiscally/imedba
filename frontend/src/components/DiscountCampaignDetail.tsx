@@ -15,8 +15,8 @@ interface Props {
 
 export default function DiscountCampaignDetail({ campaign, onClose, onEdit }: Props) {
   const valueLabel = campaign.discountType === 'PERCENTAGE'
-    ? `${campaign.value}%`
-    : formatPrice(campaign.value) ?? '—'
+    ? `${campaign.discountValue}%`
+    : formatPrice(campaign.discountValue) ?? '—'
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -58,8 +58,8 @@ export default function DiscountCampaignDetail({ campaign, onClose, onEdit }: Pr
           <section className="detail__section">
             <h4 className="detail__section-title">Vigencia</h4>
             <dl className="detail__grid">
-              <Row icon={CalendarDays}  label="Vigente desde" value={formatLocalDate(campaign.validFrom)} />
-              <Row icon={CalendarClock} label="Vigente hasta" value={formatLocalDate(campaign.validTo)} />
+              <Row icon={CalendarDays}  label="Vigente desde" value={formatLocalDate(campaign.startDate)} />
+              <Row icon={CalendarClock} label="Vigente hasta" value={formatLocalDate(campaign.endDate)} />
             </dl>
           </section>
 

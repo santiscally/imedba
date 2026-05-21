@@ -12,6 +12,7 @@ import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
 import EmptyState from '../components/EmptyState'
 import SettlementForm from '../components/SettlementForm'
 import SettlementDetail from '../components/SettlementDetail'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import './Liquidaciones.scss'
 
 type SortDir   = 'asc' | 'desc'
@@ -91,8 +92,19 @@ export default function Liquidaciones() {
   }
 
   async function handleAction(s: DiplomaSettlement, action: 'recompute' | 'approve' | 'mark-paid') {
-    const labels = { 'recompute': 'recomputar', 'approve': 'aprobar', 'mark-paid': 'marcar como pagada' }
-    if (!window.confirm(`¿Confirmás ${labels[action]} la liquidación de ${MONTHS[s.periodMonth - 1]} ${s.periodYear}?`)) return
+    const meta = {
+      'recompute': { verb: 'recomputar el reparto de',  done: 'Reparto recomputado',  icon: 'question' as const, danger: false },
+      'approve':   { verb: 'aprobar',                    done: 'Liquidación aprobada', icon: 'warning'  as const, danger: false },
+      'mark-paid': { verb: 'marcar como pagada',         done: 'Liquidación pagada',   icon: 'warning'  as const, danger: false },
+    }[action]
+    const period = `${MONTHS[s.periodMonth - 1]} ${s.periodYear}`
+    const ok = await confirmAction({
+      title: `¿${meta.verb.charAt(0).toUpperCase()}${meta.verb.slice(1)} la liquidación?`,
+      text:  `Período ${period}. Esta acción ${action === 'recompute' ? 'recalcula el reparto' : 'no se puede deshacer'}.`,
+      icon:  meta.icon,
+      confirmText: 'Sí, continuar',
+    })
+    if (!ok) return
     try {
       let updated: DiplomaSettlement
       if (action === 'recompute')      updated = await diplomaSettlementsApi.recompute(s.id)
@@ -103,8 +115,9 @@ export default function Liquidaciones() {
       if (panel.kind === 'detail' && panel.settlement.id === s.id) {
         setPanel({ kind: 'detail', settlement: updated })
       }
+      toastSuccess(meta.done)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error en la operación')
+      alertError('No se pudo completar la operación', err instanceof Error ? err.message : undefined)
     }
   }
 

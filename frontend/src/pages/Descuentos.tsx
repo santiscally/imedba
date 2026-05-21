@@ -17,7 +17,7 @@ import './Descuentos.scss'
 const PAGE_SIZE = 10
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'discountType' | 'value' | 'validFrom' | 'validTo' | 'active'
+type SortField = 'name' | 'discountType' | 'discountValue' | 'startDate' | 'endDate' | 'active'
 type SortState = { field: SortField; dir: SortDir } | null
 
 type ActiveFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS'
@@ -167,23 +167,23 @@ export default function Descuentos() {
                 />
                 <SortableTh
                   label="Valor"
-                  field="value"
+                  field="discountValue"
                   sort={sort}
-                  onClick={() => toggleSort('value')}
+                  onClick={() => toggleSort('discountValue')}
                   className="col-valor"
                 />
                 <SortableTh
                   label="Vigencia desde"
-                  field="validFrom"
+                  field="startDate"
                   sort={sort}
-                  onClick={() => toggleSort('validFrom')}
+                  onClick={() => toggleSort('startDate')}
                   className="col-fecha"
                 />
                 <SortableTh
                   label="Vigencia hasta"
-                  field="validTo"
+                  field="endDate"
                   sort={sort}
-                  onClick={() => toggleSort('validTo')}
+                  onClick={() => toggleSort('endDate')}
                   className="col-fecha"
                 />
                 <SortableTh
@@ -220,29 +220,21 @@ export default function Descuentos() {
                   <td className="col-valor">
                     <span className="value">
                       {c.discountType === 'PERCENTAGE'
-                        ? <><Percent size={13} strokeWidth={1.8} />{c.value}</>
-                        : <><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(c.value)}</>}
+                        ? <><Percent size={13} strokeWidth={1.8} />{c.discountValue}</>
+                        : <><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(c.discountValue)}</>}
                     </span>
                   </td>
                   <td className="col-fecha">
-                    {c.validFrom
-                      ? (
-                        <span className="cell-inline">
-                          <CalendarDays size={13} strokeWidth={1.8} />
-                          {formatDate(c.validFrom)}
-                        </span>
-                      )
-                      : <span className="muted">Sin inicio</span>}
+                    <span className="cell-inline">
+                      <CalendarDays size={13} strokeWidth={1.8} />
+                      {formatDate(c.startDate)}
+                    </span>
                   </td>
                   <td className="col-fecha">
-                    {c.validTo
-                      ? (
-                        <span className="cell-inline">
-                          <CalendarClock size={13} strokeWidth={1.8} />
-                          {formatDate(c.validTo)}
-                        </span>
-                      )
-                      : <span className="muted">Sin fin</span>}
+                    <span className="cell-inline">
+                      <CalendarClock size={13} strokeWidth={1.8} />
+                      {formatDate(c.endDate)}
+                    </span>
                   </td>
                   <td className="col-estado">
                     <span className={`badge ${c.active ? 'badge--activo' : 'badge--inactivo'}`}>

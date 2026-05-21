@@ -3,8 +3,9 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   CreditCard, Receipt, ArrowUp, ArrowDown, ArrowUpDown,
   UserCircle2, GraduationCap, CircleDollarSign,
-  Eye, Hash, Calendar, BadgeCheck, X,
+  Eye, Hash, Calendar, BadgeCheck, X, Undo2, History, FilterX,
 } from 'lucide-react'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { installmentsApi } from '../api/installments'
 import { paymentsApi } from '../api/payments'
 import { enrollmentsApi } from '../api/enrollments'
@@ -23,7 +24,7 @@ import './Cuotas.scss'
 
 const PAGE_SIZE = 10
 
-type Tab = 'cuotas' | 'pagos'
+type Tab = 'cuotas' | 'pagos' | 'historico'
 
 type SortDir = 'asc' | 'desc'
 
@@ -43,7 +44,7 @@ type PanelState =
   | { kind: 'detail-payment'; payment: Payment }
 
 // Datos del alumno/curso resueltos desde el enrollment.
-interface EnrInfo { studentName: string; courseName: string; courseCode: string | null }
+interface EnrInfo { studentName: string; courseName: string; courseCode: string | null; courseId: string }
 
 export default function Cuotas() {
   const [tab, setTab] = useState<Tab>('cuotas')
@@ -69,6 +70,22 @@ export default function Cuotas() {
   const [payLoading, setPayLoading] = useState(true)
   const [payError,   setPayError]   = useState<string | null>(null)
 
+  // ── Histórico de cuotas pagadas (status PAID)
+  const [histPage,    setHistPage]    = useState(0)
+  const [histData,    setHistData]    = useState<PageResponse<Installment> | null>(null)
+  const [histLoading, setHistLoading] = useState(true)
+  const [histError,   setHistError]   = useState<string | null>(null)
+
+  // ── Filtros comunes (fecha desde/hasta + curso)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo,   setDateTo]   = useState('')
+  const [courseId, setCourseId] = useState('')
+  const filtersActive = !!(dateFrom || dateTo || courseId)
+  function clearFilters() {
+    setDateFrom(''); setDateTo(''); setCourseId('')
+    setInstPage(0); setPayPage(0); setHistPage(0)
+  }
+
   const [reload, setReload] = useState(0)
   const [panel,  setPanel]  = useState<PanelState>({ kind: 'closed' })
 
@@ -92,9 +109,14 @@ export default function Cuotas() {
   function clearSelection() { setSelected(new Map()) }
 
   useEffect(() => {
-    const t = setTimeout(() => { setDebounced(query.trim()); setInstPage(0); setPayPage(0) }, 300)
+    const t = setTimeout(() => {
+      setDebounced(query.trim()); setInstPage(0); setPayPage(0); setHistPage(0)
+    }, 300)
     return () => clearTimeout(t)
   }, [query])
+
+  // Al cambiar cualquier filtro, volver a la primera página de cada tab.
+  useEffect(() => { setInstPage(0); setPayPage(0); setHistPage(0) }, [dateFrom, dateTo, courseId])
 
   // Cargar enrollments una vez para resolver nombres por id.
   useEffect(() => {
@@ -111,28 +133,51 @@ export default function Cuotas() {
   useEffect(() => {
     setInstLoading(true); setInstError(null)
     installmentsApi.list({
-      q:      debounced || undefined,
-      status: statusFilter === 'TODAS' ? undefined : statusFilter,
-      page:   instPage,
-      size:   PAGE_SIZE,
-      sort:   instSort ? `${instSort.field},${instSort.dir}` : undefined,
+      q:        debounced || undefined,
+      status:   statusFilter === 'TODAS' ? undefined : statusFilter,
+      courseId: courseId || undefined,
+      dueFrom:  dateFrom  || undefined,
+      dueTo:    dateTo    || undefined,
+      page:     instPage,
+      size:     PAGE_SIZE,
+      sort:     instSort ? `${instSort.field},${instSort.dir}` : undefined,
     })
       .then(res => { setInstData(res); setInstLoading(false) })
       .catch((err: Error) => { setInstError(err.message); setInstLoading(false) })
-  }, [debounced, statusFilter, instPage, instSort, reload])
+  }, [debounced, statusFilter, courseId, dateFrom, dateTo, instPage, instSort, reload])
 
   // Pagos fetch
   useEffect(() => {
     setPayLoading(true); setPayError(null)
     paymentsApi.list({
-      q:    debounced || undefined,
-      page: payPage,
-      size: PAGE_SIZE,
-      sort: paySort ? `${paySort.field},${paySort.dir}` : undefined,
+      q:        debounced || undefined,
+      courseId: courseId || undefined,
+      from:     dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+      to:       dateTo   ? `${dateTo}T23:59:59Z`   : undefined,
+      page:     payPage,
+      size:     PAGE_SIZE,
+      sort:     paySort ? `${paySort.field},${paySort.dir}` : undefined,
     })
       .then(res => { setPayData(res); setPayLoading(false) })
       .catch((err: Error) => { setPayError(err.message); setPayLoading(false) })
-  }, [debounced, payPage, paySort, reload])
+  }, [debounced, courseId, dateFrom, dateTo, payPage, paySort, reload])
+
+  // Histórico fetch (cuotas pagadas)
+  useEffect(() => {
+    setHistLoading(true); setHistError(null)
+    installmentsApi.list({
+      q:        debounced || undefined,
+      status:   'PAID',
+      courseId: courseId || undefined,
+      dueFrom:  dateFrom  || undefined,
+      dueTo:    dateTo    || undefined,
+      page:     histPage,
+      size:     PAGE_SIZE,
+      sort:     'dueDate,desc',
+    })
+      .then(res => { setHistData(res); setHistLoading(false) })
+      .catch((err: Error) => { setHistError(err.message); setHistLoading(false) })
+  }, [debounced, courseId, dateFrom, dateTo, histPage, reload])
 
   function toggleInstSort(field: InstSortField) {
     setInstSort(prev => {
@@ -158,6 +203,28 @@ export default function Cuotas() {
     setReload(r => r + 1)
   }
 
+  async function handleUndoPayment(p: Payment) {
+    const enr = lookupEnr(p.enrollmentId)
+    const ok = await confirmAction({
+      title: '¿Deshacer este pago?',
+      html: `Se eliminará el pago de <strong>${formatPrice(p.amount)}</strong>` +
+        `${p.receiptNumber ? ` (recibo ${p.receiptNumber})` : ''} de <strong>${enr.studentName}</strong>.` +
+        `${p.installmentId ? '<br>La cuota asociada volverá a quedar <strong>impaga</strong>.' : ''}` +
+        '<br><br>Esta acción no se puede deshacer.',
+      icon: 'warning',
+      danger: true,
+      confirmText: 'Sí, deshacer',
+    })
+    if (!ok) return
+    try {
+      await paymentsApi.remove(p.id)
+      toastSuccess('Pago deshecho')
+      setReload(r => r + 1)
+    } catch (err) {
+      alertError('No se pudo deshacer el pago', err instanceof Error ? err.message : undefined)
+    }
+  }
+
   async function handleWaiveSurcharge(inst: Installment) {
     if (!window.confirm(`¿Condonar el recargo de ${formatPrice(inst.surchargeAmount)} en la cuota #${inst.number}?`)) return
     try {
@@ -169,13 +236,23 @@ export default function Cuotas() {
   }
 
   const lookupEnr = useMemo(() => (id: string): EnrInfo => (
-    enrMap.get(id) ?? { studentName: `#${id.slice(0, 8)}`, courseName: '—', courseCode: null }
+    enrMap.get(id) ?? { studentName: `#${id.slice(0, 8)}`, courseName: '—', courseCode: null, courseId: '' }
   ), [enrMap])
+
+  // Opciones del filtro por curso: cursos distintos presentes en los enrollments.
+  const courseOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const e of enrMap.values()) {
+      if (e.courseId && !seen.has(e.courseId)) seen.set(e.courseId, e.courseName)
+    }
+    return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'))
+  }, [enrMap])
 
   const statusOptions = useMemo<StatusFilter[]>(() => ['TODAS', ...INSTALLMENT_STATUSES], [])
 
   const totalCuotas = instData?.totalElements ?? 0
   const totalPagos  = payData?.totalElements  ?? 0
+  const totalHist   = histData?.totalElements ?? 0
 
   return (
     <div className="cuotas">
@@ -190,9 +267,13 @@ export default function Cuotas() {
               ? (totalCuotas > 0
                   ? `${totalCuotas} ${totalCuotas === 1 ? 'cuota' : 'cuotas'} en cartera`
                   : 'Cronograma de cuotas de las inscripciones activas')
-              : (totalPagos > 0
-                  ? `${totalPagos} ${totalPagos === 1 ? 'pago registrado' : 'pagos registrados'}`
-                  : 'Historial de pagos recibidos')}
+              : tab === 'pagos'
+                ? (totalPagos > 0
+                    ? `${totalPagos} ${totalPagos === 1 ? 'pago registrado' : 'pagos registrados'}`
+                    : 'Historial de pagos recibidos')
+                : (totalHist > 0
+                    ? `${totalHist} ${totalHist === 1 ? 'cuota pagada' : 'cuotas pagadas'}`
+                    : 'Histórico de cuotas saldadas')}
           </p>
         </div>
         <button
@@ -224,6 +305,15 @@ export default function Cuotas() {
         >
           <Receipt size={15} /> Pagos
         </button>
+        <button
+          type="button"
+          className={`cuotas__tab ${tab === 'historico' ? 'cuotas__tab--active' : ''}`}
+          onClick={() => setTab('historico')}
+          role="tab"
+          aria-selected={tab === 'historico'}
+        >
+          <History size={15} /> Histórico
+        </button>
       </div>
 
       <div className="cuotas__toolbar">
@@ -231,9 +321,9 @@ export default function Cuotas() {
           <Search size={16} strokeWidth={1.8} className="search__icon" />
           <input
             type="text"
-            placeholder={tab === 'cuotas'
-              ? 'Buscar por alumno o curso…'
-              : 'Buscar por alumno, curso o n° recibo…'}
+            placeholder={tab === 'pagos'
+              ? 'Buscar por alumno, curso o n° recibo…'
+              : 'Buscar por alumno o curso…'}
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="search__input"
@@ -256,6 +346,31 @@ export default function Cuotas() {
             ))}
           </div>
         )}
+
+        <div className="cuotas__filters">
+          <div className="filter-field">
+            <label>{tab === 'pagos' ? 'Pago desde' : 'Vence desde'}</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          </div>
+          <div className="filter-field">
+            <label>{tab === 'pagos' ? 'Pago hasta' : 'Vence hasta'}</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </div>
+          <div className="filter-field filter-field--grow">
+            <label>Curso</label>
+            <select value={courseId} onChange={e => setCourseId(e.target.value)}>
+              <option value="">Todos los cursos</option>
+              {courseOptions.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+          {filtersActive && (
+            <button type="button" className="filter-clear" onClick={clearFilters} title="Limpiar filtros">
+              <FilterX size={15} /> Limpiar
+            </button>
+          )}
+        </div>
       </div>
 
       {tab === 'cuotas' ? (
@@ -275,7 +390,7 @@ export default function Cuotas() {
           selectedEnrId={selectedEnrId}
           onToggleSelect={toggleSelect}
         />
-      ) : (
+      ) : tab === 'pagos' ? (
         <PagosTab
           data={payData}
           loading={payLoading}
@@ -286,6 +401,17 @@ export default function Cuotas() {
           page={payPage}
           onPage={setPayPage}
           onView={(p) => setPanel({ kind: 'detail-payment', payment: p })}
+          onUndo={handleUndoPayment}
+          lookupEnr={lookupEnr}
+        />
+      ) : (
+        <HistoricoTab
+          data={histData}
+          loading={histLoading}
+          error={histError}
+          query={debounced}
+          page={histPage}
+          onPage={setHistPage}
           lookupEnr={lookupEnr}
         />
       )}
@@ -540,9 +666,10 @@ function PagosTab(props: {
   page:    number
   onPage:  (n: number) => void
   onView:  (p: Payment) => void
+  onUndo:  (p: Payment) => void
   lookupEnr: (id: string) => EnrInfo
 }) {
-  const { data, loading, error, sort, onToggleSort, query, page, onPage, onView, lookupEnr } = props
+  const { data, loading, error, sort, onToggleSort, query, page, onPage, onView, onUndo, lookupEnr } = props
   const items = data?.content ?? []
   const totalPages = data?.totalPages ?? 0
 
@@ -641,7 +768,124 @@ function PagosTab(props: {
                         >
                           <Eye size={16} />
                         </button>
+                        <button
+                          className="row-actions__btn row-actions__btn--danger"
+                          type="button"
+                          onClick={() => onUndo(p)}
+                          aria-label="Deshacer pago"
+                          title="Deshacer pago"
+                        >
+                          <Undo2 size={16} />
+                        </button>
                       </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {!loading && !error && totalPages > 1 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          first={data?.first ?? true}
+          last={data?.last ?? true}
+          onChange={onPage}
+        />
+      )}
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Histórico de cuotas pagadas
+// ═══════════════════════════════════════════════════════════════════════════════
+function HistoricoTab(props: {
+  data:    PageResponse<Installment> | null
+  loading: boolean
+  error:   string | null
+  query:   string
+  page:    number
+  onPage:  (n: number) => void
+  lookupEnr: (id: string) => EnrInfo
+}) {
+  const { data, loading, error, query, page, onPage, lookupEnr } = props
+  const items = data?.content ?? []
+  const totalPages = data?.totalPages ?? 0
+
+  return (
+    <>
+      <div className="cuotas__table-wrap">
+        {loading && <div className="cuotas__loading">Cargando…</div>}
+
+        {!loading && error && (
+          <EmptyState icon={History} message="No se pudo cargar el histórico" hint={error} />
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <EmptyState
+            icon={History}
+            message="Sin cuotas pagadas"
+            hint={query ? `No hay cuotas pagadas para "${query}"` : 'Todavía no hay cuotas saldadas.'}
+          />
+        )}
+
+        {!loading && !error && items.length > 0 && (
+          <table className="cuotas-table">
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Curso</th>
+                <th className="col-cuota">Cuota</th>
+                <th className="col-vencimiento">Vencimiento</th>
+                <th className="col-vencimiento">Pagada el</th>
+                <th className="col-precio">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(i => {
+                const enr = lookupEnr(i.enrollmentId)
+                return (
+                  <tr key={i.id} className="cuotas-table__row">
+                    <td>
+                      <div className="cuotas-cell">
+                        <div className="cuotas-cell__avatar">
+                          <UserCircle2 size={26} strokeWidth={1.4} />
+                        </div>
+                        <div><div className="cuotas-cell__name">{enr.studentName}</div></div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cuotas-course">
+                        <GraduationCap size={16} strokeWidth={1.6} />
+                        <div className="cuotas-course__name">{enr.courseName}</div>
+                      </div>
+                    </td>
+                    <td className="td-num col-cuota">
+                      {installmentKind(i.number) === 'MATRICULA' ? (
+                        <span className="cuota-tag cuota-tag--matricula">Matrícula</span>
+                      ) : (
+                        <span className="cell-inline"><Hash size={12} strokeWidth={1.8} /> {i.number}</span>
+                      )}
+                    </td>
+                    <td className="td-date col-vencimiento">
+                      <span className="cell-inline">
+                        <Calendar size={13} strokeWidth={1.8} /> {formatDate(i.dueDate)}
+                      </span>
+                    </td>
+                    <td className="td-date col-vencimiento">
+                      <span className="cell-inline">
+                        <BadgeCheck size={13} strokeWidth={1.8} />
+                        {i.paidAt ? formatInstantDate(i.paidAt) : '—'}
+                      </span>
+                    </td>
+                    <td className="col-precio">
+                      <span className="price">
+                        <CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(i.totalDue)}
+                      </span>
                     </td>
                   </tr>
                 )
@@ -794,6 +1038,7 @@ function enrInfoOf(e: Enrollment): EnrInfo {
     studentName: `${e.student.lastName}, ${e.student.firstName}`,
     courseName:  e.course.name,
     courseCode:  e.course.code,
+    courseId:    e.course.id,
   }
 }
 

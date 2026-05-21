@@ -5,6 +5,7 @@ import type {
   StudentCreateRequest,
   StudentUpdateRequest,
 } from '../types/student'
+import { toTitleCase } from '../lib/text'
 import './StudentForm.scss'
 
 type Payload = StudentCreateRequest | StudentUpdateRequest
@@ -68,7 +69,12 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
     if (state.lastName.length    > 100) e.lastName    = 'Máx 100 caracteres'
     if (state.email.length       > 255) e.email       = 'Máx 255 caracteres'
     if (state.phone.length       > 50)  e.phone       = 'Máx 50 caracteres'
-    if (state.dni.length         > 20)  e.dni         = 'Máx 20 caracteres'
+    else if (state.phone.trim() && !/^[\d+\-()\s]+$/.test(state.phone.trim()))
+      e.phone = 'Solo números (puede incluir + - ( ) y espacios)'
+    if (state.dni.trim()) {
+      const dniLen = state.dni.trim().length
+      if (dniLen < 7 || dniLen > 11) e.dni = 'Debe tener entre 7 y 11 caracteres'
+    }
     if (state.nationality.length > 100) e.nationality = 'Máx 100 caracteres'
     if (state.university.length  > 200) e.university  = 'Máx 200 caracteres'
     if (state.locality.length    > 200) e.locality    = 'Máx 200 caracteres'
@@ -82,8 +88,8 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
     setSaving(true); setSubmitError(null)
 
     const payload: Payload = {
-      firstName:   state.firstName.trim(),
-      lastName:    state.lastName.trim(),
+      firstName:   toTitleCase(state.firstName.trim()),
+      lastName:    toTitleCase(state.lastName.trim()),
       email:       state.email.trim(),
       phone:       state.phone.trim()       || null,
       dni:         state.dni.trim()         || null,
@@ -169,9 +175,11 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
             <Field label="DNI" error={errors.dni}>
               <input
                 type="text"
+                inputMode="numeric"
                 value={state.dni}
                 onChange={e => setField('dni', e.target.value)}
-                maxLength={20}
+                maxLength={11}
+                placeholder="7 a 11 dígitos"
               />
             </Field>
 

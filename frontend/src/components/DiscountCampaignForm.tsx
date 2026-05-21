@@ -20,24 +20,24 @@ interface Props {
 }
 
 interface FormState {
-  name:         string
-  description:  string
-  discountType: DiscountType
-  value:        string
-  validFrom:    string
-  validTo:      string
-  active:       boolean
+  name:          string
+  description:   string
+  discountType:  DiscountType
+  discountValue: string
+  startDate:     string
+  endDate:       string
+  active:        boolean
 }
 
 function initialState(c?: DiscountCampaign): FormState {
   return {
-    name:         c?.name         ?? '',
-    description:  c?.description  ?? '',
-    discountType: c?.discountType ?? 'PERCENTAGE',
-    value:        c?.value != null ? String(c.value) : '',
-    validFrom:    c?.validFrom    ?? '',
-    validTo:      c?.validTo      ?? '',
-    active:       c?.active ?? true,
+    name:          c?.name         ?? '',
+    description:   c?.description  ?? '',
+    discountType:  c?.discountType ?? 'PERCENTAGE',
+    discountValue: c?.discountValue != null ? String(c.discountValue) : '',
+    startDate:     c?.startDate    ?? '',
+    endDate:       c?.endDate      ?? '',
+    active:        c?.active ?? true,
   }
 }
 
@@ -57,25 +57,22 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
     if (!state.name.trim())      e.name = 'Obligatorio'
     if (state.name.length > 200) e.name = 'Máx 200 caracteres'
 
-    if (!state.value) {
-      e.value = 'Obligatorio'
+    if (!state.discountValue) {
+      e.discountValue = 'Obligatorio'
     } else {
-      const n = Number(state.value)
+      const n = Number(state.discountValue)
       if (Number.isNaN(n) || n <= 0) {
-        e.value = 'Debe ser un número mayor a 0'
+        e.discountValue = 'Debe ser un número mayor a 0'
       } else if (state.discountType === 'PERCENTAGE' && n > 100) {
-        e.value = 'El porcentaje no puede superar 100'
+        e.discountValue = 'El porcentaje no puede superar 100'
       }
     }
 
-    if (state.validFrom && !/^\d{4}-\d{2}-\d{2}$/.test(state.validFrom)) {
-      e.validFrom = 'Formato YYYY-MM-DD'
-    }
-    if (state.validTo && !/^\d{4}-\d{2}-\d{2}$/.test(state.validTo)) {
-      e.validTo = 'Formato YYYY-MM-DD'
-    }
-    if (state.validFrom && state.validTo && state.validFrom > state.validTo) {
-      e.validTo = 'Debe ser posterior a "Vigente desde"'
+    // Backend exige ambas fechas (@NotNull).
+    if (!state.startDate)      e.startDate = 'Obligatorio'
+    if (!state.endDate)        e.endDate   = 'Obligatorio'
+    if (state.startDate && state.endDate && state.startDate > state.endDate) {
+      e.endDate = 'Debe ser posterior a "Vigente desde"'
     }
 
     setErrors(e)
@@ -88,13 +85,13 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
     setSaving(true); setSubmitError(null)
 
     const payload: Payload = {
-      name:         state.name.trim(),
-      description:  state.description.trim() || null,
-      discountType: state.discountType,
-      value:        Number(state.value),
-      validFrom:    state.validFrom || null,
-      validTo:      state.validTo   || null,
-      active:       state.active,
+      name:          state.name.trim(),
+      description:   state.description.trim() || null,
+      discountType:  state.discountType,
+      discountValue: Number(state.discountValue),
+      startDate:     state.startDate,
+      endDate:       state.endDate,
+      active:        state.active,
     }
 
     try {
@@ -157,31 +154,31 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
               </select>
             </Field>
 
-            <Field label={valueLabel} required error={errors.value}>
+            <Field label={valueLabel} required error={errors.discountValue}>
               <input
                 type="number"
                 min="0"
                 step={state.discountType === 'PERCENTAGE' ? '0.01' : 'any'}
                 max={state.discountType === 'PERCENTAGE' ? '100' : undefined}
-                value={state.value}
-                onChange={e => setField('value', e.target.value)}
+                value={state.discountValue}
+                onChange={e => setField('discountValue', e.target.value)}
                 placeholder={valuePlaceholder}
               />
             </Field>
 
-            <Field label="Vigente desde" error={errors.validFrom}>
+            <Field label="Vigente desde" required error={errors.startDate}>
               <input
                 type="date"
-                value={state.validFrom}
-                onChange={e => setField('validFrom', e.target.value)}
+                value={state.startDate}
+                onChange={e => setField('startDate', e.target.value)}
               />
             </Field>
 
-            <Field label="Vigente hasta" error={errors.validTo}>
+            <Field label="Vigente hasta" required error={errors.endDate}>
               <input
                 type="date"
-                value={state.validTo}
-                onChange={e => setField('validTo', e.target.value)}
+                value={state.endDate}
+                onChange={e => setField('endDate', e.target.value)}
               />
             </Field>
 

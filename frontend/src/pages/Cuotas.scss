@@ -85,6 +85,13 @@
     gap: 0.4rem;
   }
 
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.7rem;
+  }
+
   &__table-wrap {
     background: $blanco;
     border: 1px solid $gris-borde-sutil;
@@ -98,6 +105,63 @@
     text-align: center;
     color: $gris-texto;
     font-size: 0.9rem;
+  }
+}
+
+// ─── Filtros (fecha / curso) ───────────────────────────────────────────────────
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 150px;
+
+  &--grow { flex: 1; min-width: 200px; }
+
+  label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $gris-texto;
+  }
+
+  input,
+  select {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    font-size: 0.88rem;
+    color: $texto-oscuro;
+    font-family: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: $verde-petroleo;
+      box-shadow: 0 0 0 3px $verde-petroleo-suave;
+    }
+  }
+}
+
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 38px;
+  padding: 0 0.85rem;
+  background: transparent;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  color: $texto-medio;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transicion, border-color $transicion, color $transicion;
+
+  &:hover {
+    background: $rojo-bg;
+    border-color: $rojo;
+    color: $rojo;
   }
 }
 
@@ -374,6 +438,12 @@
     &--primary {
       background: $verde-petroleo-suave;
       color: $verde-petroleo;
+    }
+
+    &--danger:hover {
+      background: $rojo-bg;
+      color: $rojo;
+      border-color: $rojo-bg;
     }
   }
 }

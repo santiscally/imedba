@@ -5,6 +5,7 @@ import {
   UserCircle2, GraduationCap, Eye, Pencil, Tag,
 } from 'lucide-react'
 import { enrollmentsApi } from '../api/enrollments'
+import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import type { PageResponse } from '../types/common'
 import type {
   Enrollment,
@@ -50,25 +51,31 @@ export default function Inscripciones() {
 
   const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
 
+  const { unidad } = useUnidad()
+  const unidadBu = unidadBusinessUnit(unidad)
+
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
+
+  useEffect(() => { setPage(0) }, [unidad])
 
   useEffect(() => {
     setLoading(true); setError(null)
     // `q` se manda al mock (lo filtra server-side) y al backend real (lo ignora).
     // Para cuando conecte al backend, agregar filtro client-side ver `filtered`.
     enrollmentsApi.list({
-      q:      debounced || undefined,
-      status: status === 'TODAS' ? undefined : status,
+      q:            debounced || undefined,
+      status:       status === 'TODAS' ? undefined : status,
+      businessUnit: unidadBu,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, status, page, sort, reload])
+  }, [debounced, status, unidadBu, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0

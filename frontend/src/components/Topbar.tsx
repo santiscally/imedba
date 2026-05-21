@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, LogOut, Settings, UserCircle } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, Settings, UserCircle, Building2 } from 'lucide-react'
+import { useUnidad, UNIDAD_LABELS, type Unidad } from '../lib/unidad'
 import './Topbar.scss'
 
 const TITLES: Record<string, string> = {
@@ -29,6 +30,7 @@ export default function Topbar() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const title = TITLES[location.pathname] ?? 'IMEDBA'
+  const { unidad, setUnidad } = useUnidad()
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -49,6 +51,20 @@ export default function Topbar() {
       </div>
 
       <div className="topbar__right">
+
+        <label className="topbar__unidad" title="Unidad de negocio (Residencias / Formación Superior)">
+          <Building2 size={16} strokeWidth={2} />
+          <select
+            className="topbar__unidad-select"
+            value={unidad}
+            onChange={e => setUnidad(e.target.value as Unidad)}
+            aria-label="Unidad de negocio"
+          >
+            {(Object.keys(UNIDAD_LABELS) as Unidad[]).map(u => (
+              <option key={u} value={u}>{UNIDAD_LABELS[u]}</option>
+            ))}
+          </select>
+        </label>
 
         <button className="topbar__icon-btn" aria-label="Notificaciones">
           <Bell size={18} strokeWidth={2} />

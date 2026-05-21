@@ -1,10 +1,11 @@
 import {
-  X, Pencil, GraduationCap, Tag, Layers, Building2,
+  X, Pencil, GraduationCap, Tag, Layers, Building2, Globe,
   CalendarDays, CircleDollarSign, Hash, Calendar, FileText, Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Course } from '../types/course'
 import { BUSINESS_UNIT_LABELS } from '../types/course'
+import { countryLabel } from '../types/country'
 import { CourseStudentsList } from './CourseStudents'
 import './StudentDetail.scss'
 
@@ -54,6 +55,7 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               <Row icon={Tag}         label="Código"            value={course.code} mono />
               <Row icon={Layers}      label="Modalidad"         value={course.modality} />
               <Row icon={Building2}   label="Unidad de negocio" value={BUSINESS_UNIT_LABELS[course.businessUnit]} />
+              <Row icon={Globe}       label="País"              value={countryLabel(course.country)} />
               <Row icon={CalendarDays} label="Fecha de examen"  value={formatLocalDate(course.examDate)} />
             </dl>
           </section>

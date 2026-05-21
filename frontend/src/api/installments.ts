@@ -8,6 +8,7 @@ export interface ListInstallmentsParams {
   q?:            string                  // mock-only: filtra por alumno/curso
   enrollmentId?: string
   studentId?:    string
+  courseId?:     string                  // mock-only hasta que el backend lo soporte
   status?:       InstallmentStatus
   dueFrom?:      string                  // YYYY-MM-DD
   dueTo?:        string                  // YYYY-MM-DD
@@ -21,6 +22,7 @@ function buildQuery(params: ListInstallmentsParams): string {
   if (params.q)                  qp.set('q',            params.q)
   if (params.enrollmentId)       qp.set('enrollmentId', params.enrollmentId)
   if (params.studentId)          qp.set('studentId',    params.studentId)
+  if (params.courseId)           qp.set('courseId',     params.courseId)
   if (params.status)             qp.set('status',       params.status)
   if (params.dueFrom)            qp.set('dueFrom',      params.dueFrom)
   if (params.dueTo)              qp.set('dueTo',        params.dueTo)

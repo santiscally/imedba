@@ -9,11 +9,12 @@ import { apiGet, apiPost, apiPut, apiDelete } from './client'
 // Servicio de alumnos — refleja StudentController del backend (/api/v1/students).
 
 export interface ListStudentsParams {
-  q?:      string
-  page?:   number
-  size?:   number
-  sort?:   string       // ej: "lastName,asc"
-  active?: boolean
+  q?:            string
+  page?:         number
+  size?:         number
+  sort?:         string       // ej: "lastName,asc"
+  active?:       boolean
+  businessUnit?: string       // mock-only hasta que el backend segmente students (Fase 9 server-side)
 }
 
 function buildQuery(params: ListStudentsParams): string {
@@ -23,6 +24,7 @@ function buildQuery(params: ListStudentsParams): string {
   if (params.size !== undefined) qp.set('size', String(params.size))
   if (params.sort)           qp.set('sort', params.sort)
   if (params.active !== undefined) qp.set('active', String(params.active))
+  if (params.businessUnit)   qp.set('businessUnit', params.businessUnit)
   const s = qp.toString()
   return s ? `?${s}` : ''
 }

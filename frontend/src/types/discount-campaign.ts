@@ -10,29 +10,31 @@ export const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
   FIXED:      'Monto fijo',
 }
 
-// Refleja com.imedba.modules.discount.dto.DiscountCampaignResponse
+// Refleja com.imedba.modules.discount_campaign.dto.DiscountCampaignResponse
+// ⚠️ Los nombres son los del backend: discountValue / startDate / endDate.
 export interface DiscountCampaign {
-  id:           UUID
-  name:         string
-  description:  string | null
-  discountType: DiscountType
-  value:        number          // ≤100 si PERCENTAGE
-  validFrom:    string | null   // LocalDate (YYYY-MM-DD)
-  validTo:      string | null
-  active:       boolean
-  createdAt:    Instant
-  updatedAt:    Instant
+  id:            UUID
+  name:          string
+  description:   string | null
+  discountType:  DiscountType
+  discountValue: number          // ≤100 si PERCENTAGE
+  startDate:     string          // LocalDate (YYYY-MM-DD) — requerido en backend
+  endDate:       string          // LocalDate (YYYY-MM-DD) — requerido en backend
+  active:        boolean
+  createdAt:     Instant
+  updatedAt:     Instant
 }
 
-// Refleja DiscountCampaignCreateRequest
+// Refleja DiscountCampaignCreateRequest. startDate/endDate son @NotNull en el
+// backend, por eso van obligatorios (NO opcionales).
 export interface DiscountCampaignCreateRequest {
-  name:         string                  // required, max 200
-  description?: string | null
-  discountType: DiscountType            // required
-  value:        number                  // required, > 0; ≤100 si PERCENTAGE
-  validFrom?:   string | null
-  validTo?:     string | null
-  active?:      boolean
+  name:          string                  // required, max 200
+  description?:  string | null
+  discountType:  DiscountType            // required
+  discountValue: number                  // required, ≥ 0; ≤100 si PERCENTAGE
+  startDate:     string                  // required, YYYY-MM-DD
+  endDate:       string                  // required, YYYY-MM-DD
+  active?:       boolean
 }
 
 // Update idéntico a Create

@@ -10,24 +10,26 @@ import { apiGet, apiPost, apiPut, apiDelete } from './client'
 // Servicio de inscripciones — refleja EnrollmentController (/api/v1/enrollments).
 
 export interface ListEnrollmentsParams {
-  q?:         string              // No soportado por backend — lo usa el mock y es ignorado por Spring
-  studentId?: string
-  courseId?:  string
-  status?:    EnrollmentStatus
-  page?:      number
-  size?:      number
-  sort?:      string   // ej: "enrollmentDate,desc"
+  q?:            string              // No soportado por backend — lo usa el mock y es ignorado por Spring
+  studentId?:    string
+  courseId?:     string
+  status?:       EnrollmentStatus
+  businessUnit?: string              // mock-only hasta que el backend segmente enrollments (Fase 9 server-side)
+  page?:         number
+  size?:         number
+  sort?:         string   // ej: "enrollmentDate,desc"
 }
 
 function buildQuery(params: ListEnrollmentsParams): string {
   const qp = new URLSearchParams()
-  if (params.q)                  qp.set('q',         params.q)
-  if (params.studentId)          qp.set('studentId', params.studentId)
-  if (params.courseId)           qp.set('courseId',  params.courseId)
-  if (params.status)             qp.set('status',    params.status)
-  if (params.page !== undefined) qp.set('page',      String(params.page))
-  if (params.size !== undefined) qp.set('size',      String(params.size))
-  if (params.sort)               qp.set('sort',      params.sort)
+  if (params.q)                  qp.set('q',            params.q)
+  if (params.studentId)          qp.set('studentId',    params.studentId)
+  if (params.courseId)           qp.set('courseId',     params.courseId)
+  if (params.status)             qp.set('status',       params.status)
+  if (params.businessUnit)       qp.set('businessUnit', params.businessUnit)
+  if (params.page !== undefined) qp.set('page',         String(params.page))
+  if (params.size !== undefined) qp.set('size',         String(params.size))
+  if (params.sort)               qp.set('sort',         params.sort)
   const s = qp.toString()
   return s ? `?${s}` : ''
 }

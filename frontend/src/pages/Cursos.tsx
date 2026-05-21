@@ -9,6 +9,7 @@ import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
 import type { Course, BusinessUnit, CourseCreateRequest } from '../types/course'
 import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS } from '../types/course'
+import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
 import CourseDetail from '../components/CourseDetail'
@@ -44,23 +45,31 @@ export default function Cursos() {
 
   const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
 
+  const { unidad } = useUnidad()
+  const unidadBu = unidadBusinessUnit(unidad)
+  // Con una unidad seleccionada, el filtro de chips queda fijado a esa unidad.
+  const effectiveBu = unidadBu ?? (bu === 'TODAS' ? undefined : bu)
+
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
 
+  // Al cambiar la unidad global, volver a la primera página.
+  useEffect(() => { setPage(0) }, [unidad])
+
   useEffect(() => {
     setLoading(true); setError(null)
     coursesApi.list({
       q:             debounced || undefined,
-      businessUnit:  bu === 'TODAS' ? undefined : bu,
+      businessUnit:  effectiveBu,
       page,
       size:          PAGE_SIZE,
       sort:          sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, bu, page, sort, reload])
+  }, [debounced, effectiveBu, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -117,20 +126,23 @@ export default function Cursos() {
           />
         </div>
 
-        <div className="cursos__chips" role="tablist" aria-label="Unidad de negocio">
-          {buOptions.map(opt => (
-            <button
-              key={opt}
-              type="button"
-              className={`chip ${bu === opt ? 'chip--active' : ''}`}
-              onClick={() => { setBu(opt); setPage(0) }}
-              role="tab"
-              aria-selected={bu === opt}
-            >
-              {opt === 'TODAS' ? 'Todas' : BUSINESS_UNIT_LABELS[opt]}
-            </button>
-          ))}
-        </div>
+        {/* Con unidad global seleccionada, el filtro queda fijado a esa unidad. */}
+        {!unidadBu && (
+          <div className="cursos__chips" role="tablist" aria-label="Unidad de negocio">
+            {buOptions.map(opt => (
+              <button
+                key={opt}
+                type="button"
+                className={`chip ${bu === opt ? 'chip--active' : ''}`}
+                onClick={() => { setBu(opt); setPage(0) }}
+                role="tab"
+                aria-selected={bu === opt}
+              >
+                {opt === 'TODAS' ? 'Todas' : BUSINESS_UNIT_LABELS[opt]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="cursos__table-wrap">

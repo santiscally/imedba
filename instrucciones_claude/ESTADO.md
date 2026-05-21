@@ -131,12 +131,16 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
   - Sidebar tiene footer con nombre + email del usuario logueado y botón "Cerrar sesión" que dispara `logout()`.
   - `currentUser()`, `hasRole(role)`, `hasAuthority(authority)` exportados de `lib/auth.ts` para guards futuros (cuando implementemos las authorities granulares de Fase 9).
 - **Alumnos** completo (CRUD + form + detail + toggle activo).
-- **Cursos** completo (CRUD + CourseForm sin límite máximo de precio + CourseDetail). **Alumnos del curso**: botón 👥 en cada fila abre modal `CourseStudents` con la lista de inscriptos (nombre/email/fecha/estado); misma lista embebida como sección dentro de `CourseDetail`. Ordeno por apellido client-side (evito `sort=studentLastName`, que Spring rechaza por propiedad anidada).
+- **Cursos** completo (CRUD + CourseForm + CourseDetail). **Alumnos del curso**: botón 👥 en cada fila abre modal `CourseStudents`; misma lista embebida en `CourseDetail`. Ordeno por apellido client-side. **Fase 9.a (2026-05-21):** enum `BusinessUnit` alineado a `{RESIDENCIAS, EDITORIAL, FORMACION_SUPERIOR, GENERAL}` (sin PREMATUROS/OTROS); campo **`country`** (select Sudamérica + "Otro", catálogo reutilizable en `types/country.ts`).
+- **Segmentación Residencias ↔ Formación Superior (Fase 9.a, 2026-05-21):** selector global de **Unidad** en el `Topbar` (`lib/unidad.tsx`, context persistido en localStorage). Filtra **Cursos** server-side (`businessUnit`, real) y manda `businessUnit` a **Alumnos**/**Inscripciones** (hoy solo filtra en mock — espera que Santi extienda `SegmentationFilter` server-side). Se eligió selector global en vez de dos grupos en el sidebar. **No hecho (sin backend):** `PENDING_APPROVAL`/aprobación, comisiones, abonos.
 - **Inscripciones** completo (CRUD + EnrollmentForm + EnrollmentDetail; alta dispara generación de cronograma de cuotas server-side, el SPA consulta).
-- **Cuotas y Pagos** (`/cuotas`) — página única con dos tabs (Cuotas con filtro por estado + acciones por fila + Pagos con create). Anchos de columna explícitos y wrapper `.cell-inline`. Tipos alineados al DTO **plano** del backend (solo `enrollmentId`; alumno/curso se resuelven con un mapa de enrollments client-side).
+- **Cuotas y Pagos** (`/cuotas`) — página única con TRES tabs (Cuotas / Pagos / Histórico). Tipos alineados al DTO **plano** del backend (solo `enrollmentId`; alumno/curso se resuelven con un mapa de enrollments client-side).
   - **Pago múltiple:** checkbox por cuota pagable; al seleccionar se bloquea a una sola inscripción; barra flotante con total → `PaymentForm` modo batch que crea **un pago por cuota** (loop, un recibo c/u). El back no tiene endpoint batch y está bien así.
   - **Matrícula = cuota 0:** `installmentKind()`/`installmentLabel()` en `types/installment.ts`; `number=0` se muestra como tag "Matrícula" (confirmado contra `InstallmentGenerator`).
-  - **Filtros opcionales** alumno/curso en `PaymentForm` para acotar el dropdown de cuotas.
+  - **Filtros** (comunes a los 3 tabs): fecha desde/hasta + curso. Pagos manda `from`/`to` (Instant) y Cuotas/Histórico `dueFrom`/`dueTo` (LocalDate). El filtro por **curso** (`courseId`) hoy **solo funciona en mock** — el backend aún no acepta ese param (pedido en DIARIO).
+  - **Deshacer pago:** ícono Undo en Pagos → confirm SweetAlert → `paymentsApi.remove(id)` (`DELETE /payments/{id}`). El mock revierte la cuota a impaga. ⚠️ **Requiere endpoint backend** (hoy no existe; pedido a Santi en DIARIO) — contra el back real falla hasta entonces.
+  - **Histórico:** tab de cuotas con `status=PAID`, ordenadas por vencimiento desc, con fecha de pago.
+  - **Filtros opcionales** alumno/curso también en `PaymentForm` para acotar el dropdown de cuotas.
 - **Contactos** (`/contactos`) — CRUD con validación condicional:
   - Listado paginado con buscador (firstName/lastName/companyName/email/role), chips Todos/Empleado/Proveedor + Todos/Activos/Inactivos, sort 3-estados en Nombre/Tipo/Email/Estado.
   - Columna "Nombre" muestra avatar verde + apellido,nombre para EMPLEADO o avatar azul + razón social para PROVEEDOR. Sub-línea con dato secundario (companyName en empleados, persona física en proveedores).
@@ -173,13 +177,18 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 - **Descuentos** (`/descuentos`) — CRUD completo de campañas:
   - Listado con buscador (nombre + descripción), chips Todas/Activas/Inactivas, sort 3-estados en Nombre/Tipo/Valor/VigenciaDesde/VigenciaHasta/Estado.
   - Columnas: Nombre (con descripción truncada 2 líneas), Tipo (pill PERCENTAGE/FIXED), Valor (formato según tipo: `15%` o `$50.000`), Vigencia desde/hasta (con "Sin inicio/fin" si null), Estado, Acciones.
-  - `DiscountCampaignForm`: validación según tipo — PERCENTAGE máx 100, FIXED libre. `validTo > validFrom` cuando ambos cargados. Ambos opcionales (campañas perpetuas).
+  - **DTO alineado al backend** (fix del 400, 2026-05-21): campos `discountValue` / `startDate` / `endDate` (antes el SPA usaba `value`/`validFrom`/`validTo` → 400). `startDate`+`endDate` son **obligatorios** (back `@NotNull`); ya no se pueden crear campañas perpetuas desde el SPA.
+  - `DiscountCampaignForm`: validación según tipo — PERCENTAGE máx 100, FIXED libre. `endDate > startDate`.
   - `DiscountCampaignDetail`: secciones Descuento / Vigencia / Sistema / Descripción.
-  - Mock: 7 campañas seed (matrícula 10% transferencia, becas residentes 15%, pronto pago noviembre $30k expirada, plus 2027 early bird 20%, convenio Hospital Italiano $50k, recompra ex-alumnos 12% perpetua, black friday 25% inactiva).
+  - Mock: 7 campañas seed alineadas al nuevo DTO.
+- **Infra compartida nueva (2026-05-21):** `lib/text.ts` (`toTitleCase`, usado en `StudentForm` para capitalizar nombre/apellido al guardar) y `lib/confirm.ts` (wrapper SweetAlert2: `confirmAction`/`alertError`/`toastSuccess`, línea verde petróleo). SweetAlert2 ya usado en Liquidaciones y en "deshacer pago"; reutilizable para reemplazar `window.confirm` en el resto de los módulos.
 - Capa mock (`src/api/mock/handlers.ts`) sigue activa con `VITE_USE_MOCK=true`.
 
 **Próximo paso:**
-- **Módulo 9 — Editorial trio** (`/autores`, `/libros`, `/ventas`). Endpoints `/api/v1/authors`, `/api/v1/books` (con filtro `specialty`/`branch`/`active` y stock con badge rojo si =0), `/api/v1/book-sales` (append-only). Sub-tab "Autores de un libro" con `POST/DELETE /books/{id}/authors`. Royalties: `GET /book-sales/royalties/by-period?year=&month=`. Descuento alumnos: `applyStudentDiscount=true` aplica 30% off si `studentId` presente.
+- 👉 **ACORDADO CON FRAN (2026-05-21): el próximo módulo es Editorial (Opción A).** Cuando arranque la sesión y Fran diga "dale", construir el trío Editorial siguiendo el patrón canónico + `frontend/ROADMAP.md` §9. Detalle abajo.
+- **Módulo 9 — Editorial trio** (`/autores`, `/libros`, `/ventas`). Endpoints `/api/v1/authors`, `/api/v1/books` (con filtro `specialty`/`branch`/`active` y stock con badge rojo si =0), `/api/v1/book-sales` (append-only). Sub-tab "Autores de un libro" con `POST/DELETE /books/{id}/authors`. Royalties: `GET /book-sales/royalties/by-period?year=&month=`. Descuento alumnos: `applyStudentDiscount=true` aplica 30% off si `studentId` presente. **Antes de codear: leer los DTOs reales en Swagger/backend y espejar types 1:1 (como hicimos con cuotas/descuentos para no comerse 400s).** Reutilizar `lib/confirm.ts` (SweetAlert) para confirmaciones y `lib/text.ts` si hay nombres de autor.
+- Pendientes futuros: sub-vista "Inscriptos a la diplomatura X" desde detalle Diplomaturas; soporte para tildar "pagada" por socia en liquidación si el backend lo agrega; integrar `breakdown` en Presupuesto (hoy lo expone el endpoint pero el SPA aún no lo grafica).
+- Después en orden: Personal+Horas, Notificaciones. Y las **correcciones del review de Santi (2026-05-20)** + las partes de Fase 9 sin backend (aprobación/comisiones/abonos) cuando estén los endpoints.
 - Pendientes futuros: sub-vista "Inscriptos a la diplomatura X" desde detalle Diplomaturas; soporte para tildar "pagada" por socia en liquidación si el backend lo agrega; integrar `breakdown` en Presupuesto (hoy lo expone el endpoint pero el SPA aún no lo grafica).
 - Después en orden: Personal+Horas, Notificaciones.
 
@@ -194,7 +203,7 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 - Sección `Diplomas` eliminada del Sidebar del SPA. Ruta `/diplomas` ya no existe en el front — si alguien la linkea desde email/notificación, redirigir a `/diplomaturas`. Endpoints backend intactos.
 - Los mocks siguen esperando `200` en GET vacío (no 204) para no romper `.json()`.
 - `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting). Ídem `Installment.dueDate` y `Payment.paymentDate`.
-- `BusinessUnit` tipado como `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'` — avisame si agregás un valor al enum backend.
+- `BusinessUnit` ya alineado a `'RESIDENCIAS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'GENERAL'` (saqué PREMATUROS/OTROS, post-V015). Campo `country` (ISO-2) mapeado en `Course`. **Pendiente tuyo:** el SPA ya manda `businessUnit` en `GET /students` y `GET /enrollments` para el selector global de unidad — hoy lo ignorás; cuando extiendas el `SegmentationFilter` server-side a esos módulos, el filtro "se prende" solo (mismo patrón que `courseId` en installments/payments).
 - **`BudgetBusinessUnit` ≠ `BusinessUnit`:** el módulo budget usa el enum `'… | GENERAL'` en lugar de `'… | OTROS'`. Mantengo dos tipos separados en `types/budget.ts` y `types/course.ts`. Si en algún momento se unifican backend-side, avisar para colapsar acá también.
 - `PaymentMethod` espejado: `TRANSFERENCIA | EFECTIVO | TARJETA_CREDITO | TARJETA_DEBITO | MERCADO_PAGO | DEBITO_AUTOMATICO | OTRO`.
 - `InstallmentStatus`: `PENDING | PAID | OVERDUE` (alineado al enum real del backend; saqué `SUSPENDED`). `Installment`/`Payment` son DTOs **planos** (solo `enrollmentId`, sin objeto enrollment embebido). `Installment.number=0` ⇒ matrícula.
