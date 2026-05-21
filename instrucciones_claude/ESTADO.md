@@ -45,6 +45,16 @@
 **Bloqueado por el otro:** nada.
 
 **Notas para Fran:**
+- **🔥 PRIORIDAD 2026-05-20 — Fase 9 ANTES que Editorial.** Editorial puede esperar. Lo que IMEDBA pidió en la reunión 2026-04-24 sigue sin arrancar y es lo que mueve la aguja con el cliente para la próxima reunión. Orden sugerido para próximo sprint:
+  1. Sacar `PREMATUROS` y `OTROS` del tipo TS `BusinessUnit` (back ya migró el 2026-05-13). Hoy el enum back es `RESIDENCIAS | EDITORIAL | FORMACION_SUPERIOR | GENERAL`. Cualquier chip/filtro con PREMATUROS hay que removerlo.
+  2. Guards `hasRole()` / `hasAuthority()` en Sidebar y rutas. Los helpers ya están exportados en `auth.ts` y el JWT trae las authorities correctas desde el 2026-05-13.
+  3. Menú reorganizado: "Académico Residencias Médicas" y "Académico Formación Superior" como entradas separadas, visibilidad gateada por authority (`residencias:read` / `formacion_superior:read`).
+  4. Filtro `country` en Cursos de Residencias (campo ya en `CourseResponse`, default `'AR'`).
+  5. Vista "Pendientes de aprobación" para socios (estados `PENDING_APPROVAL` en inscripciones — Fase 9.b, va a llegar del back).
+  6. Selector de comisión al inscribir a diplomatura (Fase 9.c, endpoint `/api/v1/commissions` lo armo después).
+  Recién después de eso: Editorial trio (Autores/Libros/Ventas), Personal+Horas, Notificaciones.
+- **🌐 Prod va a usar puerto 80 (no 5173).** Cuando se haga el deploy a Don Web hay que actualizar en Keycloak el client `imedba-frontend`: *Valid Redirect URIs* `https://<dominio-prod>/*` y *Web Origins* `https://<dominio-prod>`. Backend: `APP_CORS_ALLOWED_ORIGINS=https://<dominio-prod>` en `.env` de prod. Tenelo en cuenta antes del deploy — hoy en dev está correcto con `:5173`.
+- **ℹ️ `InstallmentStatus.SUSPENDED` no existe en el backend** (lo verifiqué 2026-05-20). Tu enum TS está bien con `PENDING | PAID | OVERDUE`. La feature de suspensión por mora **sí está implementada**, pero vive en `Enrollment.moodleStatus` (no en `Installment.status`): el `InstallmentScheduler` a las 06:10 marca `enrollment.moodleStatus = "SUSPENDED"` cuando hay cuotas vencidas hace ≥22 días. La cuota sigue como `OVERDUE`. Si querés mostrar un badge "Suspendido en Moodle" en la vista de inscripciones, el dato a leer es `enrollment.moodleStatus`, no el estado de la cuota.
 - **🐛 Bug auth descubierto 2026-05-20** (ver DIARIO): entrando directo a ruta protegida (ej. `/dashboard`) sin sesión, `RequireAuth.tsx:21` llama a `login()` (PKCE redirect) en vez de mandar al `/` interno. El form ROPC propio queda eludido. **Fix sugerido:** reemplazar el `useEffect` + `void login(loc.pathname + loc.search)` por `<Navigate to="/" replace state={{ from: loc }}/>`. Es un remanente del flow viejo que quedó después del pivote a ROPC del 2026-05-12.
 - **⚠️ Reunión IMEDBA 2026-04-24 — LEER ANTES DE SEGUIR TOCANDO EL SPA.** Resumen completo en `instrucciones_claude/07-requerimientos-reunion-20260424.md` y plan de Fase 9 en `04-plan-de-fases.md`. Puntos que te tocan directo:
   1. **Menú se reorganiza**: en vez de "Académico" solo, van a ser DOS entradas "Académico Residencias Médicas" y "Académico Formación Superior". IMEDBA tiene dos equipos separados que no deben verse entre sí — esto no es opcional.

@@ -31,6 +31,13 @@ public class EnrollmentController {
 
     private final EnrollmentService service;
 
+    // NOTA latencia (frontend "Alumnos del curso"): Spring Data rechaza sort=studentLastName
+    // porque es propiedad anidada (enrollment.student.lastName). Hoy el front trae todo
+    // y ordena client-side — funciona porque las páginas son chicas. Si en el futuro un
+    // curso tiene cientos/miles de inscriptos y se hace lento, la solución es server-side:
+    //   1) Cambiar el repo a @Query("... LEFT JOIN FETCH e.student s ...") con ORDER BY s.lastName.
+    //   2) Whitelist de sorts permitidos en este controller (rechazar sort=foo arbitrario)
+    //      y mapear "studentLastName" -> Sort.by("student.lastName") explícitamente.
     @GetMapping
     @PreAuthorize("hasAuthority('enrollments:read')")
     public PageResponse<EnrollmentResponse> list(
