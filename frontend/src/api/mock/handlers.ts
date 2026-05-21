@@ -146,6 +146,22 @@ function matchCourse(c: Course, q: string): boolean {
   )
 }
 
+// Resuelve nombre del enrollment para buscar/filtrar cuotas y pagos (forma plana).
+function enrStudentId(enrollmentId: string): string | null {
+  return enrollmentsStore.find(e => e.id === enrollmentId)?.student.id ?? null
+}
+
+function enrMatches(enrollmentId: string, needle: string): boolean {
+  const e = enrollmentsStore.find(en => en.id === enrollmentId)
+  if (!e) return false
+  return (
+    e.student.lastName.toLowerCase().includes(needle) ||
+    e.student.firstName.toLowerCase().includes(needle) ||
+    e.course.name.toLowerCase().includes(needle) ||
+    (e.course.code?.toLowerCase().includes(needle) ?? false)
+  )
+}
+
 function matchEnrollment(en: Enrollment, q: string): boolean {
   const needle = q.toLowerCase()
   return (
@@ -314,26 +330,19 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     let items = installmentsStore
     if (q) {
       const needle = q.toLowerCase()
-      items = items.filter(i =>
-        i.enrollment.studentLastName.toLowerCase().includes(needle) ||
-        i.enrollment.studentFirstName.toLowerCase().includes(needle) ||
-        i.enrollment.courseName.toLowerCase().includes(needle) ||
-        (i.enrollment.courseCode?.toLowerCase().includes(needle) ?? false)
-      )
+      items = items.filter(i => enrMatches(i.enrollmentId, needle))
     }
-    if (enrollmentId) items = items.filter(i => i.enrollment.id        === enrollmentId)
-    if (studentId)    items = items.filter(i => i.enrollment.studentId === studentId)
+    if (enrollmentId) items = items.filter(i => i.enrollmentId === enrollmentId)
+    if (studentId)    items = items.filter(i => enrStudentId(i.enrollmentId) === studentId)
     if (status)       items = items.filter(i => i.status === status as InstallmentStatus)
     if (dueFrom)      items = items.filter(i => i.dueDate >= dueFrom)
     if (dueTo)        items = items.filter(i => i.dueDate <= dueTo)
 
     items = applySort(items, sort, {
-      dueDate:         (i: Installment) => i.dueDate,
-      number:          (i: Installment) => i.number,
-      totalDue:        (i: Installment) => i.totalDue,
-      status:          (i: Installment) => i.status,
-      studentLastName: (i: Installment) => i.enrollment.studentLastName,
-      courseName:      (i: Installment) => i.enrollment.courseName,
+      dueDate:  (i: Installment) => i.dueDate,
+      number:   (i: Installment) => i.number,
+      totalDue: (i: Installment) => i.totalDue,
+      status:   (i: Installment) => i.status,
     })
 
     return delay(buildPage(items, page, size) as unknown as T)
@@ -342,7 +351,7 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
   const installmentByEnrollment = pathname.match(/^\/installments\/by-enrollment\/([a-f0-9-]+)$/i)
   if (installmentByEnrollment && method === 'GET') {
     const enrId = installmentByEnrollment[1]
-    const items = installmentsStore.filter(i => i.enrollment.id === enrId)
+    const items = installmentsStore.filter(i => i.enrollmentId === enrId)
     items.sort((a, b) => a.number - b.number)
     return delay(items as unknown as T)
   }
@@ -363,9 +372,9 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     const cur = installmentsStore[idx]
     const updated: Installment = {
       ...cur,
-      surcharge: 0,
-      totalDue:  cur.baseAmount,
-      updatedAt: new Date().toISOString(),
+      surchargeAmount: 0,
+      totalDue:        cur.amount,
+      updatedAt:       new Date().toISOString(),
     }
     installmentsStore[idx] = updated
     return delay(updated as unknown as T)
@@ -388,25 +397,21 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
       if (q) {
         const needle = q.toLowerCase()
         items = items.filter(p =>
-          p.enrollment.studentLastName.toLowerCase().includes(needle) ||
-          p.enrollment.studentFirstName.toLowerCase().includes(needle) ||
-          p.enrollment.courseName.toLowerCase().includes(needle) ||
-          p.receiptNumber.toLowerCase().includes(needle)
+          enrMatches(p.enrollmentId, needle) ||
+          (p.receiptNumber?.toLowerCase().includes(needle) ?? false)
         )
       }
-      if (enrollmentId)  items = items.filter(p => p.enrollment.id        === enrollmentId)
-      if (studentId)     items = items.filter(p => p.enrollment.studentId === studentId)
+      if (enrollmentId)  items = items.filter(p => p.enrollmentId === enrollmentId)
+      if (studentId)     items = items.filter(p => enrStudentId(p.enrollmentId) === studentId)
       if (paymentMethod) items = items.filter(p => p.paymentMethod === paymentMethod)
       if (dateFrom)      items = items.filter(p => p.paymentDate >= dateFrom)
       if (dateTo)        items = items.filter(p => p.paymentDate <= dateTo)
 
       items = applySort(items, sort, {
-        paymentDate:     (p: Payment) => p.paymentDate,
-        amount:          (p: Payment) => p.amount,
-        paymentMethod:   (p: Payment) => p.paymentMethod,
-        studentLastName: (p: Payment) => p.enrollment.studentLastName,
-        courseName:      (p: Payment) => p.enrollment.courseName,
-        receiptNumber:   (p: Payment) => p.receiptNumber,
+        paymentDate:   (p: Payment) => p.paymentDate,
+        amount:        (p: Payment) => p.amount,
+        paymentMethod: (p: Payment) => p.paymentMethod,
+        receiptNumber: (p: Payment) => p.receiptNumber,
       })
 
       return delay(buildPage(items, page, size) as unknown as T)
@@ -855,34 +860,27 @@ function createPayment(data: PaymentCreateRequest): Payment {
   if (data.installmentId) {
     installmentRef = installmentsStore.find(i => i.id === data.installmentId) ?? null
     if (!installmentRef) throw new Error('Cuota inexistente')
-    enrollmentId = installmentRef.enrollment.id
+    enrollmentId = installmentRef.enrollmentId
   }
 
   if (!enrollmentId) throw new Error('Debe especificarse installmentId o enrollmentId')
 
-  const enr = enrollmentsStore.find(e => e.id === enrollmentId)
-  if (!enr) throw new Error('Inscripción inexistente')
-
-  const today       = new Date().toISOString().slice(0, 10)
-  const paymentDate = data.paymentDate ?? today
+  const nowIso      = new Date().toISOString()
+  const paymentDate = data.paymentDate ?? nowIso
   const created: Payment = {
-    id: crypto.randomUUID(),
-    enrollment: {
-      id:               enr.id,
-      studentId:        enr.student.id,
-      studentFirstName: enr.student.firstName,
-      studentLastName:  enr.student.lastName,
-      courseId:         enr.course.id,
-      courseName:       enr.course.name,
-    },
-    installmentId:     installmentRef?.id     ?? null,
-    installmentNumber: installmentRef?.number ?? null,
-    receiptNumber:     nextReceipt(paymentDate),
-    paymentMethod:     data.paymentMethod,
-    amount:            data.amount,
+    id:               crypto.randomUUID(),
+    installmentId:    installmentRef?.id ?? null,
+    enrollmentId,
+    amount:           data.amount,
+    paymentMethod:    data.paymentMethod,
     paymentDate,
-    notes:             data.notes ?? null,
-    createdAt:         new Date().toISOString(),
+    referenceNumber:  data.referenceNumber ?? null,
+    receiptNumber:    nextReceipt(paymentDate.slice(0, 10)),
+    receiptFilePath:  data.receiptFilePath ?? null,
+    receiptSentAt:    null,
+    notes:            data.notes ?? null,
+    registeredBy:     null,
+    createdAt:        nowIso,
   }
   paymentsStore = [created, ...paymentsStore]
 

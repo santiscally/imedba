@@ -7,12 +7,15 @@ import type { Payment } from '../types/payment'
 import { PAYMENT_METHOD_LABELS } from '../types/enrollment'
 import './StudentDetail.scss'
 
+interface EnrInfo { studentName: string; courseName: string; courseCode: string | null }
+
 interface Props {
   payment: Payment
+  enrInfo: EnrInfo
   onClose: () => void
 }
 
-export default function PaymentDetail({ payment, onClose }: Props) {
+export default function PaymentDetail({ payment, enrInfo, onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -27,7 +30,7 @@ export default function PaymentDetail({ payment, onClose }: Props) {
               <Receipt size={28} strokeWidth={1.4} />
             </div>
             <div>
-              <div className="detail__name">{payment.receiptNumber}</div>
+              <div className="detail__name">{payment.receiptNumber ?? 'Pago'}</div>
               <div className="detail__meta">
                 <span className="badge badge--activo">
                   {formatPrice(payment.amount)}
@@ -47,17 +50,11 @@ export default function PaymentDetail({ payment, onClose }: Props) {
           <section className="detail__section">
             <h4 className="detail__section-title">Alumno y curso</h4>
             <dl className="detail__grid">
-              <Row icon={UserCircle2}
-                label="Alumno"
-                value={`${payment.enrollment.studentFirstName} ${payment.enrollment.studentLastName}`} />
-              <Row icon={GraduationCap}
-                label="Curso"
-                value={payment.enrollment.courseName} />
+              <Row icon={UserCircle2}   label="Alumno" value={enrInfo.studentName} />
+              <Row icon={GraduationCap} label="Curso"  value={enrInfo.courseName} />
               <Row icon={Hash}
                 label="Cuota saldada"
-                value={payment.installmentNumber != null
-                  ? `#${payment.installmentNumber}`
-                  : 'Pago suelto'} />
+                value={payment.installmentId != null ? 'Imputado a cuota' : 'Pago suelto'} />
             </dl>
           </section>
 
@@ -66,8 +63,9 @@ export default function PaymentDetail({ payment, onClose }: Props) {
             <dl className="detail__grid">
               <Row icon={CircleDollarSign} label="Monto"        value={formatPrice(payment.amount)} />
               <Row icon={CreditCard}       label="Medio"        value={PAYMENT_METHOD_LABELS[payment.paymentMethod]} />
-              <Row icon={Calendar}         label="Fecha"        value={formatDate(payment.paymentDate)} />
+              <Row icon={Calendar}         label="Fecha"        value={formatInstant(payment.paymentDate)} />
               <Row icon={Receipt}          label="N° de recibo" value={payment.receiptNumber} mono />
+              <Row icon={Hash}             label="Referencia"   value={payment.referenceNumber} mono />
             </dl>
           </section>
 
@@ -122,12 +120,6 @@ function formatPrice(n: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n)
-}
-
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
-  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function formatInstant(iso: string | null): string | null {

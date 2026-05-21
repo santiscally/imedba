@@ -1,0 +1,77 @@
+@use '../styles/variables' as *;
+
+.course-students {
+  &__state {
+    padding: 1.2rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.88rem;
+
+    &--error { color: $rojo; }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-md;
+    background: $blanco;
+  }
+
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__main { min-width: 0; flex: 1; }
+
+  &__name {
+    font-weight: 600;
+    color: $texto-oscuro;
+    font-size: 0.9rem;
+  }
+
+  &__sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: $gris-texto;
+    margin-top: 0.1rem;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    flex-shrink: 0;
+  }
+
+  &__date {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.76rem;
+    color: $gris-texto;
+    white-space: nowrap;
+  }
+}

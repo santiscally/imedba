@@ -3,7 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   BookOpen, ArrowUp, ArrowDown, ArrowUpDown,
   CalendarDays, Tag, GraduationCap, CircleDollarSign,
-  Eye, Pencil,
+  Eye, Pencil, Users,
 } from 'lucide-react'
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
@@ -12,6 +12,7 @@ import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS } from '../types/course'
 import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
 import CourseDetail from '../components/CourseDetail'
+import CourseStudents from '../components/CourseStudents'
 import './Cursos.scss'
 
 const PAGE_SIZE = 10
@@ -25,8 +26,9 @@ type BUFilter = BusinessUnit | 'TODAS'
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create' }
-  | { kind: 'edit';   course: Course }
-  | { kind: 'detail'; course: Course }
+  | { kind: 'edit';     course: Course }
+  | { kind: 'detail';   course: Course }
+  | { kind: 'students'; course: Course }
 
 export default function Cursos() {
   const [query,     setQuery]     = useState('')
@@ -233,6 +235,15 @@ export default function Cursos() {
                       <button
                         className="row-actions__btn"
                         type="button"
+                        onClick={() => setPanel({ kind: 'students', course: c })}
+                        aria-label="Ver alumnos"
+                        title="Ver alumnos inscriptos"
+                      >
+                        <Users size={16} />
+                      </button>
+                      <button
+                        className="row-actions__btn"
+                        type="button"
                         onClick={() => setPanel({ kind: 'detail', course: c })}
                         aria-label="Ver detalle"
                         title="Ver detalle"
@@ -289,6 +300,13 @@ export default function Cursos() {
           course={panel.course}
           onClose={() => setPanel({ kind: 'closed' })}
           onEdit={() => setPanel({ kind: 'edit', course: panel.course })}
+        />
+      )}
+      {panel.kind === 'students' && (
+        <CourseStudents
+          courseId={panel.course.id}
+          courseName={panel.course.name}
+          onClose={() => setPanel({ kind: 'closed' })}
         />
       )}
     </div>

@@ -1,46 +1,47 @@
 import type { Instant, UUID } from './common'
 
 // Refleja com.imedba.modules.installment.entity.InstallmentStatus
-export type InstallmentStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'SUSPENDED'
+export type InstallmentStatus = 'PENDING' | 'PAID' | 'OVERDUE'
 
 export const INSTALLMENT_STATUSES: InstallmentStatus[] = [
   'PENDING',
   'PAID',
   'OVERDUE',
-  'SUSPENDED',
 ]
 
 export const INSTALLMENT_STATUS_LABELS: Record<InstallmentStatus, string> = {
-  PENDING:   'Pendiente',
-  PAID:      'Pagada',
-  OVERDUE:   'Vencida',
-  SUSPENDED: 'Suspendida',
+  PENDING: 'Pendiente',
+  PAID:    'Pagada',
+  OVERDUE: 'Vencida',
 }
 
-// Datos resumidos del enrollment embebidos en el response (para listar
-// cuotas sin tener que ir a buscar la inscripción aparte).
-export interface InstallmentEnrollmentSummary {
-  id:               UUID
-  studentId:        UUID
-  studentFirstName: string
-  studentLastName:  string
-  courseId:         UUID
-  courseName:       string
-  courseCode:       string | null
+// Tipo de cuota según el número. El backend usa number=0 para la matrícula
+// (enrollmentFee) y 1..N para las cuotas financiadas. Ver InstallmentGenerator.
+export type InstallmentKind = 'MATRICULA' | 'CUOTA'
+
+export function installmentKind(number: number): InstallmentKind {
+  return number === 0 ? 'MATRICULA' : 'CUOTA'
+}
+
+// Etiqueta para mostrar en tablas/selects: "Matrícula" o "Cuota N".
+export function installmentLabel(number: number): string {
+  return number === 0 ? 'Matrícula' : `Cuota ${number}`
 }
 
 // Refleja com.imedba.modules.installment.dto.InstallmentResponse
+// El backend devuelve la cuota plana: solo enrollmentId. Para mostrar alumno/curso
+// hay que resolver el enrollment aparte (ver Cuotas.tsx → mapa por enrollmentId).
 export interface Installment {
   id:               UUID
-  enrollment:       InstallmentEnrollmentSummary
+  enrollmentId:     UUID
   number:           number
-  dueDate:          string         // LocalDate YYYY-MM-DD
-  baseAmount:       number
-  surcharge:        number         // 5% si está pagada > día 10 del mes
-  totalDue:         number         // baseAmount + surcharge
+  amount:           number          // monto base de la cuota
+  surchargeAmount:  number          // recargo (5% día 11+)
+  totalDue:         number          // amount + surchargeAmount
+  dueDate:          string          // LocalDate YYYY-MM-DD
   status:           InstallmentStatus
   paidAt:           Instant | null
-  moodleSuspended:  boolean        // flag puesto por el job del día 22
+  lastAlertSentAt:  Instant | null
   createdAt:        Instant
   updatedAt:        Instant
 }

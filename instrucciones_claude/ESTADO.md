@@ -116,9 +116,12 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
   - Sidebar tiene footer con nombre + email del usuario logueado y botón "Cerrar sesión" que dispara `logout()`.
   - `currentUser()`, `hasRole(role)`, `hasAuthority(authority)` exportados de `lib/auth.ts` para guards futuros (cuando implementemos las authorities granulares de Fase 9).
 - **Alumnos** completo (CRUD + form + detail + toggle activo).
-- **Cursos** completo (CRUD + CourseForm sin límite máximo de precio + CourseDetail).
+- **Cursos** completo (CRUD + CourseForm sin límite máximo de precio + CourseDetail). **Alumnos del curso**: botón 👥 en cada fila abre modal `CourseStudents` con la lista de inscriptos (nombre/email/fecha/estado); misma lista embebida como sección dentro de `CourseDetail`. Ordeno por apellido client-side (evito `sort=studentLastName`, que Spring rechaza por propiedad anidada).
 - **Inscripciones** completo (CRUD + EnrollmentForm + EnrollmentDetail; alta dispara generación de cronograma de cuotas server-side, el SPA consulta).
-- **Cuotas y Pagos** (`/cuotas`) — página única con dos tabs (Cuotas read-only con filtro por estado + Pagos con create). Anchos de columna explícitos y wrapper `.cell-inline` para que `display:flex` no rompa table-cell. Header "Acciones" en ambas tablas.
+- **Cuotas y Pagos** (`/cuotas`) — página única con dos tabs (Cuotas con filtro por estado + acciones por fila + Pagos con create). Anchos de columna explícitos y wrapper `.cell-inline`. Tipos alineados al DTO **plano** del backend (solo `enrollmentId`; alumno/curso se resuelven con un mapa de enrollments client-side).
+  - **Pago múltiple:** checkbox por cuota pagable; al seleccionar se bloquea a una sola inscripción; barra flotante con total → `PaymentForm` modo batch que crea **un pago por cuota** (loop, un recibo c/u). El back no tiene endpoint batch y está bien así.
+  - **Matrícula = cuota 0:** `installmentKind()`/`installmentLabel()` en `types/installment.ts`; `number=0` se muestra como tag "Matrícula" (confirmado contra `InstallmentGenerator`).
+  - **Filtros opcionales** alumno/curso en `PaymentForm` para acotar el dropdown de cuotas.
 - **Contactos** (`/contactos`) — CRUD con validación condicional:
   - Listado paginado con buscador (firstName/lastName/companyName/email/role), chips Todos/Empleado/Proveedor + Todos/Activos/Inactivos, sort 3-estados en Nombre/Tipo/Email/Estado.
   - Columna "Nombre" muestra avatar verde + apellido,nombre para EMPLEADO o avatar azul + razón social para PROVEEDOR. Sub-línea con dato secundario (companyName en empleados, persona física en proveedores).
@@ -179,7 +182,7 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 - `BusinessUnit` tipado como `'RESIDENCIAS' | 'PREMATUROS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'OTROS'` — avisame si agregás un valor al enum backend.
 - **`BudgetBusinessUnit` ≠ `BusinessUnit`:** el módulo budget usa el enum `'… | GENERAL'` en lugar de `'… | OTROS'`. Mantengo dos tipos separados en `types/budget.ts` y `types/course.ts`. Si en algún momento se unifican backend-side, avisar para colapsar acá también.
 - `PaymentMethod` espejado: `TRANSFERENCIA | EFECTIVO | TARJETA_CREDITO | TARJETA_DEBITO | MERCADO_PAGO | DEBITO_AUTOMATICO | OTRO`.
-- `InstallmentStatus`: `PENDING | PAID | OVERDUE | SUSPENDED`.
+- `InstallmentStatus`: `PENDING | PAID | OVERDUE` (alineado al enum real del backend; saqué `SUSPENDED`). `Installment`/`Payment` son DTOs **planos** (solo `enrollmentId`, sin objeto enrollment embebido). `Installment.number=0` ⇒ matrícula.
 - **Diplomas:** el endpoint `/api/v1/diplomas` devuelve `List<DiplomaResponse>` plano (no paginado) — el SPA filtra y ordena client-side. Si en el futuro se agrega paginación al backend, hay que migrar la página al patrón canónico `PageResponse<T>`.
 - **Diploma settlements:** el endpoint `/api/v1/diploma-settlements` también devuelve `List<...>` plano y **requiere `?diplomaId=X`** (sin filtro = 400). Mismo patrón que Diplomas: filtros y sort 100% client-side. Soft delete no aplica (settlements no se borran, solo cambian de estado). Mismo flujo a migrar a `PageResponse` cuando el backend lo soporte.
 - **`partnersDistribution.paid`:** el campo `paid` viene del backend pero **no se puede setear vía API hoy** — el SPA lo muestra como informativo en el Detail y deja un banner-nota explicando la limitación. Cuando el backend agregue un endpoint para tildar individualmente, conectar acá.

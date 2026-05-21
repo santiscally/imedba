@@ -1,10 +1,11 @@
 import {
   X, Pencil, GraduationCap, Tag, Layers, Building2,
-  CalendarDays, CircleDollarSign, Hash, Calendar, FileText,
+  CalendarDays, CircleDollarSign, Hash, Calendar, FileText, Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Course } from '../types/course'
 import { BUSINESS_UNIT_LABELS } from '../types/course'
+import { CourseStudentsList } from './CourseStudents'
 import './StudentDetail.scss'
 
 interface Props {
@@ -82,6 +83,13 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               <p className="detail__notes">{course.description}</p>
             </section>
           )}
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">
+              <Users size={14} strokeWidth={1.8} /> Alumnos inscriptos
+            </h4>
+            <CourseStudentsList courseId={course.id} />
+          </section>
         </div>
 
         <footer className="detail__footer">

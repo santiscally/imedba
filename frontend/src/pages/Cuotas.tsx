@@ -3,14 +3,18 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   CreditCard, Receipt, ArrowUp, ArrowDown, ArrowUpDown,
   UserCircle2, GraduationCap, CircleDollarSign,
-  Eye, Hash, Calendar, BadgeCheck,
+  Eye, Hash, Calendar, BadgeCheck, X,
 } from 'lucide-react'
 import { installmentsApi } from '../api/installments'
 import { paymentsApi } from '../api/payments'
+import { enrollmentsApi } from '../api/enrollments'
 import type { PageResponse } from '../types/common'
 import type { Installment, InstallmentStatus } from '../types/installment'
-import { INSTALLMENT_STATUSES, INSTALLMENT_STATUS_LABELS } from '../types/installment'
+import {
+  INSTALLMENT_STATUSES, INSTALLMENT_STATUS_LABELS, installmentLabel, installmentKind,
+} from '../types/installment'
 import type { Payment, PaymentCreateRequest } from '../types/payment'
+import type { Enrollment } from '../types/enrollment'
 import { PAYMENT_METHOD_LABELS } from '../types/enrollment'
 import EmptyState from '../components/EmptyState'
 import PaymentForm from '../components/PaymentForm'
@@ -21,23 +25,13 @@ const PAGE_SIZE = 10
 
 type Tab = 'cuotas' | 'pagos'
 
-// ─── Sort types ──────────────────────────────────────────────────────────────
 type SortDir = 'asc' | 'desc'
 
-type InstSortField =
-  | 'dueDate'
-  | 'studentLastName'
-  | 'courseName'
-  | 'totalDue'
-  | 'status'
+// Solo campos que el backend (Pageable) sabe ordenar — son los de la entidad.
+type InstSortField = 'dueDate' | 'number' | 'totalDue' | 'status'
 type InstSort = { field: InstSortField; dir: SortDir } | null
 
-type PaySortField =
-  | 'paymentDate'
-  | 'studentLastName'
-  | 'courseName'
-  | 'amount'
-  | 'paymentMethod'
+type PaySortField = 'paymentDate' | 'amount' | 'paymentMethod'
 type PaySort = { field: PaySortField; dir: SortDir } | null
 
 type StatusFilter = InstallmentStatus | 'TODAS'
@@ -45,14 +39,20 @@ type StatusFilter = InstallmentStatus | 'TODAS'
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create-payment'; preselectInstallmentId?: string }
+  | { kind: 'create-payment-batch'; installments: Installment[] }
   | { kind: 'detail-payment'; payment: Payment }
+
+// Datos del alumno/curso resueltos desde el enrollment.
+interface EnrInfo { studentName: string; courseName: string; courseCode: string | null }
 
 export default function Cuotas() {
   const [tab, setTab] = useState<Tab>('cuotas')
 
-  // Search shared (lo aplicamos al tab activo)
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
+
+  // ── Mapa de enrollments para resolver alumno/curso (el backend no los embebe)
+  const [enrMap, setEnrMap] = useState<Map<string, EnrInfo>>(new Map())
 
   // ── Cuotas state
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TODAS')
@@ -72,10 +72,40 @@ export default function Cuotas() {
   const [reload, setReload] = useState(0)
   const [panel,  setPanel]  = useState<PanelState>({ kind: 'closed' })
 
+  // ── Selección múltiple de cuotas (para pagar varias juntas).
+  //    Se guarda la cuota completa para no depender de la página actual, y se
+  //    bloquea a una sola inscripción (regla de negocio: un pago por inscripción).
+  const [selected, setSelected] = useState<Map<string, Installment>>(new Map())
+  const selectedList    = useMemo(() => [...selected.values()], [selected])
+  const selectedEnrId   = selectedList[0]?.enrollmentId ?? null
+  const selectedTotal   = useMemo(
+    () => selectedList.reduce((acc, i) => acc + i.totalDue, 0), [selectedList])
+
+  function toggleSelect(inst: Installment) {
+    setSelected(prev => {
+      const next = new Map(prev)
+      if (next.has(inst.id)) next.delete(inst.id)
+      else next.set(inst.id, inst)
+      return next
+    })
+  }
+  function clearSelection() { setSelected(new Map()) }
+
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setInstPage(0); setPayPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
+
+  // Cargar enrollments una vez para resolver nombres por id.
+  useEffect(() => {
+    enrollmentsApi.list({ size: 2000 })
+      .then(res => {
+        const m = new Map<string, EnrInfo>()
+        for (const e of res.content) m.set(e.id, enrInfoOf(e))
+        setEnrMap(m)
+      })
+      .catch(() => { /* si falla, las celdas muestran el id corto */ })
+  }, [reload])
 
   // Cuotas fetch
   useEffect(() => {
@@ -124,11 +154,12 @@ export default function Cuotas() {
 
   function handlePaymentSaved() {
     setPanel({ kind: 'closed' })
+    clearSelection()
     setReload(r => r + 1)
   }
 
   async function handleWaiveSurcharge(inst: Installment) {
-    if (!window.confirm(`¿Condonar el recargo de ${formatPrice(inst.surcharge)} en la cuota #${inst.number}?`)) return
+    if (!window.confirm(`¿Condonar el recargo de ${formatPrice(inst.surchargeAmount)} en la cuota #${inst.number}?`)) return
     try {
       await installmentsApi.waiveSurcharge(inst.id)
       setReload(r => r + 1)
@@ -137,10 +168,11 @@ export default function Cuotas() {
     }
   }
 
-  const statusOptions = useMemo<StatusFilter[]>(
-    () => ['TODAS', ...INSTALLMENT_STATUSES],
-    [],
-  )
+  const lookupEnr = useMemo(() => (id: string): EnrInfo => (
+    enrMap.get(id) ?? { studentName: `#${id.slice(0, 8)}`, courseName: '—', courseCode: null }
+  ), [enrMap])
+
+  const statusOptions = useMemo<StatusFilter[]>(() => ['TODAS', ...INSTALLMENT_STATUSES], [])
 
   const totalCuotas = instData?.totalElements ?? 0
   const totalPagos  = payData?.totalElements  ?? 0
@@ -238,6 +270,10 @@ export default function Cuotas() {
           onPage={setInstPage}
           onPay={(inst) => setPanel({ kind: 'create-payment', preselectInstallmentId: inst.id })}
           onWaive={handleWaiveSurcharge}
+          lookupEnr={lookupEnr}
+          selected={selected}
+          selectedEnrId={selectedEnrId}
+          onToggleSelect={toggleSelect}
         />
       ) : (
         <PagosTab
@@ -250,6 +286,17 @@ export default function Cuotas() {
           page={payPage}
           onPage={setPayPage}
           onView={(p) => setPanel({ kind: 'detail-payment', payment: p })}
+          lookupEnr={lookupEnr}
+        />
+      )}
+
+      {tab === 'cuotas' && selected.size > 0 && (
+        <BulkBar
+          count={selected.size}
+          total={selectedTotal}
+          who={selectedEnrId ? lookupEnr(selectedEnrId).studentName : ''}
+          onPay={() => setPanel({ kind: 'create-payment-batch', installments: selectedList })}
+          onClear={clearSelection}
         />
       )}
 
@@ -261,9 +308,19 @@ export default function Cuotas() {
           onSubmit={(payload: PaymentCreateRequest) => paymentsApi.create(payload)}
         />
       )}
+      {panel.kind === 'create-payment-batch' && (
+        <PaymentForm
+          batchInstallments={panel.installments}
+          batchWho={selectedEnrId ? lookupEnr(selectedEnrId) : undefined}
+          onClose={() => setPanel({ kind: 'closed' })}
+          onSaved={handlePaymentSaved}
+          onSubmit={(payload: PaymentCreateRequest) => paymentsApi.create(payload)}
+        />
+      )}
       {panel.kind === 'detail-payment' && (
         <PaymentDetail
           payment={panel.payment}
+          enrInfo={lookupEnr(panel.payment.enrollmentId)}
           onClose={() => setPanel({ kind: 'closed' })}
         />
       )}
@@ -285,8 +342,15 @@ function CuotasTab(props: {
   onPage:  (n: number) => void
   onPay:   (i: Installment) => void
   onWaive: (i: Installment) => void
+  lookupEnr: (id: string) => EnrInfo
+  selected:       Map<string, Installment>
+  selectedEnrId:  string | null
+  onToggleSelect: (i: Installment) => void
 }) {
-  const { data, loading, error, sort, onToggleSort, query, page, onPage, onPay, onWaive } = props
+  const {
+    data, loading, error, sort, onToggleSort, query, page, onPage, onPay, onWaive, lookupEnr,
+    selected, selectedEnrId, onToggleSelect,
+  } = props
   const items = data?.content ?? []
   const totalPages = data?.totalPages ?? 0
 
@@ -296,11 +360,7 @@ function CuotasTab(props: {
         {loading && <div className="cuotas__loading">Cargando…</div>}
 
         {!loading && error && (
-          <EmptyState
-            icon={CreditCard}
-            message="No se pudieron cargar las cuotas"
-            hint={error}
-          />
+          <EmptyState icon={CreditCard} message="No se pudieron cargar las cuotas" hint={error} />
         )}
 
         {!loading && !error && items.length === 0 && (
@@ -315,18 +375,9 @@ function CuotasTab(props: {
           <table className="cuotas-table">
             <thead>
               <tr>
-                <SortTh
-                  label="Alumno"
-                  active={sort?.field === 'studentLastName'}
-                  dir={sort?.field === 'studentLastName' ? sort.dir : null}
-                  onClick={() => onToggleSort('studentLastName')}
-                />
-                <SortTh
-                  label="Curso"
-                  active={sort?.field === 'courseName'}
-                  dir={sort?.field === 'courseName' ? sort.dir : null}
-                  onClick={() => onToggleSort('courseName')}
-                />
+                <th className="col-check" aria-label="Seleccionar" />
+                <th>Alumno</th>
+                <th>Curso</th>
                 <th className="col-cuota">Cuota</th>
                 <SortTh
                   label="Vencimiento"
@@ -353,92 +404,111 @@ function CuotasTab(props: {
               </tr>
             </thead>
             <tbody>
-              {items.map(i => (
-                <tr key={i.id} className="cuotas-table__row">
-                  <td>
-                    <div className="cuotas-cell">
-                      <div className="cuotas-cell__avatar">
-                        <UserCircle2 size={26} strokeWidth={1.4} />
-                      </div>
-                      <div>
-                        <div className="cuotas-cell__name">
-                          {i.enrollment.studentLastName}, {i.enrollment.studentFirstName}
+              {items.map(i => {
+                const enr = lookupEnr(i.enrollmentId)
+                const isPayable = i.status !== 'PAID'
+                const isSelected = selected.has(i.id)
+                // Bloqueo a una sola inscripción: si ya hay selección de otra, deshabilitar.
+                const lockedOut = selectedEnrId != null && selectedEnrId !== i.enrollmentId
+                return (
+                  <tr key={i.id} className={`cuotas-table__row ${isSelected ? 'cuotas-table__row--selected' : ''}`}>
+                    <td className="col-check">
+                      {isPayable && (
+                        <input
+                          type="checkbox"
+                          className="cuotas-check"
+                          checked={isSelected}
+                          disabled={lockedOut}
+                          onChange={() => onToggleSelect(i)}
+                          aria-label={`Seleccionar ${installmentLabel(i.number)}`}
+                          title={lockedOut
+                            ? 'Solo se pueden pagar juntas cuotas de la misma inscripción'
+                            : 'Seleccionar para pago múltiple'}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      <div className="cuotas-cell">
+                        <div className="cuotas-cell__avatar">
+                          <UserCircle2 size={26} strokeWidth={1.4} />
+                        </div>
+                        <div>
+                          <div className="cuotas-cell__name">{enr.studentName}</div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="cuotas-course">
-                      <GraduationCap size={16} strokeWidth={1.6} />
-                      <div>
-                        <div className="cuotas-course__name">{i.enrollment.courseName}</div>
-                        {i.enrollment.courseCode && (
-                          <div className="cuotas-course__code">{i.enrollment.courseCode}</div>
-                        )}
+                    </td>
+                    <td>
+                      <div className="cuotas-course">
+                        <GraduationCap size={16} strokeWidth={1.6} />
+                        <div>
+                          <div className="cuotas-course__name">{enr.courseName}</div>
+                          {enr.courseCode && (
+                            <div className="cuotas-course__code">{enr.courseCode}</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="td-num col-cuota">
-                    <span className="cell-inline">
-                      <Hash size={12} strokeWidth={1.8} /> {i.number}
-                    </span>
-                  </td>
-                  <td className="td-date col-vencimiento">
-                    <span className="cell-inline">
-                      <Calendar size={13} strokeWidth={1.8} /> {formatDate(i.dueDate)}
-                    </span>
-                  </td>
-                  <td className="col-precio">
-                    <div className="cuotas-amount">
-                      <span className="price">
-                        <CircleDollarSign size={13} strokeWidth={1.8} />
-                        {formatPrice(i.totalDue)}
-                      </span>
-                      {i.surcharge > 0 && (
-                        <span className="cuotas-amount__surcharge" title="Recargo del 5%">
-                          +{formatPrice(i.surcharge)} recargo
+                    </td>
+                    <td className="td-num col-cuota">
+                      {installmentKind(i.number) === 'MATRICULA' ? (
+                        <span className="cuota-tag cuota-tag--matricula">Matrícula</span>
+                      ) : (
+                        <span className="cell-inline">
+                          <Hash size={12} strokeWidth={1.8} /> {i.number}
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="col-estado">
-                    <span className={`badge ${statusBadgeClass(i.status)}`}>
-                      {INSTALLMENT_STATUS_LABELS[i.status]}
-                    </span>
-                    {i.moodleSuspended && (
-                      <span className="badge badge--moodle" title="Acceso a Moodle suspendido">
-                        Moodle off
+                    </td>
+                    <td className="td-date col-vencimiento">
+                      <span className="cell-inline">
+                        <Calendar size={13} strokeWidth={1.8} /> {formatDate(i.dueDate)}
                       </span>
-                    )}
-                  </td>
-                  <td className="col-acciones">
-                    <div className="row-actions">
-                      {i.surcharge > 0 && i.status !== 'PAID' && (
-                        <button
-                          className="row-actions__btn"
-                          type="button"
-                          onClick={() => onWaive(i)}
-                          aria-label="Condonar recargo"
-                          title="Condonar recargo (admin)"
-                        >
-                          <BadgeCheck size={16} />
-                        </button>
-                      )}
-                      {i.status !== 'PAID' && (
-                        <button
-                          className="row-actions__btn row-actions__btn--primary"
-                          type="button"
-                          onClick={() => onPay(i)}
-                          aria-label="Registrar pago"
-                          title="Registrar pago de esta cuota"
-                        >
-                          <CreditCard size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="col-precio">
+                      <div className="cuotas-amount">
+                        <span className="price">
+                          <CircleDollarSign size={13} strokeWidth={1.8} />
+                          {formatPrice(i.totalDue)}
+                        </span>
+                        {i.surchargeAmount > 0 && (
+                          <span className="cuotas-amount__surcharge" title="Recargo del 5%">
+                            +{formatPrice(i.surchargeAmount)} recargo
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="col-estado">
+                      <span className={`badge ${statusBadgeClass(i.status)}`}>
+                        {INSTALLMENT_STATUS_LABELS[i.status]}
+                      </span>
+                    </td>
+                    <td className="col-acciones">
+                      <div className="row-actions">
+                        {i.surchargeAmount > 0 && i.status !== 'PAID' && (
+                          <button
+                            className="row-actions__btn"
+                            type="button"
+                            onClick={() => onWaive(i)}
+                            aria-label="Condonar recargo"
+                            title="Condonar recargo (admin)"
+                          >
+                            <BadgeCheck size={16} />
+                          </button>
+                        )}
+                        {i.status !== 'PAID' && (
+                          <button
+                            className="row-actions__btn row-actions__btn--primary"
+                            type="button"
+                            onClick={() => onPay(i)}
+                            aria-label="Registrar pago"
+                            title="Registrar pago de esta cuota"
+                          >
+                            <CreditCard size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -470,8 +540,9 @@ function PagosTab(props: {
   page:    number
   onPage:  (n: number) => void
   onView:  (p: Payment) => void
+  lookupEnr: (id: string) => EnrInfo
 }) {
-  const { data, loading, error, sort, onToggleSort, query, page, onPage, onView } = props
+  const { data, loading, error, sort, onToggleSort, query, page, onPage, onView, lookupEnr } = props
   const items = data?.content ?? []
   const totalPages = data?.totalPages ?? 0
 
@@ -496,24 +567,9 @@ function PagosTab(props: {
           <table className="cuotas-table">
             <thead>
               <tr>
-                <SortTh
-                  label="Recibo"
-                  active={sort?.field === 'paymentMethod'}
-                  dir={sort?.field === 'paymentMethod' ? sort.dir : null}
-                  onClick={() => onToggleSort('paymentMethod')}
-                />
-                <SortTh
-                  label="Alumno"
-                  active={sort?.field === 'studentLastName'}
-                  dir={sort?.field === 'studentLastName' ? sort.dir : null}
-                  onClick={() => onToggleSort('studentLastName')}
-                />
-                <SortTh
-                  label="Curso"
-                  active={sort?.field === 'courseName'}
-                  dir={sort?.field === 'courseName' ? sort.dir : null}
-                  onClick={() => onToggleSort('courseName')}
-                />
+                <th>Recibo</th>
+                <th>Alumno</th>
+                <th>Curso</th>
                 <SortTh
                   label="Fecha"
                   active={sort?.field === 'paymentDate'}
@@ -532,64 +588,64 @@ function PagosTab(props: {
               </tr>
             </thead>
             <tbody>
-              {items.map(p => (
-                <tr key={p.id} className="cuotas-table__row">
-                  <td>
-                    <div className="cuotas-receipt">
-                      <Receipt size={14} strokeWidth={1.6} />
-                      <div>
-                        <div className="cuotas-receipt__num">{p.receiptNumber}</div>
-                        <div className="cuotas-receipt__method">
-                          {PAYMENT_METHOD_LABELS[p.paymentMethod]}
-                          {p.installmentNumber != null && ` · cuota #${p.installmentNumber}`}
+              {items.map(p => {
+                const enr = lookupEnr(p.enrollmentId)
+                return (
+                  <tr key={p.id} className="cuotas-table__row">
+                    <td>
+                      <div className="cuotas-receipt">
+                        <Receipt size={14} strokeWidth={1.6} />
+                        <div>
+                          <div className="cuotas-receipt__num">{p.receiptNumber ?? '—'}</div>
+                          <div className="cuotas-receipt__method">
+                            {PAYMENT_METHOD_LABELS[p.paymentMethod]}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="cuotas-cell">
-                      <div className="cuotas-cell__avatar">
-                        <UserCircle2 size={26} strokeWidth={1.4} />
-                      </div>
-                      <div>
-                        <div className="cuotas-cell__name">
-                          {p.enrollment.studentLastName}, {p.enrollment.studentFirstName}
+                    </td>
+                    <td>
+                      <div className="cuotas-cell">
+                        <div className="cuotas-cell__avatar">
+                          <UserCircle2 size={26} strokeWidth={1.4} />
+                        </div>
+                        <div>
+                          <div className="cuotas-cell__name">{enr.studentName}</div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="cuotas-course">
-                      <GraduationCap size={16} strokeWidth={1.6} />
-                      <div className="cuotas-course__name">{p.enrollment.courseName}</div>
-                    </div>
-                  </td>
-                  <td className="td-date col-vencimiento">
-                    <span className="cell-inline">
-                      <Calendar size={13} strokeWidth={1.8} /> {formatDate(p.paymentDate)}
-                    </span>
-                  </td>
-                  <td className="col-precio">
-                    <span className="price">
-                      <CircleDollarSign size={13} strokeWidth={1.8} />
-                      {formatPrice(p.amount)}
-                    </span>
-                  </td>
-                  <td className="col-acciones">
-                    <div className="row-actions">
-                      <button
-                        className="row-actions__btn"
-                        type="button"
-                        onClick={() => onView(p)}
-                        aria-label="Ver recibo"
-                        title="Ver recibo"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <div className="cuotas-course">
+                        <GraduationCap size={16} strokeWidth={1.6} />
+                        <div className="cuotas-course__name">{enr.courseName}</div>
+                      </div>
+                    </td>
+                    <td className="td-date col-vencimiento">
+                      <span className="cell-inline">
+                        <Calendar size={13} strokeWidth={1.8} /> {formatInstantDate(p.paymentDate)}
+                      </span>
+                    </td>
+                    <td className="col-precio">
+                      <span className="price">
+                        <CircleDollarSign size={13} strokeWidth={1.8} />
+                        {formatPrice(p.amount)}
+                      </span>
+                    </td>
+                    <td className="col-acciones">
+                      <div className="row-actions">
+                        <button
+                          className="row-actions__btn"
+                          type="button"
+                          onClick={() => onView(p)}
+                          aria-label="Ver recibo"
+                          title="Ver recibo"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -605,6 +661,38 @@ function PagosTab(props: {
         />
       )}
     </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Barra flotante de pago múltiple
+// ═══════════════════════════════════════════════════════════════════════════════
+function BulkBar(props: {
+  count:   number
+  total:   number
+  who:     string
+  onPay:   () => void
+  onClear: () => void
+}) {
+  const { count, total, who, onPay, onClear } = props
+  return (
+    <div className="bulk-bar" role="region" aria-label="Pago múltiple">
+      <div className="bulk-bar__info">
+        <span className="bulk-bar__count">{count} {count === 1 ? 'cuota' : 'cuotas'}</span>
+        {who && <span className="bulk-bar__who">{who}</span>}
+        <span className="bulk-bar__total">
+          <CircleDollarSign size={14} strokeWidth={1.8} /> {formatPrice(total)}
+        </span>
+      </div>
+      <div className="bulk-bar__actions">
+        <button type="button" className="btn-ghost" onClick={onClear}>
+          <X size={15} /> Limpiar
+        </button>
+        <button type="button" className="btn-primary" onClick={onPay}>
+          <CreditCard size={15} /> Registrar pago
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -701,12 +789,19 @@ function buildPageNumbers(current: number, total: number): (number | '…')[] {
   return pages
 }
 
+function enrInfoOf(e: Enrollment): EnrInfo {
+  return {
+    studentName: `${e.student.lastName}, ${e.student.firstName}`,
+    courseName:  e.course.name,
+    courseCode:  e.course.code,
+  }
+}
+
 function statusBadgeClass(s: InstallmentStatus): string {
   switch (s) {
-    case 'PAID':      return 'badge--activo'
-    case 'PENDING':   return 'badge--pendiente'
-    case 'OVERDUE':   return 'badge--inactivo'
-    case 'SUSPENDED': return 'badge--suspendida'
+    case 'PAID':    return 'badge--activo'
+    case 'PENDING': return 'badge--pendiente'
+    case 'OVERDUE': return 'badge--inactivo'
   }
 }
 
@@ -722,3 +817,7 @@ function formatDate(iso: string): string {
   return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function formatInstantDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+}

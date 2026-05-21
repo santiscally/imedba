@@ -4,36 +4,32 @@ import type { PaymentMethod } from './enrollment'
 export { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from './enrollment'
 export type { PaymentMethod } from './enrollment'
 
-// Resumen del enrollment embebido en el response.
-export interface PaymentEnrollmentSummary {
-  id:               UUID
-  studentId:        UUID
-  studentFirstName: string
-  studentLastName:  string
-  courseId:         UUID
-  courseName:       string
-}
-
 // Refleja com.imedba.modules.payment.dto.PaymentResponse
+// Plano: solo installmentId / enrollmentId. Alumno/curso se resuelven aparte.
 export interface Payment {
-  id:             UUID
-  enrollment:     PaymentEnrollmentSummary
-  installmentId:  UUID | null              // null si es pago suelto (matrícula, libro)
-  installmentNumber: number | null
-  receiptNumber:  string                   // IMD-YYYYMMDD-XXXXXX (server-side)
-  paymentMethod:  PaymentMethod
-  amount:         number
-  paymentDate:    string                   // LocalDate YYYY-MM-DD
-  notes:          string | null
-  createdAt:      Instant
+  id:               UUID
+  installmentId:    UUID | null      // null si es pago suelto (matrícula, libro, ajuste)
+  enrollmentId:     UUID
+  amount:           number
+  paymentMethod:    PaymentMethod
+  paymentDate:      Instant          // Instant (timestamp), no LocalDate
+  referenceNumber:  string | null
+  receiptNumber:    string | null    // IMD-... (server-side)
+  receiptFilePath:  string | null
+  receiptSentAt:    Instant | null
+  notes:            string | null
+  registeredBy:     UUID | null
+  createdAt:        Instant
 }
 
 // Refleja com.imedba.modules.payment.dto.PaymentCreateRequest
 export interface PaymentCreateRequest {
-  installmentId?: UUID | null
-  enrollmentId?:  UUID | null    // si no hay installmentId, va el enrollment
-  amount:         number
-  paymentMethod:  PaymentMethod
-  paymentDate?:   string | null
-  notes?:         string | null
+  installmentId?:   UUID | null      // obligatorio para pago imputado a cuota
+  enrollmentId?:    UUID | null      // obligatorio si NO hay installmentId
+  amount:           number           // > 0.01
+  paymentMethod:    PaymentMethod
+  paymentDate?:     Instant | null
+  referenceNumber?: string | null
+  receiptFilePath?: string | null
+  notes?:           string | null
 }
