@@ -1,0 +1,313 @@
+@use '../styles/variables' as *;
+
+// Estilos compartidos por las 3 vistas de Editorial (Autores / Libros / Ventas).
+// Reusa los átomos globales ya definidos por otras páginas (.badge, .price,
+// .search, .chip, .pager, .th-sortable, .row-actions, .muted).
+
+.editorial {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1500px;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.2rem 0;
+  }
+
+  &__title-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: $radio-md;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__subtitle {
+    font-size: 0.9rem;
+    color: $gris-texto;
+    margin: 0;
+  }
+
+  &__tabs {
+    display: inline-flex;
+    border-bottom: 1px solid $gris-borde-sutil;
+    gap: 0.25rem;
+  }
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1.2rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: $gris-texto;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color $transicion, border-color $transicion;
+
+    &:hover { color: $verde-petroleo; }
+
+    &--active {
+      color: $verde-petroleo;
+      border-bottom-color: $verde-petroleo;
+    }
+  }
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+
+  &__table-wrap {
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    overflow: hidden;
+    min-height: 200px;
+  }
+
+  &__loading {
+    padding: 2.5rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+
+  &__period {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    select {
+      padding: 0.5rem 0.7rem;
+      border: 1px solid $gris-borde;
+      border-radius: $radio-md;
+      background: $blanco;
+      font-size: 0.88rem;
+      font-family: inherit;
+      color: $texto-oscuro;
+
+      &:focus { outline: none; border-color: $verde-petroleo; box-shadow: 0 0 0 3px $verde-petroleo-suave; }
+    }
+  }
+}
+
+// ─── Tabla ───────────────────────────────────────────────────────────────────
+.editorial-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr {
+    background: $fondo-app;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+
+    &.col-precio   { text-align: right; }
+    &.col-num      { text-align: right; width: 90px; }
+    &.col-estado   { width: 130px; }
+    &.col-acciones { width: 120px; text-align: right; }
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+    vertical-align: middle;
+
+    &.col-precio   { text-align: right; }
+    &.col-num      { text-align: right; font-variant-numeric: tabular-nums; }
+    &.col-acciones { text-align: right; }
+    &.td-date      { white-space: nowrap; }
+  }
+
+  .cell-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    > svg { color: $gris-texto-sutil; flex-shrink: 0; }
+  }
+
+  &__row {
+    transition: background $transicion;
+    &:hover { background: $verde-petroleo-overlay; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+// ─── Celda con ícono + nombre ──────────────────────────────────────────────────
+.ed-cell {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+
+  &__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: $verde-petroleo-suave;
+    color: $verde-petroleo;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__name { font-weight: 600; color: $texto-oscuro; font-size: 0.92rem; }
+  &__sub  { font-size: 0.75rem; color: $gris-texto; margin-top: 0.1rem; display: inline-flex; align-items: center; gap: 0.3rem; }
+}
+
+// Chips de autores en la fila de libro
+.ed-authors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ed-author-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: $fondo-app;
+  border: 1px solid $gris-borde-sutil;
+  font-size: 0.74rem;
+  color: $texto-medio;
+
+  strong { color: $verde-petroleo; font-variant-numeric: tabular-nums; }
+}
+
+// Badge de stock
+.ed-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: $texto-oscuro;
+
+  &--zero { color: $rojo; }
+}
+
+// ─── Autores del libro (en BookDetail) ─────────────────────────────────────────
+.detail__assigned {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: $verde-petroleo;
+  &--over { color: $rojo; }
+}
+
+.book-authors {
+  list-style: none;
+  margin: 0 0 0.7rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-md;
+    background: $blanco;
+  }
+
+  &__name { font-weight: 600; color: $texto-oscuro; font-size: 0.88rem; flex: 1; }
+  &__pct  { font-variant-numeric: tabular-nums; font-weight: 600; color: $verde-petroleo; }
+
+  &__add {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+
+    select { flex: 1; }
+    select, input {
+      padding: 0.5rem 0.7rem;
+      border: 1px solid $gris-borde;
+      border-radius: $radio-md;
+      background: $blanco;
+      font-size: 0.88rem;
+      font-family: inherit;
+      color: $texto-oscuro;
+      &:focus { outline: none; border-color: $verde-petroleo; box-shadow: 0 0 0 3px $verde-petroleo-suave; }
+    }
+    input { width: 110px; }
+    .btn-primary { white-space: nowrap; }
+  }
+}
+
+// ─── Form de venta ─────────────────────────────────────────────────────────────
+.sale-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: $texto-medio;
+  cursor: pointer;
+
+  input { width: 16px; height: 16px; accent-color: $verde-petroleo; cursor: pointer; }
+}
+
+.sale-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  background: $verde-petroleo-suave;
+  border-radius: $radio-md;
+  font-size: 0.9rem;
+  color: $texto-medio;
+
+  &__amount {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: $verde-petroleo;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// ─── Royalties ─────────────────────────────────────────────────────────────────
+.royalty-amount {
+  font-weight: 700;
+  color: $verde-petroleo;
+  font-variant-numeric: tabular-nums;
+}

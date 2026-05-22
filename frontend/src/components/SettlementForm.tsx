@@ -54,8 +54,8 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
       const n = Number(state.totalCollected)
       if (Number.isNaN(n) || n < 0) e.totalCollected = 'Debe ser ≥ 0'
     }
-    if (!state.periodYear || state.periodYear < 2020 || state.periodYear > 2100) {
-      e.periodYear = 'Año entre 2020 y 2100'
+    if (!state.periodYear) {
+      e.periodYear = 'Obligatorio'
     }
     if (!state.periodMonth || state.periodMonth < 1 || state.periodMonth > 12) {
       e.periodMonth = 'Mes entre 1 y 12'
@@ -125,8 +125,6 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             <Field label="Año" required error={errors.periodYear}>
               <input
                 type="number"
-                min="2020"
-                max="2100"
                 step="1"
                 value={state.periodYear}
                 onChange={e => setField('periodYear', Number(e.target.value))}

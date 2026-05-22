@@ -1,0 +1,191 @@
+import { useEffect, useState } from 'react'
+import {
+  X, Pencil, Book as BookIcon, Tag, Layers, Hash, Calendar,
+  CircleDollarSign, Boxes, Percent, Users, Plus, Trash2,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type { Book } from '../types/book'
+import type { Author } from '../types/author'
+import { authorsApi } from '../api/authors'
+import { booksApi } from '../api/books'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import './StudentDetail.scss'
+import '../pages/Editorial.scss'
+
+interface Props {
+  book:      Book
+  onClose:   () => void
+  onEdit:    () => void
+  onChanged: (book: Book) => void   // notifica al listado que recargue
+}
+
+export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) {
+  const [current, setCurrent] = useState<Book>(book)
+  const [authorOptions, setAuthorOptions] = useState<Author[]>([])
+  const [addAuthorId, setAddAuthorId] = useState('')
+  const [addRoyalty,  setAddRoyalty]  = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    authorsApi.list({ active: true, size: 500, sort: 'lastName,asc' })
+      .then(res => setAuthorOptions(res.content))
+      .catch(() => setAuthorOptions([]))
+  }, [])
+
+  const assignedTotal = current.authors.reduce((acc, a) => acc + a.royaltyPercentage, 0)
+  const available = authorOptions.filter(a => !current.authors.some(ba => ba.authorId === a.id))
+
+  async function handleAdd() {
+    const royalty = Number(addRoyalty)
+    if (!addAuthorId) { alertError('Elegí un autor'); return }
+    if (!addRoyalty || Number.isNaN(royalty) || royalty < 0) {
+      alertError('Royalty inválido', 'Debe ser un número ≥ 0.'); return
+    }
+    setBusy(true)
+    try {
+      const updated = await booksApi.addAuthor(current.id, { authorId: addAuthorId, royaltyPercentage: royalty })
+      setCurrent(updated); onChanged(updated)
+      setAddAuthorId(''); setAddRoyalty('')
+      toastSuccess('Autor agregado')
+    } catch (err) {
+      alertError('No se pudo agregar el autor', err instanceof Error ? err.message : undefined)
+    } finally { setBusy(false) }
+  }
+
+  async function handleRemove(authorId: string, name: string) {
+    const ok = await confirmAction({
+      title: '¿Quitar autor del libro?', text: `${name} dejará de figurar como autor de "${current.name}".`,
+      icon: 'warning', danger: true, confirmText: 'Sí, quitar',
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      await booksApi.removeAuthor(current.id, authorId)
+      const updated = { ...current, authors: current.authors.filter(a => a.authorId !== authorId) }
+      setCurrent(updated); onChanged(updated)
+      toastSuccess('Autor quitado')
+    } catch (err) {
+      alertError('No se pudo quitar el autor', err instanceof Error ? err.message : undefined)
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="detail" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <header className="detail__header">
+          <div className="detail__identity">
+            <div className="detail__avatar"><BookIcon size={28} strokeWidth={1.4} /></div>
+            <div>
+              <div className="detail__name">{current.name}</div>
+              <div className="detail__meta">
+                <span className={`badge ${current.active ? 'badge--activo' : 'badge--inactivo'}`}>
+                  {current.active ? 'Activo' : 'Inactivo'}
+                </span>
+                {current.specialty && <span className="detail__moodle">{current.specialty}</span>}
+              </div>
+            </div>
+          </div>
+          <button className="modal__close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+        </header>
+
+        <div className="detail__body">
+          <section className="detail__section">
+            <h4 className="detail__section-title">Catálogo</h4>
+            <dl className="detail__grid">
+              <Row icon={Tag}    label="Código"     value={current.code} mono />
+              <Row icon={Layers} label="Formato"    value={current.format} />
+              <Row icon={Layers} label="Edición"    value={current.edition} />
+              <Row icon={Hash}   label="Páginas"    value={current.pages != null ? String(current.pages) : null} />
+              <Row icon={Layers} label="Sucursal"   value={current.branch} />
+            </dl>
+          </section>
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">Precios y stock</h4>
+            <dl className="detail__grid">
+              <Row icon={CircleDollarSign} label="Precio venta"     value={formatPrice(current.salePrice)} />
+              <Row icon={Percent}          label="Descuento alumno" value={current.studentDiscountPct != null ? `${current.studentDiscountPct}%` : null} />
+              <Row icon={CircleDollarSign} label="Costo unidad"     value={formatPrice(current.costPerUnit)} />
+              <Row icon={Boxes}            label="Stock"            value={current.stockQuantity != null ? String(current.stockQuantity) : null} />
+            </dl>
+          </section>
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">
+              <Users size={14} strokeWidth={1.8} /> Autores y royalties
+              <span className={`detail__assigned ${assignedTotal > 100 ? 'detail__assigned--over' : ''}`}>
+                {assignedTotal}% asignado
+              </span>
+            </h4>
+
+            {current.authors.length === 0
+              ? <p className="detail__notes">Sin autores asignados.</p>
+              : (
+                <ul className="book-authors">
+                  {current.authors.map(a => (
+                    <li key={a.authorId} className="book-authors__item">
+                      <span className="book-authors__name">{a.lastName}, {a.firstName}</span>
+                      <span className="book-authors__pct">{a.royaltyPercentage}%</span>
+                      <button type="button" className="row-actions__btn row-actions__btn--danger" title="Quitar autor"
+                        disabled={busy} onClick={() => handleRemove(a.authorId, `${a.firstName} ${a.lastName}`)}>
+                        <Trash2 size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+            <div className="book-authors__add">
+              <select value={addAuthorId} onChange={e => setAddAuthorId(e.target.value)} disabled={busy}>
+                <option value="">Agregar autor…</option>
+                {available.map(a => <option key={a.id} value={a.id}>{a.lastName}, {a.firstName}</option>)}
+              </select>
+              <input type="number" min="0" step="any" placeholder="royalty %"
+                value={addRoyalty} onChange={e => setAddRoyalty(e.target.value)} disabled={busy} />
+              <button type="button" className="btn-primary" disabled={busy || !addAuthorId} onClick={handleAdd}>
+                <Plus size={15} /> Agregar
+              </button>
+            </div>
+          </section>
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">Sistema</h4>
+            <dl className="detail__grid">
+              <Row icon={Hash}     label="ID"   value={current.id} mono />
+              <Row icon={Calendar} label="Alta" value={formatInstant(current.createdAt)} />
+              <Row icon={Calendar} label="Última edición" value={formatInstant(current.updatedAt)} />
+            </dl>
+          </section>
+        </div>
+
+        <footer className="detail__footer">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cerrar</button>
+          <button type="button" className="btn-primary" onClick={onEdit}><Pencil size={15} /> Editar libro</button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+function Row(props: { icon: LucideIcon; label: string; value: string | null | undefined; mono?: boolean }) {
+  const Icon = props.icon
+  return (
+    <div className="detail__row">
+      <div className="detail__row-label"><Icon size={14} strokeWidth={1.8} /> {props.label}</div>
+      <div className={`detail__row-value ${props.mono ? 'mono' : ''}`}>
+        {props.value ?? <span className="detail__empty">—</span>}
+      </div>
+    </div>
+  )
+}
+
+function formatPrice(n: number | null | undefined): string | null {
+  if (n == null) return null
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+}
+
+function formatInstant(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}

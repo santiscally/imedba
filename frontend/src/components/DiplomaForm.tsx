@@ -123,12 +123,12 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     }
     validateNumber('enrollmentPrice',   true,  undefined, 'Debe ser ≥ 0')
     validateNumber('coursePrice',       true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('taxCommissionPct',  true,  100,       'Debe ser entre 0 y 100')
+    validateNumber('taxCommissionPct',  true,  undefined, 'Debe ser ≥ 0')
     validateNumber('secretarySalary',   true,  undefined, 'Debe ser ≥ 0')
     validateNumber('advertisingAmount', true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('adminPct',          true,  100,       'Debe ser entre 0 y 100')
-    validateNumber('universityPct',     true,  100,       'Debe ser entre 0 y 100')
-    validateNumber('imedbaPct',         true,  100,       'Debe ser entre 0 y 100')
+    validateNumber('adminPct',          true,  undefined, 'Debe ser ≥ 0')
+    validateNumber('universityPct',     true,  undefined, 'Debe ser ≥ 0')
+    validateNumber('imedbaPct',         true,  undefined, 'Debe ser ≥ 0')
 
     const rowErrors: Record<number, Partial<Record<keyof PartnerRow, string>>> = {}
     state.partners.forEach((p, i) => {
@@ -137,7 +137,6 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
       const n = Number(p.pct)
       if (!p.pct)                          re.pct = 'Obligatorio'
       else if (Number.isNaN(n) || n < 0)   re.pct = 'Debe ser ≥ 0'
-      else if (n > 100)                    re.pct = 'Máx 100'
       if (p.email && !/^\S+@\S+\.\S+$/.test(p.email)) re.email = 'Email inválido'
       if (Object.keys(re).length) rowErrors[i] = re
     })
@@ -256,7 +255,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
           <div className="form__grid">
             <Field label="Comisión impuestos (%)" error={errors.taxCommissionPct}>
               <input
-                type="number" min="0" max="100" step="0.01"
+                type="number" min="0" step="0.01"
                 value={state.taxCommissionPct}
                 onChange={e => setField('taxCommissionPct', e.target.value)}
                 placeholder="15"
@@ -289,7 +288,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
           <div className="form__grid">
             <Field label="Administración (%)" error={errors.adminPct}>
               <input
-                type="number" min="0" max="100" step="0.01"
+                type="number" min="0" step="0.01"
                 value={state.adminPct}
                 onChange={e => setField('adminPct', e.target.value)}
                 placeholder="10"
@@ -297,7 +296,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             </Field>
             <Field label="Universidad (%)" error={errors.universityPct}>
               <input
-                type="number" min="0" max="100" step="0.01"
+                type="number" min="0" step="0.01"
                 value={state.universityPct}
                 onChange={e => setField('universityPct', e.target.value)}
                 placeholder="30"
@@ -305,7 +304,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             </Field>
             <Field label="IMEDBA (%)" error={errors.imedbaPct}>
               <input
-                type="number" min="0" max="100" step="0.01"
+                type="number" min="0" step="0.01"
                 value={state.imedbaPct}
                 onChange={e => setField('imedbaPct', e.target.value)}
                 placeholder="15"
@@ -337,7 +336,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
                   </Field>
                   <Field label="Porcentaje (%)" required error={rowErr.pct} className="partners__pct">
                     <input
-                      type="number" min="0" max="100" step="0.01"
+                      type="number" min="0" step="0.01"
                       value={p.pct}
                       onChange={e => setPartner(i, 'pct', e.target.value)}
                       placeholder="20"

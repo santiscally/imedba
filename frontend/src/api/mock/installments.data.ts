@@ -34,10 +34,11 @@ const SEED: SeedRow[] = [
     paidLate: [2],
   },
   // D'Amico — Sólo Choice CBA (8 cuotas, base 80.000)
+  // Cuota #5 marcada OVERDUE (vence 2026-04-10) para testing del dashboard.
   {
     enrollmentId: '33333333-3333-3333-3333-000000000004',
     base: 80_000, startYear: 2025, startMonth: 12,
-    states: ['PAID','PAID','PAID','PAID','PENDING','PENDING','PENDING','PENDING'],
+    states: ['PAID','PAID','PAID','PAID','OVERDUE','PENDING','PENDING','PENDING'],
   },
   // Fernández — (10 cuotas, base 118.000)
   {

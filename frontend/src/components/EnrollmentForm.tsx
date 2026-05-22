@@ -85,7 +85,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
 
     if (state.discountPercentage) {
       const n = Number(state.discountPercentage)
-      if (Number.isNaN(n) || n < 0 || n > 100) e.discountPercentage = '0 – 100'
+      if (Number.isNaN(n) || n < 0) e.discountPercentage = 'Debe ser ≥ 0'
     }
     for (const k of ['listPrice','bookPrice','enrollmentFee'] as const) {
       if (state[k]) {
@@ -226,7 +226,6 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
               <input
                 type="number"
                 min="0"
-                max="100"
                 step="0.01"
                 value={state.discountPercentage}
                 onChange={e => setField('discountPercentage', e.target.value)}

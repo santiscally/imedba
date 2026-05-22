@@ -181,14 +181,24 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
   - `DiscountCampaignForm`: validación según tipo — PERCENTAGE máx 100, FIXED libre. `endDate > startDate`.
   - `DiscountCampaignDetail`: secciones Descuento / Vigencia / Sistema / Descripción.
   - Mock: 7 campañas seed alineadas al nuevo DTO.
-- **Infra compartida nueva (2026-05-21):** `lib/text.ts` (`toTitleCase`, usado en `StudentForm` para capitalizar nombre/apellido al guardar) y `lib/confirm.ts` (wrapper SweetAlert2: `confirmAction`/`alertError`/`toastSuccess`, línea verde petróleo). SweetAlert2 ya usado en Liquidaciones y en "deshacer pago"; reutilizable para reemplazar `window.confirm` en el resto de los módulos.
+- **Editorial completo (2026-05-22) — módulo 9:**
+  - **Autores** (`/autores`): CRUD + soft delete. q/active son mock-only (el backend solo pagina/ordena).
+  - **Libros** (`/libros`): CRUD + soft delete + badge de stock (rojo si 0). En el detalle se gestionan **autores + royalty%** (`POST/DELETE /books/{id}/authors`) con total de % asignado.
+  - **Ventas** (`/ventas`): tab Ventas (append-only, descuenta stock, `applyStudentDiscount`) + tab **Royalties** (`/book-sales/royalties/by-period`, selector mes/año + total). Tipos `author.ts`/`book.ts`/`book-sale.ts`, SCSS compartido `pages/Editorial.scss`.
+- **Dashboard con datos + ajustes (2026-05-22):**
+  - **Dashboard conectado al mock:** implementé los endpoints que `Dashboard.tsx` ya consumía sin mock — `GET /dashboard/summary` (alumnos/cursos activos, cuotas vencidas, ingresos del mes calendario), `GET /installments/overdue` (cuotas OVERDUE con días de atraso vs hoy, >10 días) y `GET /dashboard/activity` (feed de últimos pagos+inscripciones+ventas). La sección "Actividad reciente" ya no es un EmptyState hardcodeado (usa `.activity-card/.activity-row` que ya estaban en el SCSS). ⚠️ Estos 3 endpoints **NO existen en el backend** → solo mock; con back real el dashboard degrada a "Sin datos"/EmptyState.
+  - **Cuota vencida de testing:** D'Amico (`enrollment ...004`) cuota #5 marcada OVERDUE (vence 2026-04-10) para poblar el panel de vencidas.
+  - **BookForm:** campo *Formato* ahora es `<select>` Impreso / Digital.
+  - **Campos numéricos libres:** removidas las cotas superiores arbitrarias ("entre 0 y 100", "máx 100", año 2020–2100) y `max=` HTML en BookForm, BookDetail (royalty), DiplomaForm (pcts), DiscountCampaignForm, EnrollmentForm (descuento %), SettlementForm (año). Se conservan `required`, pisos `≥0/>0`, mes 1–12 y el guard cruzado de socias ≤100 en DiplomaForm.
+- **Infra compartida nueva (2026-05-21):** `lib/text.ts` (`toTitleCase`, usado en `StudentForm` y `AuthorForm`) y `lib/confirm.ts` (wrapper SweetAlert2: `confirmAction`/`alertError`/`toastSuccess`, línea verde petróleo). Usado en Liquidaciones, deshacer pago y todo Editorial; reutilizable para reemplazar `window.confirm` en el resto.
 - Capa mock (`src/api/mock/handlers.ts`) sigue activa con `VITE_USE_MOCK=true`.
 
 **Próximo paso:**
-- 👉 **ACORDADO CON FRAN (2026-05-21): el próximo módulo es Editorial (Opción A).** Cuando arranque la sesión y Fran diga "dale", construir el trío Editorial siguiendo el patrón canónico + `frontend/ROADMAP.md` §9. Detalle abajo.
-- **Módulo 9 — Editorial trio** (`/autores`, `/libros`, `/ventas`). Endpoints `/api/v1/authors`, `/api/v1/books` (con filtro `specialty`/`branch`/`active` y stock con badge rojo si =0), `/api/v1/book-sales` (append-only). Sub-tab "Autores de un libro" con `POST/DELETE /books/{id}/authors`. Royalties: `GET /book-sales/royalties/by-period?year=&month=`. Descuento alumnos: `applyStudentDiscount=true` aplica 30% off si `studentId` presente. **Antes de codear: leer los DTOs reales en Swagger/backend y espejar types 1:1 (como hicimos con cuotas/descuentos para no comerse 400s).** Reutilizar `lib/confirm.ts` (SweetAlert) para confirmaciones y `lib/text.ts` si hay nombres de autor.
-- Pendientes futuros: sub-vista "Inscriptos a la diplomatura X" desde detalle Diplomaturas; soporte para tildar "pagada" por socia en liquidación si el backend lo agrega; integrar `breakdown` en Presupuesto (hoy lo expone el endpoint pero el SPA aún no lo grafica).
-- Después en orden: Personal+Horas, Notificaciones. Y las **correcciones del review de Santi (2026-05-20)** + las partes de Fase 9 sin backend (aprobación/comisiones/abonos) cuando estén los endpoints.
+- 👉 **Editorial (módulo 9) ya está HECHO (2026-05-22).** Quedan, en orden sugerido:
+- **Correcciones del review de Santi (2026-05-20)** — rápidas y marcadas como prioritarias: EnrollmentForm precios read-only, lógica del campo "Libro" en inscripción, helper text en `CourseForm.examDate`, verificar dashboard Presupuesto contra back real, auditar forms que piden datos de más.
+- **Módulo 10 — Personal + Horas** (`/personal`, `/horas`) y **Módulo 11 — Notificaciones** (`/notificaciones`). Detalle en `frontend/ROADMAP.md` §10–11.
+- **Fase 9 sin backend todavía:** workflow de aprobación (`PENDING_APPROVAL`), comisiones de diplomatura, abonos — esperan endpoints de Santi.
+- Pendientes futuros: sub-vista "Inscriptos a la diplomatura X"; tildar "pagada" por socia en liquidación; graficar `breakdown` en Presupuesto.
 - Pendientes futuros: sub-vista "Inscriptos a la diplomatura X" desde detalle Diplomaturas; soporte para tildar "pagada" por socia en liquidación si el backend lo agrega; integrar `breakdown` en Presupuesto (hoy lo expone el endpoint pero el SPA aún no lo grafica).
 - Después en orden: Personal+Horas, Notificaciones.
 
@@ -201,6 +211,7 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
   3. Backend tiene que aceptar CORS desde `localhost:5173` (en `.env` raíz `APP_CORS_ALLOWED_ORIGINS=http://localhost:5173`).
 - **Authorities en JWT:** `currentUser().roles` lee `realm_access.roles` (admin/vendedora/etc.); `currentUser().authorities` lee `resource_access.imedba-backend.roles` (students:read, etc.). Helpers `hasRole()` y `hasAuthority()` listos para guards de UI cuando los necesitemos en Fase 9 (segmentación Residencias↔FS).
 - Sección `Diplomas` eliminada del Sidebar del SPA. Ruta `/diplomas` ya no existe en el front — si alguien la linkea desde email/notificación, redirigir a `/diplomaturas`. Endpoints backend intactos.
+- **Dashboard (2026-05-22):** el SPA consume `GET /dashboard/summary`, `GET /installments/overdue` y `GET /dashboard/activity` (hoy solo mock; el único real es `GET /budget/dashboard/summary`). Si querés un dashboard real, hay que crear esos 3 endpoints — formas en DIARIO 2026-05-22.
 - Los mocks siguen esperando `200` en GET vacío (no 204) para no romper `.json()`.
 - `Course.examDate` se parsea manual con `split('-')` (LocalDate sin TZ shifting). Ídem `Installment.dueDate` y `Payment.paymentDate`.
 - `BusinessUnit` ya alineado a `'RESIDENCIAS' | 'EDITORIAL' | 'FORMACION_SUPERIOR' | 'GENERAL'` (saqué PREMATUROS/OTROS, post-V015). Campo `country` (ISO-2) mapeado en `Course`. **Pendiente tuyo:** el SPA ya manda `businessUnit` en `GET /students` y `GET /enrollments` para el selector global de unidad — hoy lo ignorás; cuando extiendas el `SegmentationFilter` server-side a esos módulos, el filtro "se prende" solo (mismo patrón que `courseId` en installments/payments).

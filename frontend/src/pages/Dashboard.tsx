@@ -27,6 +27,24 @@ interface OverdueInstallment {
   monto:          number
 }
 
+interface ActivityItem {
+  id:     string
+  type:   'payment' | 'enrollment' | 'sale'
+  title:  string
+  detail: string
+  amount: number | null
+  date:   string
+}
+
+const ACTIVITY_DOT: Record<ActivityItem['type'], string> = {
+  payment:    'verde',
+  enrollment: 'azul',
+  sale:       'violeta',
+}
+
+const formatActivityDate = (iso: string) =>
+  new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short' }).format(new Date(iso))
+
 // ─── Meta de las stat cards ──────────────────────────────────────────────────
 interface StatMeta {
   key:    keyof DashboardSummary
@@ -73,6 +91,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const summary  = useFetch<DashboardSummary>('/dashboard/summary')
   const overdue  = useFetch<OverdueInstallment[]>('/installments/overdue')
+  const activity = useFetch<ActivityItem[]>('/dashboard/activity')
 
   return (
     <div className="dashboard">
@@ -167,12 +186,32 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ACTIVIDAD RECIENTE — sin endpoint aún */}
+      {/* ACTIVIDAD RECIENTE — últimos pagos, inscripciones y ventas */}
       <section className="section">
         <div className="section__header">
           <h2 className="section__title">Actividad reciente</h2>
         </div>
-        <EmptyState />
+
+        {activity.loading ? (
+          <div className="loading-block">Cargando...</div>
+        ) : activity.error || !activity.data || activity.data.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div className="activity-card">
+            {activity.data.map(a => (
+              <div className="activity-row" key={a.id}>
+                <span className={`activity-row__dot activity-row__dot--${ACTIVITY_DOT[a.type]}`} />
+                <div className="activity-row__content">
+                  <div className="activity-row__text">
+                    <strong>{a.title}</strong> — {a.detail}
+                    {a.amount != null && ` · ${formatCurrency(a.amount)}`}
+                  </div>
+                  <div className="activity-row__time">{formatActivityDate(a.date)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
     </div>

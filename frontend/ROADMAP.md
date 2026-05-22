@@ -45,8 +45,8 @@ Referencia canónica: [`src/pages/Alumnos.tsx`](src/pages/Alumnos.tsx) + [`src/c
 
 ## Estado de módulos (2026-05-21)
 
-- ✅ **Hechos:** Cursos (CRUD + alumnos del curso), Inscripciones, Cuotas y Pagos (3 tabs: Cuotas / Pagos / Histórico, pago múltiple, deshacer pago, filtros), Descuentos, Diplomaturas, Liquidaciones, Presupuesto, Contactos. (Módulos 1–8 de la lista de abajo.)
-- ⏳ **Pendientes:** Módulo 9 (Editorial: Autores / Libros / Ventas), 10 (Personal + Horas), 11 (Notificaciones).
+- ✅ **Hechos:** Cursos (CRUD + alumnos del curso + country + segmentación), Inscripciones, Cuotas y Pagos (3 tabs: Cuotas / Pagos / Histórico, pago múltiple, deshacer pago, filtros), Descuentos, Diplomaturas, Liquidaciones, Presupuesto, Contactos, **Editorial (Autores / Libros / Ventas + Royalties, módulo 9, 2026-05-22)**. (Módulos 1–9.)
+- ⏳ **Pendientes:** Módulo 10 (Personal + Horas), 11 (Notificaciones).
 - 🔧 **Correcciones post-review de Santi (2026-05-20, ver DIARIO/ESTADO):** 6 puntos de UX a corregir antes de seguir (EnrollmentForm precios read-only, lógica campo "Libro", helper text en examDate, verificar dashboard Presupuesto contra back real, forms que piden datos de más). El **403** en cuotas/pagos/descuentos es de authorities Keycloak (lado Santi), no del front.
 
 ---
@@ -133,7 +133,7 @@ Referencia canónica: [`src/pages/Alumnos.tsx`](src/pages/Alumnos.tsx) + [`src/c
 - **Validación:** EMPLEADO exige `firstName+lastName`; PROVEEDOR exige `companyName` (CHECK DB side, replicar client-side).
 - **Sort default:** `lastName asc` (fallback `companyName asc` para proveedores).
 
-### 9. Autores / Libros / Ventas (Editorial)
+### 9. Autores / Libros / Ventas (Editorial) ✅ HECHO (2026-05-22)
 - **Autores:** CRUD, sort `lastName asc`. Endpoints `/api/v1/authors`.
 - **Libros:** lista con filtro `specialty`, `branch`, `active`. Stock con contador visual (badge rojo si =0). Tab "Autores" con royalty% por autor. Endpoints `/api/v1/books`, `POST/DELETE /{id}/authors`.
 - **Ventas:** lista append-only (sin update/delete). Create con `applyStudentDiscount=true` → 30% off si `studentId` presente. Endpoint `/api/v1/book-sales`. Sub-vista "Royalties del mes": `GET /book-sales/royalties/by-period?year=&month=`.

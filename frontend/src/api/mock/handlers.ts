@@ -56,6 +56,14 @@ import type {
   ContactUpdateRequest,
   ContactType,
 } from '../../types/contact'
+import { MOCK_AUTHORS } from './authors.data'
+import { MOCK_BOOKS } from './books.data'
+import { MOCK_BOOK_SALES } from './book-sales.data'
+import type { Author, AuthorCreateRequest, AuthorUpdateRequest } from '../../types/author'
+import type {
+  Book, BookCreateRequest, BookUpdateRequest, BookAuthorRequest, BookAuthor,
+} from '../../types/book'
+import type { BookSale, BookSaleCreateRequest, RoyaltyLine } from '../../types/book-sale'
 
 // Router de mocks: interpreta método + path + query string y devuelve
 // respuestas con la misma forma (PageResponse, lista, objeto) que el backend.
@@ -75,6 +83,9 @@ let diplomasStore:           Diploma[]          = [...MOCK_DIPLOMAS]
 let settlementsStore:        DiplomaSettlement[] = [...MOCK_DIPLOMA_SETTLEMENTS]
 let budgetEntriesStore:      BudgetEntry[]       = [...MOCK_BUDGET_ENTRIES]
 let contactsStore:           Contact[]           = [...MOCK_CONTACTS]
+let authorsStore:            Author[]            = [...MOCK_AUTHORS]
+let booksStore:              Book[]              = [...MOCK_BOOKS]
+let bookSalesStore:          BookSale[]          = [...MOCK_BOOK_SALES]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function buildPage<T>(items: T[], page: number, size: number): PageResponse<T> {
@@ -732,7 +743,239 @@ export function mockFetch<T>(method: HttpMethod, path: string, body?: unknown): 
     if (method === 'PUT') return delay(updateContact(id, body as ContactUpdateRequest) as unknown as T)
   }
 
-  // Dashboard y otros: sin mock → reject → useFetch muestra empty state.
+  // ═══════ AUTHORS ═══════
+  if (pathname === '/authors') {
+    if (method === 'GET') {
+      const q           = params.get('q')?.trim() ?? ''
+      const activeParam = params.get('active')
+      const active      = activeParam === null ? null : activeParam === 'true'
+      const page        = Number(params.get('page') ?? 0)
+      const size        = Number(params.get('size') ?? 20)
+      const sort        = params.get('sort')
+
+      let items = authorsStore
+      if (q) {
+        const needle = q.toLowerCase()
+        items = items.filter(a =>
+          a.firstName.toLowerCase().includes(needle) ||
+          a.lastName.toLowerCase().includes(needle)  ||
+          (a.email?.toLowerCase().includes(needle) ?? false))
+      }
+      if (active !== null) items = items.filter(a => a.active === active)
+
+      items = applySort(items, sort, {
+        firstName: (a: Author) => a.firstName,
+        lastName:  (a: Author) => a.lastName,
+        email:     (a: Author) => a.email,
+        active:    (a: Author) => a.active,
+        createdAt: (a: Author) => a.createdAt,
+      })
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createAuthor(body as AuthorCreateRequest) as unknown as T)
+    }
+  }
+
+  const authorDeactivate = pathname.match(/^\/authors\/([a-f0-9-]+)\/deactivate$/i)
+  if (authorDeactivate && method === 'PUT') {
+    const idx = authorsStore.findIndex(a => a.id === authorDeactivate[1])
+    if (idx < 0) return reject('HTTP 404', 404)
+    authorsStore[idx] = { ...authorsStore[idx], active: false, updatedAt: new Date().toISOString() }
+    return delay(undefined as unknown as T)
+  }
+
+  const authorMatch = pathname.match(/^\/authors\/([a-f0-9-]+)$/i)
+  if (authorMatch) {
+    const id = authorMatch[1]
+    const idx = authorsStore.findIndex(a => a.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    if (method === 'GET') return delay(authorsStore[idx] as unknown as T)
+    if (method === 'PUT') return delay(updateAuthor(id, body as AuthorUpdateRequest) as unknown as T)
+  }
+
+  // ═══════ BOOKS ═══════
+  if (pathname === '/books') {
+    if (method === 'GET') {
+      const q           = params.get('q')?.trim() ?? ''
+      const specialty   = params.get('specialty') ?? ''
+      const branch      = params.get('branch')    ?? ''
+      const activeParam = params.get('active')
+      const active      = activeParam === null ? null : activeParam === 'true'
+      const page        = Number(params.get('page') ?? 0)
+      const size        = Number(params.get('size') ?? 20)
+      const sort        = params.get('sort')
+
+      let items = booksStore
+      if (q) {
+        const needle = q.toLowerCase()
+        items = items.filter(b =>
+          b.name.toLowerCase().includes(needle) ||
+          (b.code?.toLowerCase().includes(needle) ?? false) ||
+          (b.specialty?.toLowerCase().includes(needle) ?? false))
+      }
+      if (specialty)       items = items.filter(b => b.specialty === specialty)
+      if (branch)          items = items.filter(b => b.branch === branch)
+      if (active !== null) items = items.filter(b => b.active === active)
+
+      items = applySort(items, sort, {
+        name:          (b: Book) => b.name,
+        specialty:     (b: Book) => b.specialty,
+        salePrice:     (b: Book) => b.salePrice,
+        stockQuantity: (b: Book) => b.stockQuantity,
+        active:        (b: Book) => b.active,
+      })
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createBook(body as BookCreateRequest) as unknown as T)
+    }
+  }
+
+  const bookAuthorRemove = pathname.match(/^\/books\/([a-f0-9-]+)\/authors\/([a-f0-9-]+)$/i)
+  if (bookAuthorRemove && method === 'DELETE') {
+    const [, bookId, authorId] = bookAuthorRemove
+    const idx = booksStore.findIndex(b => b.id === bookId)
+    if (idx < 0) return reject('HTTP 404', 404)
+    booksStore[idx] = {
+      ...booksStore[idx],
+      authors:   booksStore[idx].authors.filter(a => a.authorId !== authorId),
+      updatedAt: new Date().toISOString(),
+    }
+    return delay(undefined as unknown as T)
+  }
+
+  const bookAuthorAdd = pathname.match(/^\/books\/([a-f0-9-]+)\/authors$/i)
+  if (bookAuthorAdd && method === 'POST') {
+    return delay(addBookAuthor(bookAuthorAdd[1], body as BookAuthorRequest) as unknown as T)
+  }
+
+  const bookDeactivate = pathname.match(/^\/books\/([a-f0-9-]+)\/deactivate$/i)
+  if (bookDeactivate && method === 'PUT') {
+    const idx = booksStore.findIndex(b => b.id === bookDeactivate[1])
+    if (idx < 0) return reject('HTTP 404', 404)
+    booksStore[idx] = { ...booksStore[idx], active: false, updatedAt: new Date().toISOString() }
+    return delay(undefined as unknown as T)
+  }
+
+  const bookMatch = pathname.match(/^\/books\/([a-f0-9-]+)$/i)
+  if (bookMatch) {
+    const id = bookMatch[1]
+    const idx = booksStore.findIndex(b => b.id === id)
+    if (idx < 0) return reject('HTTP 404', 404)
+    if (method === 'GET') return delay(booksStore[idx] as unknown as T)
+    if (method === 'PUT') return delay(updateBook(id, body as BookUpdateRequest) as unknown as T)
+  }
+
+  // ═══════ BOOK SALES ═══════
+  if (pathname === '/book-sales/royalties/by-period' && method === 'GET') {
+    const year  = Number(params.get('year'))
+    const month = Number(params.get('month'))
+    return delay(royaltiesByPeriod(year, month) as unknown as T)
+  }
+
+  if (pathname === '/book-sales') {
+    if (method === 'GET') {
+      const q          = params.get('q')?.trim() ?? ''
+      const bookId     = params.get('bookId')    ?? ''
+      const studentId  = params.get('studentId') ?? ''
+      const from       = params.get('from')      ?? ''
+      const to         = params.get('to')        ?? ''
+      const page       = Number(params.get('page') ?? 0)
+      const size       = Number(params.get('size') ?? 20)
+      const sort       = params.get('sort')
+
+      let items = bookSalesStore
+      if (q) {
+        const needle = q.toLowerCase()
+        items = items.filter(s => s.bookName?.toLowerCase().includes(needle) ?? false)
+      }
+      if (bookId)    items = items.filter(s => s.bookId === bookId)
+      if (studentId) items = items.filter(s => s.studentId === studentId)
+      if (from)      items = items.filter(s => s.saleDate >= from)
+      if (to)        items = items.filter(s => s.saleDate <= to)
+
+      items = applySort(items, sort, {
+        saleDate:    (s: BookSale) => s.saleDate,
+        totalAmount: (s: BookSale) => s.totalAmount,
+        quantity:    (s: BookSale) => s.quantity,
+        bookName:    (s: BookSale) => s.bookName,
+      })
+      return delay(buildPage(items, page, size) as unknown as T)
+    }
+    if (method === 'POST') {
+      return delay(createBookSale(body as BookSaleCreateRequest) as unknown as T)
+    }
+  }
+
+  const bookSaleMatch = pathname.match(/^\/book-sales\/([a-f0-9-]+)$/i)
+  if (bookSaleMatch && method === 'GET') {
+    const found = bookSalesStore.find(s => s.id === bookSaleMatch[1])
+    if (!found) return reject('HTTP 404', 404)
+    return delay(found as unknown as T)
+  }
+
+  // ═══════ DASHBOARD ═══════
+  if (pathname === '/dashboard/summary' && method === 'GET') {
+    const alumnosActivos = studentsStore.filter(s => s.active !== false).length
+    const cursosActivos  = coursesStore.filter(c => c.active !== false).length
+    const cuotasVencidas = installmentsStore.filter(i => i.status === 'OVERDUE').length
+    const today = new Date()
+    const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    const ingresosMes = paymentsStore
+      .filter(p => (p.paymentDate ?? '').slice(0, 7) === ym)
+      .reduce((acc, p) => acc + p.amount, 0)
+    return delay({ alumnosActivos, cuotasVencidas, cursosActivos, ingresosMes } as unknown as T)
+  }
+
+  if (pathname === '/installments/overdue' && method === 'GET') {
+    const today = new Date()
+    const rows = installmentsStore
+      .filter(i => i.status === 'OVERDUE')
+      .map(i => {
+        const enr   = enrollmentsStore.find(e => e.id === i.enrollmentId)
+        const total = installmentsStore.filter(x => x.enrollmentId === i.enrollmentId).length
+        const due   = new Date(`${i.dueDate}T00:00:00Z`)
+        const dias  = Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86_400_000))
+        return {
+          id:           i.id,
+          alumno:       enr ? `${enr.student.lastName}, ${enr.student.firstName}` : '—',
+          curso:        enr ? enr.course.name : '—',
+          cuotaNumero:  i.number,
+          cuotaTotal:   total,
+          diasVencidos: dias,
+          monto:        i.totalDue,
+        }
+      })
+      .filter(r => r.diasVencidos > 10)
+      .sort((a, b) => b.diasVencidos - a.diasVencidos)
+    return delay(rows as unknown as T)
+  }
+
+  if (pathname === '/dashboard/activity' && method === 'GET') {
+    const enrLabel = (enrId: string | null) => {
+      const e = enrId ? enrollmentsStore.find(en => en.id === enrId) : null
+      return e ? `${e.student.lastName}, ${e.student.firstName} · ${e.course.name}` : '—'
+    }
+    const acts: Array<{ id: string; type: string; title: string; detail: string; amount: number | null; date: string }> = []
+    paymentsStore.forEach(p => acts.push({
+      id: `pay-${p.id}`, type: 'payment', title: 'Pago registrado',
+      detail: enrLabel(p.enrollmentId), amount: p.amount, date: p.paymentDate,
+    }))
+    enrollmentsStore.forEach(e => acts.push({
+      id: `enr-${e.id}`, type: 'enrollment', title: 'Nueva inscripción',
+      detail: `${e.student.lastName}, ${e.student.firstName} · ${e.course.name}`,
+      amount: null, date: e.createdAt,
+    }))
+    bookSalesStore.forEach(s => acts.push({
+      id: `sale-${s.id}`, type: 'sale', title: 'Venta de libro',
+      detail: s.bookName ?? '—', amount: s.totalAmount, date: s.saleDate,
+    }))
+    acts.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    return delay(acts.slice(0, 8) as unknown as T)
+  }
+
+  // Otros endpoints sin mock → reject → useFetch muestra empty state.
   return reject(`Mock no implementado: ${method} ${pathname}`, 501)
 }
 
@@ -1195,6 +1438,175 @@ function updateContact(id: string, data: ContactUpdateRequest): Contact {
   }
   contactsStore[idx] = updated
   return updated
+}
+
+// ─── Editorial: Authors / Books / BookSales ──────────────────────────────────
+function createAuthor(data: AuthorCreateRequest): Author {
+  const now = new Date().toISOString()
+  const created: Author = {
+    id:        crypto.randomUUID(),
+    firstName: data.firstName,
+    lastName:  data.lastName,
+    email:     data.email ?? null,
+    phone:     data.phone ?? null,
+    active:    true,
+    createdAt: now,
+    updatedAt: now,
+  }
+  authorsStore = [created, ...authorsStore]
+  return created
+}
+
+function updateAuthor(id: string, data: AuthorUpdateRequest): Author {
+  const idx = authorsStore.findIndex(a => a.id === id)
+  const current = authorsStore[idx]
+  const updated: Author = {
+    ...current,
+    firstName: data.firstName ?? current.firstName,
+    lastName:  data.lastName  ?? current.lastName,
+    email:     data.email     ?? null,
+    phone:     data.phone     ?? null,
+    active:    data.active    ?? current.active,
+    updatedAt: new Date().toISOString(),
+  }
+  authorsStore[idx] = updated
+  return updated
+}
+
+function createBook(data: BookCreateRequest): Book {
+  const now = new Date().toISOString()
+  const authors: BookAuthor[] = (data.authors ?? []).map(a => {
+    const au = authorsStore.find(x => x.id === a.authorId)
+    return {
+      authorId:          a.authorId,
+      firstName:         au?.firstName ?? '—',
+      lastName:          au?.lastName  ?? '',
+      royaltyPercentage: a.royaltyPercentage,
+    }
+  })
+  const created: Book = {
+    id:                 crypto.randomUUID(),
+    name:               data.name,
+    code:               data.code               ?? null,
+    specialty:          data.specialty          ?? null,
+    format:             data.format             ?? null,
+    edition:            data.edition            ?? null,
+    pages:              data.pages              ?? null,
+    salePrice:          data.salePrice,
+    studentDiscountPct: data.studentDiscountPct ?? null,
+    costPerUnit:        data.costPerUnit        ?? null,
+    stockQuantity:      data.stockQuantity      ?? null,
+    branch:             data.branch             ?? null,
+    active:             true,
+    authors,
+    createdAt:          now,
+    updatedAt:          now,
+  }
+  booksStore = [created, ...booksStore]
+  return created
+}
+
+function updateBook(id: string, data: BookUpdateRequest): Book {
+  const idx = booksStore.findIndex(b => b.id === id)
+  const current = booksStore[idx]
+  const updated: Book = {
+    ...current,
+    ...data,
+    id,
+    authors:   current.authors,   // los autores se gestionan por endpoints aparte
+    updatedAt: new Date().toISOString(),
+  }
+  booksStore[idx] = updated
+  return updated
+}
+
+function addBookAuthor(bookId: string, data: BookAuthorRequest): Book {
+  const idx = booksStore.findIndex(b => b.id === bookId)
+  const current = booksStore[idx]
+  const au = authorsStore.find(x => x.id === data.authorId)
+  const without = current.authors.filter(a => a.authorId !== data.authorId)
+  const updated: Book = {
+    ...current,
+    authors: [...without, {
+      authorId:          data.authorId,
+      firstName:         au?.firstName ?? '—',
+      lastName:          au?.lastName  ?? '',
+      royaltyPercentage: data.royaltyPercentage,
+    }],
+    updatedAt: new Date().toISOString(),
+  }
+  booksStore[idx] = updated
+  return updated
+}
+
+function createBookSale(data: BookSaleCreateRequest): BookSale {
+  const now = new Date().toISOString()
+  const book = booksStore.find(b => b.id === data.bookId)
+  const base = book?.salePrice ?? 0
+  const discPct = book?.studentDiscountPct ?? 0
+  const studentSale = !!data.applyStudentDiscount
+  const unitPrice = studentSale ? Math.round(base * (1 - discPct / 100)) : base
+  const qty = data.quantity
+  const created: BookSale = {
+    id:           crypto.randomUUID(),
+    bookId:       data.bookId,
+    bookName:     book?.name ?? null,
+    studentId:    data.studentId    ?? null,
+    enrollmentId: data.enrollmentId ?? null,
+    quantity:     qty,
+    unitPrice,
+    studentSale,
+    totalAmount:  unitPrice * qty,
+    saleDate:     now,
+    soldBy:       null,
+    notes:        data.notes ?? null,
+    createdAt:    now,
+  }
+  bookSalesStore = [created, ...bookSalesStore]
+  // Descontar stock.
+  if (book) {
+    const bIdx = booksStore.findIndex(b => b.id === book.id)
+    const stock = booksStore[bIdx].stockQuantity
+    if (stock != null) {
+      booksStore[bIdx] = { ...booksStore[bIdx], stockQuantity: Math.max(0, stock - qty) }
+    }
+  }
+  return created
+}
+
+function royaltiesByPeriod(year: number, month: number): RoyaltyLine[] {
+  const inPeriod = bookSalesStore.filter(s => {
+    const d = new Date(s.saleDate)
+    return d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month
+  })
+  // Acumular por (bookId, authorId).
+  const map = new Map<string, RoyaltyLine>()
+  for (const sale of inPeriod) {
+    const book = booksStore.find(b => b.id === sale.bookId)
+    if (!book) continue
+    for (const ba of book.authors) {
+      const key = `${book.id}|${ba.authorId}`
+      const prev = map.get(key)
+      const royalty = Math.round(sale.totalAmount * (ba.royaltyPercentage / 100))
+      if (prev) {
+        prev.totalSales    += sale.totalAmount
+        prev.royaltyAmount += royalty
+      } else {
+        map.set(key, {
+          authorId:          ba.authorId,
+          firstName:         ba.firstName,
+          lastName:          ba.lastName,
+          bookId:            book.id,
+          bookName:          book.name,
+          royaltyPercentage: ba.royaltyPercentage,
+          totalSales:        sale.totalAmount,
+          royaltyAmount:     royalty,
+        })
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) =>
+    a.lastName.localeCompare(b.lastName, 'es') || a.bookName!.localeCompare(b.bookName!, 'es'))
 }
 
 function computeMonthlyFlow(year: number): MonthlyFlow[] {
