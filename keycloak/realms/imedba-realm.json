@@ -37,6 +37,8 @@
               "residencias:read", "residencias:write",
               "formacion_superior:read", "formacion_superior:write",
               "recurring_services:read", "recurring_services:write",
+              "installments:read", "installments:write",
+              "discount_campaigns:read", "discount_campaigns:write",
               "notifications:manage",
               "reports:read",
               "admin:manage"
@@ -55,6 +57,8 @@
               "courses:read",
               "enrollments:read", "enrollments:write",
               "payments:read", "payments:write",
+              "installments:read", "installments:write",
+              "discount_campaigns:read",
               "residencias:read", "residencias:write",
               "formacion_superior:read", "formacion_superior:write",
               "notifications:manage"
@@ -72,6 +76,7 @@
               "students:read",
               "enrollments:read",
               "settlements:read", "settlements:write",
+              "installments:read",
               "teaching:read",
               "formacion_superior:read", "formacion_superior:write",
               "notifications:manage"
@@ -118,6 +123,8 @@
               "courses:read",
               "enrollments:read",
               "payments:read",
+              "installments:read",
+              "discount_campaigns:read",
               "editorial:read",
               "stock:read",
               "budget:read",
@@ -156,6 +163,10 @@
         { "name": "enrollments:approve" },
         { "name": "recurring_services:read" },
         { "name": "recurring_services:write" },
+        { "name": "installments:read" },
+        { "name": "installments:write" },
+        { "name": "discount_campaigns:read" },
+        { "name": "discount_campaigns:write" },
         { "name": "notifications:manage" },
         { "name": "reports:read" },
         { "name": "admin:manage" }
