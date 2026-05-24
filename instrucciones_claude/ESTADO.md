@@ -12,7 +12,7 @@
 
 ## Santi / backend / infra / db / auth
 
-**Fase actual:** 8 cerrada. 3 fixes hechos hoy (2026-05-12) antes de arrancar Fase 9.a — ver DIARIO. Plan de Fase 9 armado tras reunión IMEDBA 2026-04-24 (ver `07-requerimientos-reunion-20260424.md`). Fase 7 (Moodle) pausada esperando token del programador de Moodle.
+**Fase actual:** Fase 9.a parcial cerrada en backend (segmentación Cursos). **Reunión IMEDBA 2026-05-22 reorientó prioridades** (ver `08-requerimientos-reunion-20260522.md`): el cliente quiere lo presentado pulido al 100% antes de avanzar. Fase 9.b-e (PENDING_APPROVAL, comisiones, abonos, unaccent) baja a P3. Lo que sube a P0: pulir Alumnos/Inscripciones/Cuotas + refactor Diplomaturas↔Liquidaciones + módulo nuevo Seguimiento Académico (Excel Moodle). Próxima reunión: **viernes 12 de junio, 11:00**.
 
 **En qué estoy ahora:**
 - **Fixes 2026-05-12** (ver DIARIO):
@@ -26,32 +26,96 @@
   - `CourseRepository.search` requiere `allowedUnits`; `CourseService` aplica el filtro en list/get/create/update/delete.
   - Realm export ampliado con 7 authorities nuevas + 4 built-in clientScopes (estos últimos *faltaban* del export original — bug histórico que también explica por qué nunca venía `realm_access.roles` en el JWT).
   - **End-to-end auth verificado**: ROPC → JWT con roles → backend valida firma sin iss → @PreAuthorize pasa.
-- **Pendientes inmediatos (review 2026-05-20):**
-  1. **🔴 Fix authorities faltantes en realm Keycloak (causa los 403 en front):** sumar `installments:read`, `installments:write`, `discount_campaigns:read`, `discount_campaigns:write` como client roles del cliente `imedba-backend` en `imedba-realm.json`. Componer al ADMIN; sumar a VENDEDORA y CONTABLE según corresponda. Aplicar también al Keycloak corriendo vía `kcadm.sh` (el realm export solo se importa la primera vez).
-  2. Extender `SegmentationFilter` a students/enrollments/installments/payments/budget/settlements (Students no tiene BU directa — pertenece transitiva via Course).
-  3. Asignar composites VENDEDORA→residencias:* y SECRETARIA_FS→formacion_superior:* en el Keycloak corriendo (solo en JSON ahora). O hacer `docker compose down -v` reset clean.
-  4. Crear test usuario con solo `residencias:read` y probar denial.
+- **🔥 NUEVA PRIORIZACIÓN POST-REUNIÓN 2026-05-22 — ver `08-requerimientos-reunion-20260522.md` §3 para detalle completo.**
+
+  **P0 — Pulido para demo del 12-jun (orden de ejecución):**
+  1. **Migration V016 — Alumnos**: agregar `iar_pfo_completed BOOLEAN`, `residence_location VARCHAR`, `nationality VARCHAR`, `specialty VARCHAR`, `target_competition VARCHAR`. Actualizar `StudentEntity` + `StudentCreate/UpdateRequest` + DTOs + service.
+  2. **Validación inscripción simultánea**: un alumno no puede tener dos `Enrollment` con `status IN (ACTIVE, PENDING_APPROVAL)` a la vez. Excepción `ConflictException` en `EnrollmentService.create`.
+  3. **Migration V017 — Inscripciones con campaña**: FK `discount_campaign_id` opcional en `enrollments`. Lógica `EnrollmentService.create`: si NULL pero hay campaña activa cubriendo `enrollmentDate`, asignarla automáticamente. Recalcular `discount` desde la campaña si se setea la FK. Si vendedora pasa `discount` manual, override.
+  4. **Migration V018 — Recargo manual**: agregar `late_fee_amount NUMERIC` en `payments`. `PaymentCreateRequest.lateFeeAmount` opcional. Total cobrado = `amount + late_fee_amount`. Exponer en `PaymentResponse`.
+  5. **Modo "Suma total" cuotas**: agregar `useTotalDistribution BOOLEAN` (default false) en `EnrollmentCreateRequest`. Si true, `InstallmentGenerator` divide `(listPrice + enrollmentFee + bookAmount) / numberOfInstallments` en N cuotas iguales (sin matrícula como cuota separada). Documentar bien en Swagger.
+  6. **DELETE /api/v1/payments/{id}** (Fran pide hace rato): elimina el pago y revierte la cuota a PENDING/OVERDUE según fecha actual vs `dueDate`. Auth: `payments:write`.
+  7. **Filtro `courseId` opcional** en `GET /api/v1/installments` y `GET /api/v1/payments`. Resolver vía `installment.enrollment.course.id`.
+  8. **Extender `SegmentationFilter`** a students/enrollments/installments/payments/budget/settlements (Students no tiene BU directa — pertenece transitiva via Course). Hoy Cursos sí filtra real; el SPA ya manda `businessUnit` en los otros — solo "se prende" cuando extiendas el filter.
+
+  **P1 — Refactor Diplomaturas ↔ Liquidaciones (coordinar con Fran):**
+  9. **Migration V019**: mover `taxCommissionPct`, `secretarySalary`, `advertisingAmount`, `adminPct`, `universityPct`, `imedbaPct` de `diplomas` → `diploma_settlements`. Defaults configurables en `diploma.default_settlement_config` (JSONB opcional) para no tener que cargarlos cada vez.
+  10. `DiplomaSettlement.totalCollected` **auto-calculado** al crear (sumar `Payment.amount + lateFeeAmount` de inscripciones de esa diplomatura en el período). El usuario solo carga el período + costos del mes.
+  11. **Email automático a directoras** al `approve` del settlement (template con monto a facturar). Usar SendGrid (Fase 3).
+
+  **P1 — Presupuesto:**
+  12. Auto-link de cobros enriquecido: setear `BudgetEntry.subcategory` con el nombre del curso/diplomatura/libro según el origen. Hoy queda en NULL.
+  13. Endpoint dashboard con agrupación **semestral** además de mensual/anual.
+
+  **P2 — Módulo nuevo: Seguimiento Académico (Excel Moodle)** — esperar sample de Meli antes de empezar:
+  14. Tabla nueva `academic_records` (`student_id`, `subject`, `score`, `period`, `source`, `imported_at`).
+  15. Endpoint `POST /api/v1/academic-records/import` (multipart con Excel). Parsear con Apache POI. Idempotente: matchear por `student.email + subject + period` y upsertear.
+  16. Endpoint `GET /api/v1/students/{id}/academic-records` para alimentar el detalle del alumno.
+
+  **P3 — Fase 9 backend (post 12-jun):**
+  17. PENDING_APPROVAL workflow + authority `enrollments:approve`.
+  18. Entidad `Commission` (cohortes secuenciales de diplomatura).
+  19. Entidad `RecurringService` (abonos / agenda de vencimientos).
+  20. `unaccent` en búsquedas server-side (ya hay extension creada en V015, falta usarla en Specs).
 - Fase 8 completa (hardening + deploy): `application-prod.yml` con swagger off + actuator restringido + Hikari/Tomcat tuning. `SecurityConfig` con headers defensivos. Nginx con CSP + rate limit (20 req/s `/api`, 5 req/s token endpoint Keycloak). Scripts `backup-db.sh` / `restore-db.sh`. `.github/workflows/backend-ci.yml`. `docker-compose.prod.yml` con deploy limits + healthcheck.
 - Fase 9 planificada post-reunión IMEDBA 2026-04-24. Scope: (a) segmentación Residencias↔Formación Superior por authorities + reubicación de Prematuros como diplomatura dentro de FS + `country` en courses; (b) workflow de aprobación de inscripciones (PENDING_APPROVAL → approve por socio dispara Moodle + contrato + cuotas); (c) entidad Commission para cohortes de diplomatura; (d) RecurringService para abonos con flujo de factura; (e) búsquedas sin tilde. Plan detallado en `04-plan-de-fases.md` §Fase 9.
 - Fase 7 (Moodle) — ya le escribí al programador de Moodle (2026-04-24) pidiendo API, API key y documentación. Esperando respuesta. El cliente REST puede empezar a codearse ahora contra la spec estándar; se cablea cuando llega el token.
 - Fases 0-6 cerradas. Integration tests Testcontainers pendientes de corrida host.
 
 **Próximo paso:**
-- **Arrancar Fase 9.a (segmentación)**: authorities nuevas en Keycloak realm export, migración V016 (eliminar `PREMATUROS` del enum, migrar datos a `FORMACION_SUPERIOR`, agregar `country` a courses, habilitar extension `unaccent`), filtrado server-side en queries de students/courses/enrollments/etc.
-- Luego 9.b (workflow aprobación) → 9.c (comisiones) → 9.d (RecurringService) → 9.e (búsquedas unaccent).
-- Retomar Fase 7 cuando Moodle responda con token + docs.
-- Deploy a Don Web post-Fase 9 (ya está listo infra, sólo setear `.env` de prod + cert).
-- Si se toca host: correr integration tests Testcontainers acumulados (Student/Course/Enrollment/Payment API).
+- **Arrancar P0**: V016 (campos Alumno) → validación inscripción simultánea → V017 (FK discount_campaign) → V018 (late_fee_amount) → modo suma total → DELETE payments → filtro courseId → extender SegmentationFilter. Apuntar a tener todo cerrado para el 12-jun.
+- Coordinar P1 con Fran: refactor Diploma↔Settlement requiere cambios de schema + DTOs + forms del SPA en sintonía.
+- **Esperar sample de Meli** del Excel de Moodle (P2). Sin eso, no se arranca seguimiento académico.
+- Fase 9 backend (P3) **después** del 12-jun.
+- Fase 7 (Moodle API): seguir esperando a David. **Reorientado**: el sample Excel de Meli es el camino primario; la API de Moodle pasa a ser fase 2 del seguimiento académico, no fase 1.
+- Deploy a Don Web cuando el cliente lo apruebe (todavía no hay fecha, recién se le va a mostrar el sistema pulido el 12-jun).
 
 **Bloqueado por el otro:** nada.
 
 **Notas para Fran:**
-- **🔥 PRIORIDAD 2026-05-20 — correcciones de UX y datos ANTES de avanzar (Editorial y Fase 9 ambas en pausa).** En review aparecieron varios temas que conviene cerrar antes de sumar features. Orden sugerido:
+- **🔥🔥 REUNIÓN IMEDBA 2026-05-22 — LEER ANTES DE TOCAR NADA.** Detalle completo en `instrucciones_claude/08-requerimientos-reunion-20260522.md`. **Premisa del cliente**: *"lo que presentamos queremos que quede pulido al 100%"*. Eso baja Fase 9 / módulos nuevos y sube las correcciones sobre lo demo'eado. Próxima reunión: **viernes 12 de junio, 11:00** — ahí queremos mostrar todo cerrado.
+
+  **P0 — Pulido para demo del 12-jun (frontend)**, en este orden:
+  1. **Dashboard refactor completo** (pedido explícito Gustavo/Jaque, 1:18:53). Reordenar layout: **arriba refuerzo positivo** (libro más vendido del mes, ingreso mes vs mes anterior, alumnos nuevos del mes, mejor curso del trimestre), **abajo operativo** (cuotas vencidas como tabla, actividad reciente). Las métricas positivas podés derivarlas de los endpoints que ya existen (`/dashboard/summary`, `/installments/overdue`, `/dashboard/activity` — todavía solo en mock; coordiná conmigo si necesitás algo nuevo en backend, pero la mayoría sale del mock que ya tenés).
+  2. **StudentForm — 5 campos nuevos** (lo agrego yo en V016, vos esperás el `CreateRequest` actualizado en Swagger):
+     - `iarPfoCompleted` (boolean, label "Terminó IAR/PFO", default false). Es la instancia final de Medicina — clave para residencias.
+     - `residenceLocation` (string, label "Lugar de residencia"). Separado del domicilio. Importante para saber si rinde en Argentina o exterior.
+     - `nationality` (string, label "Nacionalidad").
+     - `specialty` (string, label "Especialidad a la que se presenta"). **Lo llena el alumno**, no la vendedora — dejá un helper text que lo aclare.
+     - `targetCompetition` (string, label "Concurso al que se presenta"). Ídem alumno.
+  3. **EnrollmentForm — descuento como dropdown** (no input libre). Reemplazar el input numérico actual por un `<select>` de campañas activas (de `/api/v1/discount-campaigns?active=true`). Al seleccionar, autocalcula el %. Mantener un override manual (botón "Editar manual" que vuelve al input libre). **Auto-apply**: si el backend devuelve un `enrollment` con `discountCampaignId` ya setea (porque hubo una campaña vigente al crear), mostrarlo como pre-seleccionado en el form de edición.
+  4. **EnrollmentForm — toggle "Suma total" para cuotas** (nuevo): un switch encima del bloque de cuotas. Si está activo, muestra un disclaimer "Se sumará curso + matrícula + libros y se dividirá en N cuotas iguales". El backend acepta flag `useTotalDistribution: boolean` en el create — pasalo en el payload. Si está apagado, mantener el flujo actual (matrícula como cuota 0 + N cuotas).
+  5. **PaymentForm — campo "Recargo (ARS)"** opcional al registrar pago. Mapea a `lateFeeAmount` que voy a agregar en backend. Mostrar total cobrado = `amount + lateFeeAmount`.
+  6. **Eliminar página `/autores` del menú** (sigue existiendo el endpoint, pero la nav la sacamos — los autores se gestionan dentro del libro, que ya implementaste el 22/05). Cuando se vende una colección, generar N `book_sale` (uno por libro de la colección) en vez de uno solo — para que el reporte de royalties sea preciso.
+  7. **Pendientes vigentes del review 2026-05-20** que NO se cerraron:
+     - EnrollmentForm `listPrice` / `enrollmentFee` como labels read-only por default + botón "Editar" (sigue pendiente).
+     - Lógica del campo "Libro (ARS)" — revisar contra catálogo `/api/v1/books`.
+     - Helper text en `CourseForm.examDate` (ya marcado).
+     - Auditar forms vs DTOs del backend (formularios que piden de más).
+  8. **Listado de Presupuesto — descripción legible** en vez de UUID. Pedido de la reunión (Fran 49:07). El backend te va a exponer `subcategory` enriquecida cuando lo cierre (ej. "Pago primera cuota — Juan Pérez"). Mientras, podés construirla client-side a partir de los campos disponibles.
+
+  **P1 — Refactor Diplomaturas ↔ Liquidaciones (coordinemos timing):**
+  - **DiplomaForm se simplifica**: solo nombre, universidad, precio matrícula, precio curso, descripción, **directoras** (renombre de "socias", solo 2). Sacar campos de costos fijos y reparto institucional.
+  - **SettlementForm se enriquece**: agregar inputs para publicidad, sueldo secretaria, comisión impositiva, % adm/univ/imedba. `totalCollected` queda **calculado por el backend** — ya no es input.
+  - Renombrar todas las etiquetas UI "Socias" → "Directoras". El column name en DB lo dejo igual para no romper migraciones, pero el campo en TS pasa a `directors`.
+  - **Esperar a que cierre la migración V019 antes de tocar los forms**.
+
+  **P2 — Módulo nuevo: Seguimiento Académico (esperar a Meli):**
+  - Sección "Rendimiento académico" nueva en `StudentDetail` con tabla de notas (subject, score, period).
+  - Página `/academico/import` con file upload (Excel) → `POST /api/v1/academic-records/import`.
+  - **No empezar hasta que Meli pase el sample del Excel del Moodle** (tiene deadline duro: examen residencia ~12-jun).
+
+  **DESCARTADOS / FUERA DE ALCANCE** (no implementar aunque alguien lo pida en la próxima reunión sin discutirlo conmigo):
+  - Facturación con/sin IVA (Gustavo lo levantó, Nico lo descartó: lo maneja él aparte en Excel).
+  - Banco Crédicoop / plataforma de cobros propia (proyecto futuro separado).
+  - API directa de Moodle (post-cierre, primero va el Excel).
+
+- **REVIEW VIEJO (2026-05-20) — items 1-4 + 6 siguen vigentes** y absorbidos en la lista P0 de arriba. Item 5 (403 cuotas/pagos/descuentos) ✅ ya cerrado.
   1. **EnrollmentForm — `listPrice` y `enrollmentFee` como labels read-only por default**, con el precio que viene del curso seleccionado. Botón "Editar" o switch que permita override solo si la vendedora lo decide explícitamente. Hoy ambos son inputs editables con placeholder "Si queda vacío, toma el del curso" — confunde porque parecen obligatorios y la UI no muestra el valor de referencia. Mostrar siempre el precio del curso como referencia ahí abajo, aún cuando esté editado.
   2. **EnrollmentForm — Lógica de "Libro (ARS)" no se entiende.** Hoy es un input numérico libre sin contexto. Hay que revisar: ¿es un libro complementario que se agrega a la inscripción y se suma al monto? Si sí, debería ser un select de libros del catálogo (`/api/v1/books`) con su precio cargado automático, o un checkbox "Incluir libro del curso" con descuento 30% si es alumno (regla del CLAUDE.md raíz). Pedir clarificación a Santi sobre la regla exacta antes de cambiar la UI.
   3. **CourseForm — Etiqueta "Fecha de examen" sin contexto.** Agregar tooltip/helper explicando: es la fecha del examen final de residencia que el curso prepara (residencia médica). En cursos sin examen formal (ej. diplomaturas, talleres) queda vacío.
   4. **Dashboard Presupuesto no actualiza con datos reales.** Hay que verificar que las páginas de Presupuesto pegan al backend real (`/api/v1/budget/dashboard/summary`, `/api/v1/budget/dashboard/monthly-flow`) y no a los mocks. Si `VITE_USE_MOCK=false` y aún así no actualiza, hay un bug de cache o de fetch. Endpoints backend existen y devuelven datos reales.
-  5. **403 en Cuotas/Pagos/Descuentos NO es culpa del front.** Es bug del backend (Santi lo arregla): las authorities `installments:read/write` y `discount_campaigns:read/write` no están definidas en el realm Keycloak, entonces ni ADMIN las tiene. Una vez que Santi sume esas authorities + composite ADMIN + restart de Keycloak (o `down -v`), los 403 se van. **Repasá igual** que `client.ts` mande el Bearer en TODAS las requests (no solo algunas) — si hay alguna llamada con `fetch` directo sin pasar por `client.ts`, ahí se rompe.
+  5. ✅ **403 en Cuotas/Pagos/Descuentos — RESUELTO 2026-05-22.** Ya está aplicado al Keycloak corriendo y verificado con `curl` (ADMIN HTTP 200 en `/installments` y `/discount-campaigns`; VENDEDORA 200 en GETs y 403 correcto en POST de descuentos). **Cerrá sesión y re-logueate** en el SPA y los 403 se van. **Repasá igual** que `client.ts` mande el Bearer en TODAS las requests (no solo algunas) — si hay alguna llamada con `fetch` directo sin pasar por `client.ts`, ahí se rompe.
   6. **Forms piden datos de más — auditar contra DTOs del back.** Para cada form (`StudentForm`, `EnrollmentForm`, `CourseForm`, `BudgetEntryForm`, `DiplomaForm`, etc.) revisar contra `XxxCreateRequest` / `XxxUpdateRequest` del backend en Swagger (`http://localhost:8080/swagger-ui.html`). Sacar campos que el back ignora o no acepta. Marcar opcionales claramente. Particularmente: `EnrollmentForm` tiene 8 campos y el backend probablemente acepta menos.
   7. Recién después de cerrar 1-6: Editorial trio (Autores/Libros/Ventas), y Fase 9 (segmentación Residencias↔FS, guards, menú, country, PENDING_APPROVAL, comisiones).
 - **🌐 Prod va a usar puerto 80 (no 5173).** Cuando se haga el deploy a Don Web hay que actualizar en Keycloak el client `imedba-frontend`: *Valid Redirect URIs* `https://<dominio-prod>/*` y *Web Origins* `https://<dominio-prod>`. Backend: `APP_CORS_ALLOWED_ORIGINS=https://<dominio-prod>` en `.env` de prod. Tenelo en cuenta antes del deploy — hoy en dev está correcto con `:5173`.
@@ -61,7 +125,7 @@
     - **SECUNDARIO (opcional) → detalle de Alumno:** resumen agregado tipo *"2 de 3 inscripciones suspendidas"*, derivado **client-side** a partir de las inscripciones del alumno.
     - **NO ponerlo como columna en la lista de Alumnos** ni como estado del student. Un alumno puede tener una inscripción suspendida (ej. curso) y otra activa (ej. diplomatura) al mismo tiempo — el flag es per-enrollment, no per-student. Mostrarlo como estado del alumno entero es ambiguo y conceptualmente incorrecto.
 - **🐛 Bug auth descubierto 2026-05-20** (ver DIARIO): entrando directo a ruta protegida (ej. `/dashboard`) sin sesión, `RequireAuth.tsx:21` llama a `login()` (PKCE redirect) en vez de mandar al `/` interno. El form ROPC propio queda eludido. **Fix sugerido:** reemplazar el `useEffect` + `void login(loc.pathname + loc.search)` por `<Navigate to="/" replace state={{ from: loc }}/>`. Es un remanente del flow viejo que quedó después del pivote a ROPC del 2026-05-12.
-- **⚠️ Reunión IMEDBA 2026-04-24 — LEER ANTES DE SEGUIR TOCANDO EL SPA.** Resumen completo en `instrucciones_claude/07-requerimientos-reunion-20260424.md` y plan de Fase 9 en `04-plan-de-fases.md`. Puntos que te tocan directo:
+- **ℹ️ Reunión IMEDBA 2026-04-24 — superada por la del 22-05.** Los puntos 1-4 (segmentación + menú + país) están **hechos** (Fase 9.a parcial). Los puntos 5-7 (PENDING_APPROVAL, comisiones, abonos) **bajaron a P3** post-reunión 22-05 — no avanzar sin charlarlo. El doc original (`07-requerimientos-reunion-20260424.md`) queda como referencia histórica; el norte hoy es `08-requerimientos-reunion-20260522.md`. Resumen de los 8 puntos por si necesitás contexto:
   1. **Menú se reorganiza**: en vez de "Académico" solo, van a ser DOS entradas "Académico Residencias Médicas" y "Académico Formación Superior". IMEDBA tiene dos equipos separados que no deben verse entre sí — esto no es opcional.
   2. **"Diplomatura" pasa a estar dentro de "Finanzas"** (no como sección propia) — esto ya lo hiciste hoy 👍. "Horas" pasa a "Administración/Personal".
   3. **Prematuros ya no es business_unit paralela**: es una diplomatura dentro de Formación Superior. Si tenés Prematuros como chip/filtro en `Cursos.tsx`, sacalo. El enum pasa a ser `RESIDENCIAS | EDITORIAL | FORMACION_SUPERIOR | GENERAL`. Los datos actuales con `PREMATUROS` van a migrarse a `FORMACION_SUPERIOR` (V016 backend).
