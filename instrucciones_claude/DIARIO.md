@@ -29,6 +29,32 @@
 
 ## Entradas
 
+## 2026-05-24 — Santi — backend (P0 reunión 22-05 cerrado: 8 items, 2 migraciones, OpenAPI verificado)
+**Qué:** Implementado el bloque P0 completo de la reunión 22-05 en backend. Backend levanta, V016+V017 aplicadas, contratos OpenAPI verificados.
+**Items:**
+  1. **V016** — Alumnos con `iar_pfo_completed BOOL`, `residence_location`, `specialty`, `target_competition` (nationality ya estaba). Defaults seguros en service (igual patrón que `active`).
+  2. **Validación inscripción simultánea** — Nuevo `existsByStudentIdAndStatusIn` en repo; `EnrollmentService.create` rechaza si el alumno ya tiene ACTIVE/SUSPENDED en otro curso. COMPLETED/CANCELLED no bloquean (puede reinscribirse en año posterior).
+  3. **Descuento como FK + auto-apply** — La FK `discount_campaign_id` ya existía en `enrollments`, no hizo falta migración. Nuevo `resolveDiscount()` con tres reglas: % manual gana → campaña elegida → buscar campaña vigente en `enrollmentDate` (zona AR). FIXED_AMOUNT se convierte a % equivalente sobre `listPrice`.
+  4. **V017** — `payments.late_fee_amount NUMERIC NOT NULL DEFAULT 0`. `PaymentCreateRequest.lateFeeAmount` opcional. `PaymentResponse` lo expone. `sumByInstallment/Enrollment` ahora suman `amount + lateFeeAmount` (cierre de cuota considera el recargo manual).
+  5. **Modo "Suma total"** — `EnrollmentCreateRequest.useTotalDistribution: Boolean`. Si true, `InstallmentGenerator.generateTotalDistribution()` divide `finalPrice + bookPrice` en N cuotas iguales sin matrícula como cuota 0 separada. Si false, comportamiento histórico.
+  6. **DELETE /api/v1/payments/{id}** — Anula el pago físicamente y revierte la cuota: si la suma restante ya no cubre `totalDue`, status → PENDING (si la fecha actual AR ≤ dueDate) o OVERDUE (si la pasó). Auth `payments:write`.
+  7. **Filtro `courseId`** — `PaymentSpecs.byCourse()` + `InstallmentSpecs.byCourse()` vía `enrollment.course.id`. Controllers actualizados.
+  8. **SegmentationFilter extendido** — Aplicado a Enrollment + Installment + Payment via `byBusinessUnits(Set<BusinessUnit>)` en Specs. `findVisible` de Enrollment ahora valida `SegmentationFilter.canSee(course.businessUnit)` y devuelve 404. Students y Budget quedan para próxima iteración (alcance más complejo).
+**Por qué:** Plan P0 documentado en `08-requerimientos-reunion-20260522.md` §3. Premisa del cliente: pulido al 100% antes de demo del 12-jun.
+**Problemas:**
+  - Build inicial falló porque los tests de integración usaban las firmas viejas de `StudentCreateRequest` (10 args), `EnrollmentCreateRequest` (12 args) y `PaymentCreateRequest` (8 args). Actualizados a las nuevas firmas (14, 13 y 9 args respectivamente).
+  - Test `vendedora_sees_only_own` en `EnrollmentApiIntegrationTests` creaba 2 inscripciones para el mismo alumno (con seller A y B, distinto curso). Con la nueva validación de "una inscripción activa por alumno", el segundo create fallaba con 409. Fix: crear un segundo `Student` (Grace Hopper) para la inscripción del seller B. El test ahora valida lo que tenía que validar (segregación por enrolledBy), no las nuevas reglas.
+  - Compile en host falló porque tiene Java 17 y el proyecto pide 21; resuelto compilando dentro del contenedor backend con `docker compose up -d --build backend`.
+**Verificación end-to-end:** `docker compose up -d --build backend` exitoso. Logs muestran "Successfully applied 2 migrations to schema 'public', now at version v017". `GET /actuator/health` → `UP`. `GET /v3/api-docs` confirma `StudentResponse` con 4 campos nuevos, `PaymentResponse` con `lateFeeAmount`, `EnrollmentCreateRequest` con `useTotalDistribution`.
+**Impacto para el otro / PARA FRAN:** Backend listo para que vos implementes la nota P0 frontend que ya está en ESTADO. Los nuevos campos del DTO están en Swagger:
+  - `StudentCreate/UpdateRequest`: agregar `iarPfoCompleted`, `residenceLocation`, `specialty`, `targetCompetition` al `StudentForm`.
+  - `EnrollmentCreateRequest`: `discountCampaignId` (UUID) + `useTotalDistribution` (boolean). El backend hace auto-apply de campañas vigentes — si el alumno crea inscripción en la fecha de una campaña activa, el backend la asigna sola; el SPA puede dejar el dropdown vacío y aún así aparecerá la campaña en el response.
+  - `PaymentCreateRequest`: `lateFeeAmount` opcional para el recargo manual al cobrar.
+  - `DELETE /api/v1/payments/{id}`: ya funciona contra back real, sacar la nota de "solo mock" del ROADMAP.
+  - `GET /installments?courseId=…` y `GET /payments?courseId=…`: filtro de curso ya funciona contra back real, sacar la nota de "solo mock".
+  - Segmentación: ya no necesitás filtrar Cuotas/Pagos/Inscripciones por businessUnit en client — el backend lo hace según JWT.
+**Refs:** Migraciones `V016__student_residencias_fields.sql`, `V017__payment_late_fee.sql`. Commits `840c372` (P0) y `63214c9` (Keycloak fix previo, finalmente commiteado).
+
 ## 2026-05-24 — Santi — planning (análisis reunión IMEDBA 22-05 + reorientación de prioridades)
 **Qué:** Analizada la transcripción completa de la reunión 22/05/2026 (80 min, todos: Gustavo+Jaque+Nico+Meli del lado cliente, Santi+Fran del nuestro). Creado `instrucciones_claude/08-requerimientos-reunion-20260522.md` con ~25 cambios identificados, agrupados por módulo, con prioridades reordenadas (P0/P1/P2/P3) y plan para el 12-jun. PDF renombrado de "Meeting Transcription.pdf" a "reunion-20260522-transcripcion.pdf" (alineado a la convención del 07). `ESTADO.md` reescrito en sección Santi (P0 reordenada con 8 items backend, P1 refactor Diploma↔Settlement, P2 seguimiento académico, P3 Fase 9 backend) + nueva nota P0 para Fran (8 items frontend incluyendo dashboard refactor completo) + marcada la nota vieja del 24-04 como "superada".
 **Por qué:** El cliente fue **muy claro** en la reunión: *"lo que presentamos queremos que quede pulido al 100%"* (confirmado por el usuario en clarificación post-análisis). Eso baja Fase 9 (PENDING_APPROVAL, comisiones, abonos, unaccent) y sube todas las correcciones sobre lo demo'eado.

@@ -28,7 +28,17 @@
   - **End-to-end auth verificado**: ROPC → JWT con roles → backend valida firma sin iss → @PreAuthorize pasa.
 - **🔥 NUEVA PRIORIZACIÓN POST-REUNIÓN 2026-05-22 — ver `08-requerimientos-reunion-20260522.md` §3 para detalle completo.**
 
-  **P0 — Pulido para demo del 12-jun (orden de ejecución):**
+  **✅ P0 BACKEND CERRADO 2026-05-24** (commits `63214c9` fix Keycloak + `840c372` P0 reunión). Backend levanta en docker, V016+V017 aplicadas, OpenAPI expone los campos nuevos. Detalle:
+  1. ✅ V016 alumnos (`iar_pfo_completed`, `residence_location`, `specialty`, `target_competition`; `nationality` ya existía).
+  2. ✅ Validación inscripción simultánea (ACTIVE/SUSPENDED — COMPLETED/CANCELLED no cuentan).
+  3. ✅ Auto-apply de campaña de descuento por fecha (sin migración — FK `discount_campaign_id` ya existía). `EnrollmentService.resolveDiscount()` con prioridades documentadas.
+  4. ✅ V017 `late_fee_amount` en payments + `sumByInstallment` ahora suma amount+lateFee.
+  5. ✅ Modo "Suma total" cuotas vía `EnrollmentCreateRequest.useTotalDistribution`.
+  6. ✅ `DELETE /api/v1/payments/{id}` (anula pago + revierte cuota a PENDING/OVERDUE según fecha AR).
+  7. ✅ Filtro `courseId` opcional en `GET /installments` y `GET /payments`.
+  8. ✅ `SegmentationFilter` extendido a Enrollment + Installment + Payment. Students y Budget pendientes (P1).
+
+  **Items originales mantenidos como referencia histórica:**
   1. **Migration V016 — Alumnos**: agregar `iar_pfo_completed BOOLEAN`, `residence_location VARCHAR`, `nationality VARCHAR`, `specialty VARCHAR`, `target_competition VARCHAR`. Actualizar `StudentEntity` + `StudentCreate/UpdateRequest` + DTOs + service.
   2. **Validación inscripción simultánea**: un alumno no puede tener dos `Enrollment` con `status IN (ACTIVE, PENDING_APPROVAL)` a la vez. Excepción `ConflictException` en `EnrollmentService.create`.
   3. **Migration V017 — Inscripciones con campaña**: FK `discount_campaign_id` opcional en `enrollments`. Lógica `EnrollmentService.create`: si NULL pero hay campaña activa cubriendo `enrollmentDate`, asignarla automáticamente. Recalcular `discount` desde la campaña si se setea la FK. Si vendedora pasa `discount` manual, override.
