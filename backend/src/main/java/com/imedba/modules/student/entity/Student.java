@@ -48,6 +48,19 @@ public class Student extends BaseEntity {
     @Column(name = "locality", length = 200)
     private String locality;
 
+    @Column(name = "residence_location", length = 200)
+    private String residenceLocation;
+
+    @Column(name = "specialty", length = 300)
+    private String specialty;
+
+    @Column(name = "target_competition", length = 300)
+    private String targetCompetition;
+
+    @Default
+    @Column(name = "iar_pfo_completed", nullable = false)
+    private Boolean iarPfoCompleted = Boolean.FALSE;
+
     @Default
     @Column(name = "is_active", nullable = false)
     private Boolean active = Boolean.TRUE;

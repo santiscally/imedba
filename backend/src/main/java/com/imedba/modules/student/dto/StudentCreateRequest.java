@@ -13,6 +13,10 @@ public record StudentCreateRequest(
         @Size(max = 100) String nationality,
         @Size(max = 200) String university,
         @Size(max = 200) String locality,
+        @Size(max = 200) String residenceLocation,
+        @Size(max = 300) String specialty,
+        @Size(max = 300) String targetCompetition,
+        Boolean iarPfoCompleted,
         Boolean active,
         String notes
 ) {}

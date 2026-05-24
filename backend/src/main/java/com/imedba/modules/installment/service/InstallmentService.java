@@ -3,6 +3,7 @@ package com.imedba.modules.installment.service;
 import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
+import com.imedba.common.security.SegmentationFilter;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.installment.dto.InstallmentResponse;
 import com.imedba.modules.installment.dto.InstallmentUpdateRequest;
@@ -39,13 +40,15 @@ public class InstallmentService {
 
     @Transactional(readOnly = true)
     public Page<InstallmentResponse> list(
-            UUID enrollmentId, InstallmentStatus status,
+            UUID enrollmentId, UUID courseId, InstallmentStatus status,
             LocalDate from, LocalDate to, Pageable pageable) {
         Specification<Installment> spec = Specification
                 .where(InstallmentSpecs.byEnrollment(enrollmentId))
+                .and(InstallmentSpecs.byCourse(courseId))
                 .and(InstallmentSpecs.byStatus(status))
                 .and(InstallmentSpecs.dueFrom(from))
                 .and(InstallmentSpecs.dueTo(to))
+                .and(InstallmentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
                 .and(vendedoraScope());
         return repository.findAll(spec, pageable).map(mapper::toResponse);
     }

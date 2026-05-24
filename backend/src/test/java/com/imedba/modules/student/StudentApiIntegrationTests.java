@@ -30,7 +30,9 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     void create_and_list() throws Exception {
         var req = new StudentCreateRequest(
                 "Ada", "Lovelace", "ada@imedba.dev",
-                null, "12345678", null, null, null, null, null);
+                null, "12345678", null, null, null,
+                null, null, null, null,
+                null, null);
 
         mockMvc.perform(post("/api/v1/students")
                         .with(writer())
@@ -51,7 +53,7 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     void duplicate_email_is_409() throws Exception {
         var req = new StudentCreateRequest(
                 "Ada", "Lovelace", "dup@imedba.dev",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
         mockMvc.perform(post("/api/v1/students").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -68,12 +70,14 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     void update_changes_fields() throws Exception {
         var create = new StudentCreateRequest(
                 "Grace", "Hopper", "grace@imedba.dev",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
         String id = createStudentAndGetId(create);
 
         var upd = new StudentUpdateRequest(
                 "Grace", "Hopper", "grace@imedba.dev",
-                "+54911", null, "Argentina", null, null, true, "VIP");
+                "+54911", null, "Argentina", null, null,
+                null, null, null, null,
+                true, "VIP");
         mockMvc.perform(put("/api/v1/students/" + id).with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(upd)))
@@ -88,7 +92,7 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     void delete_is_soft() throws Exception {
         var req = new StudentCreateRequest(
                 "Alan", "Turing", "alan@imedba.dev",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
         String id = createStudentAndGetId(req);
 
         mockMvc.perform(delete("/api/v1/students/" + id).with(writer()))

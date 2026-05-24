@@ -33,13 +33,14 @@ public class InstallmentController {
     @PreAuthorize("hasAuthority('installments:read')")
     public PageResponse<InstallmentResponse> list(
             @RequestParam(required = false) UUID enrollmentId,
+            @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) InstallmentStatus status,
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
             @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
-        return PageResponse.of(service.list(enrollmentId, status, dueFrom, dueTo, pageable));
+        return PageResponse.of(service.list(enrollmentId, courseId, status, dueFrom, dueTo, pageable));
     }
 
     @GetMapping("/by-enrollment/{enrollmentId}")

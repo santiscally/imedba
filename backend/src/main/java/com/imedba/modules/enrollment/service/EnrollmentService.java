@@ -3,8 +3,12 @@ package com.imedba.modules.enrollment.service;
 import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
+import com.imedba.common.security.SegmentationFilter;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
+import com.imedba.modules.discount_campaign.entity.DiscountCampaign;
+import com.imedba.modules.discount_campaign.entity.DiscountType;
+import com.imedba.modules.discount_campaign.repository.DiscountCampaignRepository;
 import com.imedba.modules.enrollment.dto.EnrollmentCreateRequest;
 import com.imedba.modules.enrollment.dto.EnrollmentResponse;
 import com.imedba.modules.enrollment.dto.EnrollmentUpdateRequest;
@@ -26,8 +30,11 @@ import com.imedba.modules.student.repository.StudentRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -44,10 +51,13 @@ public class EnrollmentService {
     private static final List<EnrollmentStatus> ACTIVE_STATUSES =
             List.of(EnrollmentStatus.ACTIVE, EnrollmentStatus.SUSPENDED);
 
+    private static final ZoneId ZONE_AR = ZoneId.of("America/Argentina/Buenos_Aires");
+
     private final EnrollmentRepository repository;
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
     private final InstallmentRepository installmentRepository;
+    private final DiscountCampaignRepository discountCampaignRepository;
     private final NotificationService notificationService;
     private final EnrollmentMapper mapper;
 
@@ -58,6 +68,7 @@ public class EnrollmentService {
                 .where(EnrollmentSpecs.byStudent(studentId))
                 .and(EnrollmentSpecs.byCourse(courseId))
                 .and(EnrollmentSpecs.byStatus(status))
+                .and(EnrollmentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
                 .and(vendedoraScope());
         return repository.findAll(spec, pageable).map(mapper::toResponse);
     }
@@ -89,20 +100,36 @@ public class EnrollmentService {
                     "El alumno ya tiene una inscripción activa o suspendida en ese curso");
         }
 
+        // Reunión IMEDBA 2026-05-22 (Nico 18:22): un alumno puede tener varias inscripciones
+        // a lo largo del tiempo (años distintos), pero NO dos simultáneamente activas.
+        // ACTIVE / SUSPENDED cuentan como "activas"; COMPLETED / CANCELLED no.
+        if (repository.existsByStudentIdAndStatusIn(student.getId(), ACTIVE_STATUSES)) {
+            throw new ConflictException(
+                    "El alumno ya tiene una inscripción activa o suspendida a otro curso. "
+                            + "Debe finalizarla o cancelarla antes de inscribirlo a uno nuevo.");
+        }
+
         BigDecimal listPrice = req.listPrice() != null
                 ? req.listPrice()
                 : nullToZero(course.getEnrollmentPrice()).add(nullToZero(course.getCoursePrice()));
-        BigDecimal discount  = nullToZero(req.discountPercentage());
         BigDecimal bookPrice = nullToZero(req.bookPrice());
+
+        // Reunión IMEDBA 2026-05-22 §2.3: resolver descuento con prioridades:
+        // 1) Si vendedora pasa `discountPercentage` manual → respetar (override).
+        // 2) Si vendedora elige `discountCampaignId` → calcular % desde la campaña.
+        // 3) Si no hay nada → buscar campaña vigente en enrollmentDate y auto-aplicarla.
+        Instant enrollDate = req.enrollmentDate() != null ? req.enrollmentDate() : Instant.now();
+        ResolvedDiscount rd = resolveDiscount(req, enrollDate, listPrice);
+        BigDecimal discount = rd.percentage();
         BigDecimal finalPrice = computeFinalPrice(listPrice, discount);
         BigDecimal totalPrice = finalPrice.add(bookPrice);
 
         Enrollment e = Enrollment.builder()
                 .student(student)
                 .course(course)
-                .discountCampaignId(req.discountCampaignId())
+                .discountCampaignId(rd.campaignId())
                 .enrolledBy(AuthUtils.currentUserId().orElse(null))
-                .enrollmentDate(req.enrollmentDate() != null ? req.enrollmentDate() : Instant.now())
+                .enrollmentDate(enrollDate)
                 .listPrice(listPrice)
                 .discountPercentage(discount)
                 .finalPrice(finalPrice)
@@ -117,7 +144,8 @@ public class EnrollmentService {
                 .build();
 
         Enrollment saved = repository.save(e);
-        List<Installment> schedule = InstallmentGenerator.generate(saved);
+        boolean useTotal = Boolean.TRUE.equals(req.useTotalDistribution());
+        List<Installment> schedule = InstallmentGenerator.generate(saved, useTotal);
         if (!schedule.isEmpty()) {
             installmentRepository.saveAll(schedule);
         }
@@ -186,6 +214,10 @@ public class EnrollmentService {
     private Enrollment findVisible(UUID id) {
         Enrollment e = repository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Enrollment", id));
+        // Segmentación Residencias↔FS: si el curso no es visible, 404 (no leak existencia).
+        if (e.getCourse() != null && !SegmentationFilter.canSee(e.getCourse().getBusinessUnit())) {
+            throw NotFoundException.of("Enrollment", id);
+        }
         if (AuthUtils.isVendedoraOnly()) {
             UUID me = AuthUtils.currentUserId().orElse(null);
             if (!Objects.equals(me, e.getEnrolledBy())) {
@@ -221,4 +253,51 @@ public class EnrollmentService {
     private static BigDecimal nullToZero(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
     }
+
+    /**
+     * Resuelve qué descuento aplicar a una inscripción nueva.
+     * Reglas (pedidas en reunión 2026-05-22 §2.3):
+     *   1. Vendedora pasa % manual ({@code req.discountPercentage()} no null y > 0) → respetar el %,
+     *      conservar el {@code discountCampaignId} si vino (tracking puro, no recalcula).
+     *   2. Vendedora elige campaña por id → derivar % de la campaña (PERCENTAGE directo;
+     *      FIXED_AMOUNT se convierte a % equivalente respecto al listPrice).
+     *   3. Nada de lo anterior → buscar campaña vigente en {@code enrollmentDate} y auto-aplicarla.
+     */
+    private ResolvedDiscount resolveDiscount(EnrollmentCreateRequest req, Instant enrollDate, BigDecimal listPrice) {
+        BigDecimal manualPct = req.discountPercentage();
+        if (manualPct != null && manualPct.signum() > 0) {
+            return new ResolvedDiscount(req.discountCampaignId(), manualPct);
+        }
+
+        if (req.discountCampaignId() != null) {
+            DiscountCampaign chosen = discountCampaignRepository.findById(req.discountCampaignId())
+                    .orElseThrow(() -> NotFoundException.of("DiscountCampaign", req.discountCampaignId()));
+            return new ResolvedDiscount(chosen.getId(), percentageFromCampaign(chosen, listPrice));
+        }
+
+        LocalDate on = enrollDate.atZone(ZONE_AR).toLocalDate();
+        Optional<DiscountCampaign> active = discountCampaignRepository.findActiveOn(on)
+                .stream().findFirst();
+        if (active.isPresent()) {
+            DiscountCampaign c = active.get();
+            return new ResolvedDiscount(c.getId(), percentageFromCampaign(c, listPrice));
+        }
+
+        return new ResolvedDiscount(null, BigDecimal.ZERO);
+    }
+
+    private static BigDecimal percentageFromCampaign(DiscountCampaign campaign, BigDecimal listPrice) {
+        BigDecimal value = nullToZero(campaign.getDiscountValue());
+        if (campaign.getDiscountType() == DiscountType.PERCENTAGE) {
+            return value;
+        }
+        // FIXED_AMOUNT → derivar % equivalente. Si el listPrice es 0, devolver 0 para no dividir por cero.
+        if (listPrice.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return value.multiply(BigDecimal.valueOf(100))
+                .divide(listPrice, 4, RoundingMode.HALF_UP);
+    }
+
+    private record ResolvedDiscount(UUID campaignId, BigDecimal percentage) {}
 }

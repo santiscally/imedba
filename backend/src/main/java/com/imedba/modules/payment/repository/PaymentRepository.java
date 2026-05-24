@@ -21,9 +21,21 @@ public interface PaymentRepository
 
     Optional<Payment> findByReceiptNumber(String receiptNumber);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.installment.id = :installmentId")
+    /**
+     * Suma cobrada (amount + lateFeeAmount) para evaluar si la cuota está cubierta.
+     * El recargo manual cuenta como parte del cobro (reunión 2026-05-22 §2.4).
+     */
+    @Query("""
+           SELECT COALESCE(SUM(p.amount + p.lateFeeAmount), 0)
+             FROM Payment p
+            WHERE p.installment.id = :installmentId
+           """)
     BigDecimal sumByInstallment(@Param("installmentId") UUID installmentId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.enrollment.id = :enrollmentId")
+    @Query("""
+           SELECT COALESCE(SUM(p.amount + p.lateFeeAmount), 0)
+             FROM Payment p
+            WHERE p.enrollment.id = :enrollmentId
+           """)
     BigDecimal sumByEnrollment(@Param("enrollmentId") UUID enrollmentId);
 }

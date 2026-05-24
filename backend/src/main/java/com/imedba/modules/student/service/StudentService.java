@@ -44,6 +44,9 @@ public class StudentService {
         if (req.active() == null) {
             s.setActive(Boolean.TRUE);
         }
+        if (req.iarPfoCompleted() == null) {
+            s.setIarPfoCompleted(Boolean.FALSE);
+        }
         return mapper.toResponse(repository.save(s));
     }
 

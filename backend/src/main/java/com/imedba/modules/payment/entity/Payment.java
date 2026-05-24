@@ -56,6 +56,14 @@ public class Payment {
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    /**
+     * Recargo manual aplicado por mora (Nico 33:06 reunión 2026-05-22).
+     * Separado de {@link #amount} para reportabilidad. Total cobrado = amount + lateFeeAmount.
+     */
+    @lombok.Builder.Default
+    @Column(name = "late_fee_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal lateFeeAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 30)
     private PaymentMethod paymentMethod;

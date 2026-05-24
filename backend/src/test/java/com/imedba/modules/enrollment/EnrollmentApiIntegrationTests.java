@@ -62,7 +62,7 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
         var req = new EnrollmentCreateRequest(
                 studentId, courseId, null, null,
                 null, new BigDecimal("10"), new BigDecimal("2000"),
-                null, 6, null, null, null);
+                null, 6, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/enrollments")
                         .with(sellerA())
@@ -81,7 +81,7 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
     void duplicate_active_enrollment_is_409() throws Exception {
         var req = new EnrollmentCreateRequest(
                 studentId, courseId, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/enrollments").with(admin())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,15 +126,20 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
         // Seller A crea una
         createEnrollmentAs(sellerA());
 
-        // Seller B crea otra (requiere otro curso para esquivar unique)
+        // Seller B crea otra. Como la validación de "una inscripción activa por alumno"
+        // bloquea reutilizar `studentId`, usamos un alumno+curso distintos.
+        Student otherStudent = studentRepository.save(Student.builder()
+                .firstName("Grace").lastName("Hopper").email("grace@imedba.dev")
+                .active(Boolean.TRUE)
+                .build());
         Course other = courseRepository.save(Course.builder()
                 .name("Otra").code("OTRA-01")
                 .businessUnit(BusinessUnit.GENERAL).active(Boolean.TRUE)
                 .enrollmentPrice(BigDecimal.ZERO).coursePrice(new BigDecimal("1000"))
                 .build());
         var reqB = new EnrollmentCreateRequest(
-                studentId, other.getId(), null, null,
-                null, null, null, null, null, null, null, null);
+                otherStudent.getId(), other.getId(), null, null,
+                null, null, null, null, null, null, null, null, null);
         mockMvc.perform(post("/api/v1/enrollments").with(sellerB())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reqB)))
@@ -163,7 +168,7 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
     private String createEnrollmentAs(RequestPostProcessor who) throws Exception {
         var req = new EnrollmentCreateRequest(
                 studentId, courseId, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
         String body = mockMvc.perform(post("/api/v1/enrollments").with(who)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

@@ -4,6 +4,7 @@ import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.common.enums.PaymentMethod;
+import com.imedba.common.security.SegmentationFilter;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.installment.entity.Installment;
@@ -24,6 +25,8 @@ import com.imedba.modules.payment.repository.PaymentSpecs;
 import com.imedba.modules.student.entity.Student;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -49,14 +52,16 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<PaymentResponse> list(
-            UUID enrollmentId, UUID installmentId, PaymentMethod method,
+            UUID enrollmentId, UUID installmentId, UUID courseId, PaymentMethod method,
             Instant from, Instant to, Pageable pageable) {
         Specification<Payment> spec = Specification
                 .where(PaymentSpecs.byEnrollment(enrollmentId))
                 .and(PaymentSpecs.byInstallment(installmentId))
+                .and(PaymentSpecs.byCourse(courseId))
                 .and(PaymentSpecs.byMethod(method))
                 .and(PaymentSpecs.dateFrom(from))
                 .and(PaymentSpecs.dateTo(to))
+                .and(PaymentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
                 .and(vendedoraScope());
         return repository.findAll(spec, pageable).map(mapper::toResponse);
     }
@@ -97,10 +102,13 @@ public class PaymentService {
 
         Instant paymentDate = req.paymentDate() != null ? req.paymentDate() : Instant.now();
 
+        BigDecimal lateFee = req.lateFeeAmount() != null ? req.lateFeeAmount() : BigDecimal.ZERO;
+
         Payment payment = Payment.builder()
                 .installment(installment)
                 .enrollment(enrollment)
                 .amount(req.amount())
+                .lateFeeAmount(lateFee)
                 .paymentMethod(req.paymentMethod())
                 .paymentDate(paymentDate)
                 .referenceNumber(req.referenceNumber())
@@ -139,6 +147,34 @@ public class PaymentService {
         Payment p = findVisible(id);
         p.setReceiptSentAt(at != null ? at : Instant.now());
         return mapper.toResponse(p);
+    }
+
+    /**
+     * Anula un pago (reunión 2026-05-22 §2.4 — pedido de Fran hace rato).
+     * Elimina el {@link Payment} físicamente y revierte la cuota asociada:
+     *   - Si la suma de pagos restantes no cubre totalDue, vuelve a PENDING/OVERDUE según
+     *     fecha de vencimiento vs hoy.
+     *   - Si todavía cubre (ej. había varios pagos parciales), queda en PAID.
+     */
+    public void cancel(UUID id) {
+        Payment p = findVisible(id);
+        Installment installment = p.getInstallment();
+        // Desligar el pago primero para que la suma posterior no lo cuente.
+        repository.delete(p);
+        repository.flush();
+
+        if (installment != null) {
+            BigDecimal remaining = repository.sumByInstallment(installment.getId());
+            if (remaining.compareTo(installment.totalDue()) < 0) {
+                installment.setPaidAt(null);
+                LocalDate today = LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires"));
+                if (installment.getDueDate() != null && today.isAfter(installment.getDueDate())) {
+                    installment.setStatus(InstallmentStatus.OVERDUE);
+                } else {
+                    installment.setStatus(InstallmentStatus.PENDING);
+                }
+            }
+        }
     }
 
     // ------- helpers ----------

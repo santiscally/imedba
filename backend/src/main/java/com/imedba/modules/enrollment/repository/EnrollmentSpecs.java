@@ -1,7 +1,9 @@
 package com.imedba.modules.enrollment.repository;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.enrollment.entity.EnrollmentStatus;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -28,5 +30,17 @@ public final class EnrollmentSpecs {
     /** Para la restricción de vendedora: sólo ve lo que ella cargó. */
     public static Specification<Enrollment> byEnrolledBy(UUID enrolledBy) {
         return (root, q, cb) -> enrolledBy == null ? null : cb.equal(root.get("enrolledBy"), enrolledBy);
+    }
+
+    /**
+     * Segmentación Residencias ↔ Formación Superior (Fase 9.a — reunión 2026-04-24).
+     * Filtra inscripciones cuyo curso tenga {@code businessUnit} en {@code allowed}.
+     * Si {@code allowed} contiene todos los valores del enum, devuelve null (no filtra).
+     */
+    public static Specification<Enrollment> byBusinessUnits(Set<BusinessUnit> allowed) {
+        if (allowed == null || allowed.size() >= BusinessUnit.values().length) {
+            return null;
+        }
+        return (root, q, cb) -> root.get("course").get("businessUnit").in(allowed);
     }
 }

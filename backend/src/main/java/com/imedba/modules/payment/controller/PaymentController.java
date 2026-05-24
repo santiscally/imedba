@@ -16,6 +16,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,13 +38,14 @@ public class PaymentController {
     public PageResponse<PaymentResponse> list(
             @RequestParam(required = false) UUID enrollmentId,
             @RequestParam(required = false) UUID installmentId,
+            @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) PaymentMethod method,
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 20, sort = "paymentDate") Pageable pageable) {
-        return PageResponse.of(service.list(enrollmentId, installmentId, method, from, to, pageable));
+        return PageResponse.of(service.list(enrollmentId, installmentId, courseId, method, from, to, pageable));
     }
 
     @GetMapping("/by-enrollment/{enrollmentId}")
@@ -72,5 +74,16 @@ public class PaymentController {
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant at) {
         return service.markReceiptSent(id, at);
+    }
+
+    /**
+     * Anula un pago y revierte la cuota a PENDING/OVERDUE si la suma de pagos restantes
+     * no cubre el total. Pedido reunión 2026-05-22 §2.4.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('payments:write')")
+    public ResponseEntity<Void> cancel(@PathVariable UUID id) {
+        service.cancel(id);
+        return ResponseEntity.noContent().build();
     }
 }

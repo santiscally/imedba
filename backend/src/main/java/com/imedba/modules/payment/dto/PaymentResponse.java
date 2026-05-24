@@ -10,6 +10,7 @@ public record PaymentResponse(
         UUID installmentId,
         UUID enrollmentId,
         BigDecimal amount,
+        BigDecimal lateFeeAmount,
         PaymentMethod paymentMethod,
         Instant paymentDate,
         String referenceNumber,

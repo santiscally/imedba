@@ -1,8 +1,10 @@
 package com.imedba.modules.installment.repository;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.installment.entity.Installment;
 import com.imedba.modules.installment.entity.InstallmentStatus;
 import java.time.LocalDate;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -13,6 +15,12 @@ public final class InstallmentSpecs {
     public static Specification<Installment> byEnrollment(UUID enrollmentId) {
         return (root, q, cb) -> enrollmentId == null
                 ? null : cb.equal(root.get("enrollment").get("id"), enrollmentId);
+    }
+
+    /** Filtra cuotas por curso vía enrollment.course.id (reunión 2026-05-22 §2.4). */
+    public static Specification<Installment> byCourse(UUID courseId) {
+        return (root, q, cb) -> courseId == null
+                ? null : cb.equal(root.get("enrollment").get("course").get("id"), courseId);
     }
 
     public static Specification<Installment> byStatus(InstallmentStatus status) {
@@ -31,5 +39,13 @@ public final class InstallmentSpecs {
     public static Specification<Installment> byEnrolledBy(UUID userId) {
         return (root, q, cb) -> userId == null ? null
                 : cb.equal(root.get("enrollment").get("enrolledBy"), userId);
+    }
+
+    /** Segmentación Residencias↔FS: filtra cuotas cuyo curso (vía enrollment) esté en {@code allowed}. */
+    public static Specification<Installment> byBusinessUnits(Set<BusinessUnit> allowed) {
+        if (allowed == null || allowed.size() >= BusinessUnit.values().length) {
+            return null;
+        }
+        return (root, q, cb) -> root.get("enrollment").get("course").get("businessUnit").in(allowed);
     }
 }

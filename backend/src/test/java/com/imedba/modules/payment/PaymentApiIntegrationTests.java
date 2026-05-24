@@ -80,7 +80,7 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
 
         var req = new PaymentCreateRequest(
                 UUID.fromString(installmentId), null,
-                totalDue, PaymentMethod.TRANSFERENCIA,
+                totalDue, null, PaymentMethod.TRANSFERENCIA,
                 null, "OP-12345", null, "primer pago");
 
         mockMvc.perform(post("/api/v1/payments").with(admin())
@@ -103,7 +103,7 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
     void payment_with_unknown_installment_is_404() throws Exception {
         var req = new PaymentCreateRequest(
                 UUID.randomUUID(), null,
-                new BigDecimal("100"), PaymentMethod.EFECTIVO,
+                new BigDecimal("100"), null, PaymentMethod.EFECTIVO,
                 null, null, null, null);
         mockMvc.perform(post("/api/v1/payments").with(admin())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,7 +116,7 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
     void payment_without_target_is_409() throws Exception {
         var req = new PaymentCreateRequest(
                 null, null,
-                new BigDecimal("100"), PaymentMethod.EFECTIVO,
+                new BigDecimal("100"), null, PaymentMethod.EFECTIVO,
                 null, null, null, null);
         mockMvc.perform(post("/api/v1/payments").with(admin())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -131,7 +131,7 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
                 studentId, courseId, null, null,
                 null, null, null,
                 new BigDecimal("10000.00"), 6, PaymentMethod.TRANSFERENCIA,
-                null, null);
+                null, null, null);
         String body = mockMvc.perform(post("/api/v1/enrollments").with(admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
