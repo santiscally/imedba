@@ -48,14 +48,14 @@
   7. **Filtro `courseId` opcional** en `GET /api/v1/installments` y `GET /api/v1/payments`. Resolver vía `installment.enrollment.course.id`.
   8. **Extender `SegmentationFilter`** a students/enrollments/installments/payments/budget/settlements (Students no tiene BU directa — pertenece transitiva via Course). Hoy Cursos sí filtra real; el SPA ya manda `businessUnit` en los otros — solo "se prende" cuando extiendas el filter.
 
-  **P1 — Refactor Diplomaturas ↔ Liquidaciones (coordinar con Fran):**
-  9. **Migration V019**: mover `taxCommissionPct`, `secretarySalary`, `advertisingAmount`, `adminPct`, `universityPct`, `imedbaPct` de `diplomas` → `diploma_settlements`. Defaults configurables en `diploma.default_settlement_config` (JSONB opcional) para no tener que cargarlos cada vez.
-  10. `DiplomaSettlement.totalCollected` **auto-calculado** al crear (sumar `Payment.amount + lateFeeAmount` de inscripciones de esa diplomatura en el período). El usuario solo carga el período + costos del mes.
-  11. **Email automático a directoras** al `approve` del settlement (template con monto a facturar). Usar SendGrid (Fase 3).
+  **✅ P1 BACKEND CERRADO 2026-05-24** (3/4 + 1 diferido). Commit `<TBD>` — ver DIARIO.
+  9. ✅ **V018** — Inputs por liquidación (`input_tax_commission_pct`, `input_secretary_salary`, `input_advertising_amount`, `input_admin_pct`, `input_university_pct`, `input_imedba_pct`). SettlementEngine.Inputs con fallback al Diploma. DTOs y mapper actualizados.
+  10. ⏸️ **totalCollected auto-calculado**: **DIFERIDO**. Hoy `Payment` está atado a `Enrollment` (curso), no a `DiplomaEnrollment`. Calcularlo automáticamente requiere primero definir el flujo de cobros para diplomaturas (¿agregar `diploma_id` opcional a `Payment`?). Mantener input manual hasta resolver con el cliente.
+  11. ✅ **Email automático a directoras al approve**: nuevo enum `NotificationType.SETTLEMENT_APPROVED` + `RelatedEntityType.DIPLOMA_SETTLEMENT` (V019 actualizó CHECK constraints). Template `NotificationTemplates.settlementApproved(...)`. `DiplomaSettlementService.approve()` encola un email por directora con su monto a facturar. `relatedEntityId=null` para evitar dedup entre múltiples directoras del mismo settlement.
 
-  **P1 — Presupuesto:**
-  12. Auto-link de cobros enriquecido: setear `BudgetEntry.subcategory` con el nombre del curso/diplomatura/libro según el origen. Hoy queda en NULL.
-  13. Endpoint dashboard con agrupación **semestral** además de mensual/anual.
+  **✅ P1 Presupuesto (cerrado):**
+  12. ✅ Auto-link enriquecido: `linkFromPayment` ahora setea `subcategory` = nombre del curso, `businessUnit` derivada del course (mapeo entre los dos enums BU), `concept` = "Pago cuota N — Apellido Nombre" / "Pago matrícula — Apellido Nombre". `linkFromBookSale`: `subcategory` = nombre del libro, `concept` = "Venta libro — Comprador". Suma `lateFeeAmount` al total en presupuesto.
+  13. **Filtro semestral en dashboard** — pendiente (todavía no requerido por SPA; el cliente puede vivir con anual+mensual + filtros).
 
   **P2 — Módulo nuevo: Seguimiento Académico (Excel Moodle)** — esperar sample de Meli antes de empezar:
   14. Tabla nueva `academic_records` (`student_id`, `subject`, `score`, `period`, `source`, `imported_at`).

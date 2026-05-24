@@ -17,6 +17,7 @@ import com.imedba.modules.diplomasettlement.entity.SettlementStatus;
 import com.imedba.modules.diplomasettlement.mapper.DiplomaSettlementMapper;
 import com.imedba.modules.diplomasettlement.repository.DiplomaSettlementRepository;
 import com.imedba.modules.diplomasettlement.service.DiplomaSettlementService;
+import com.imedba.modules.notification.service.NotificationService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -34,12 +35,13 @@ class DiplomaSettlementServiceTests {
     @Mock private DiplomaSettlementRepository repository;
     @Mock private DiplomaSettlementMapper mapper;
     @Mock private DiplomaService diplomaService;
+    @Mock private NotificationService notificationService;
 
     private DiplomaSettlementService service;
 
     @BeforeEach
     void setUp() {
-        service = new DiplomaSettlementService(repository, mapper, diplomaService);
+        service = new DiplomaSettlementService(repository, mapper, diplomaService, notificationService);
         lenient().when(repository.save(any(DiplomaSettlement.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(mapper.toResponse(any(DiplomaSettlement.class)))
@@ -58,7 +60,8 @@ class DiplomaSettlementServiceTests {
                 .thenReturn(Optional.of(existing));
 
         var req = new DiplomaSettlementCreateRequest(
-                diplomaId, 4, 2026, new BigDecimal("1000.00"));
+                diplomaId, 4, 2026, new BigDecimal("1000.00"),
+                null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.createDraft(req))
                 .isInstanceOf(ConflictException.class)
@@ -81,7 +84,8 @@ class DiplomaSettlementServiceTests {
         when(diplomaService.findEntity(diplomaId)).thenReturn(d);
 
         var req = new DiplomaSettlementCreateRequest(
-                diplomaId, 4, 2026, new BigDecimal("1000.00"));
+                diplomaId, 4, 2026, new BigDecimal("1000.00"),
+                null, null, null, null, null, null);
 
         DiplomaSettlementResponse out = service.createDraft(req);
 
@@ -173,6 +177,9 @@ class DiplomaSettlementServiceTests {
                 s.getDiploma() == null ? null : s.getDiploma().getId(),
                 s.getDiploma() == null ? null : s.getDiploma().getName(),
                 s.getPeriodMonth(), s.getPeriodYear(), s.getTotalCollected(),
+                s.getInputTaxCommissionPct(), s.getInputSecretarySalary(),
+                s.getInputAdvertisingAmount(), s.getInputAdminPct(),
+                s.getInputUniversityPct(), s.getInputImedbaPct(),
                 s.getTaxCommissionAmount(), s.getSecretaryAmount(), s.getAdvertisingAmount(),
                 s.getAdminAmount(), s.getUniversityAmount(), s.getImedbaAmount(),
                 s.getPartnersTotal(),

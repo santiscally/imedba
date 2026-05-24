@@ -25,6 +25,10 @@ import java.util.List;
  *   <li>Reparto entre socias: socias_total × pct_socia / 100</li>
  * </ol>
  *
+ * <p>A partir de la reunión 2026-05-22 (§2.5/2.6), los porcentajes y montos
+ * se cargan por liquidación (no por diploma). Los campos {@code input*} ganan
+ * sobre los defaults del Diploma; si están NULL se hace fallback al Diploma.
+ *
  * <p>Redondeo: HALF_UP a 2 decimales en cada paso. El remanente por error de
  * redondeo queda en partners_total (no se prorratea).
  */
@@ -34,16 +38,43 @@ public final class SettlementEngine {
 
     private SettlementEngine() {}
 
-    public static DiplomaSettlement compute(Diploma d, int year, int month, BigDecimal totalCollected) {
+    /** Inputs explícitos por liquidación. Cualquier campo NULL hace fallback al Diploma. */
+    public record Inputs(
+            BigDecimal taxCommissionPct,
+            BigDecimal secretarySalary,
+            BigDecimal advertisingAmount,
+            BigDecimal adminPct,
+            BigDecimal universityPct,
+            BigDecimal imedbaPct) {
+
+        public static Inputs empty() {
+            return new Inputs(null, null, null, null, null, null);
+        }
+
+        public Inputs withDefaultsFrom(Diploma d) {
+            return new Inputs(
+                    taxCommissionPct  != null ? taxCommissionPct  : d.getTaxCommissionPct(),
+                    secretarySalary   != null ? secretarySalary   : d.getSecretarySalary(),
+                    advertisingAmount != null ? advertisingAmount : d.getAdvertisingAmount(),
+                    adminPct          != null ? adminPct          : d.getAdminPct(),
+                    universityPct     != null ? universityPct     : d.getUniversityPct(),
+                    imedbaPct         != null ? imedbaPct         : d.getImedbaPct());
+        }
+    }
+
+    public static DiplomaSettlement compute(
+            Diploma d, int year, int month, BigDecimal totalCollected, Inputs inputs) {
         BigDecimal total = totalCollected == null ? BigDecimal.ZERO
                 : totalCollected.setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal taxPct = safePct(d.getTaxCommissionPct());
-        BigDecimal secretary = safeAmount(d.getSecretarySalary());
-        BigDecimal advertising = safeAmount(d.getAdvertisingAmount());
-        BigDecimal adminPct = safePct(d.getAdminPct());
-        BigDecimal universityPct = safePct(d.getUniversityPct());
-        BigDecimal imedbaPct = safePct(d.getImedbaPct());
+        Inputs resolved = (inputs == null ? Inputs.empty() : inputs).withDefaultsFrom(d);
+
+        BigDecimal taxPct = safePct(resolved.taxCommissionPct());
+        BigDecimal secretary = safeAmount(resolved.secretarySalary());
+        BigDecimal advertising = safeAmount(resolved.advertisingAmount());
+        BigDecimal adminPct = safePct(resolved.adminPct());
+        BigDecimal universityPct = safePct(resolved.universityPct());
+        BigDecimal imedbaPct = safePct(resolved.imedbaPct());
 
         BigDecimal tax = applyPct(total, taxPct);
         BigDecimal remaining1 = total.subtract(tax).subtract(secretary).subtract(advertising);
@@ -72,6 +103,12 @@ public final class SettlementEngine {
                 .periodMonth(month)
                 .periodYear(year)
                 .totalCollected(total)
+                .inputTaxCommissionPct(resolved.taxCommissionPct())
+                .inputSecretarySalary(resolved.secretarySalary())
+                .inputAdvertisingAmount(resolved.advertisingAmount())
+                .inputAdminPct(resolved.adminPct())
+                .inputUniversityPct(resolved.universityPct())
+                .inputImedbaPct(resolved.imedbaPct())
                 .taxCommissionAmount(tax)
                 .secretaryAmount(secretary)
                 .advertisingAmount(advertising)
@@ -81,6 +118,11 @@ public final class SettlementEngine {
                 .partnersTotal(partnersTotal)
                 .partnersDistribution(dist)
                 .build();
+    }
+
+    /** Overload de compat sin inputs explícitos: usa los defaults del Diploma. */
+    public static DiplomaSettlement compute(Diploma d, int year, int month, BigDecimal totalCollected) {
+        return compute(d, year, month, totalCollected, Inputs.empty());
     }
 
     private static BigDecimal safePct(BigDecimal v) {

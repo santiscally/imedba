@@ -57,6 +57,29 @@ public class DiplomaSettlement {
     @Column(name = "total_collected", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalCollected;
 
+    // ===== Inputs por liquidación (V018, reunión 2026-05-22) =====
+    // Si están seteados, ganan sobre los defaults del Diploma.
+
+    @Column(name = "input_tax_commission_pct", precision = 5, scale = 2)
+    private BigDecimal inputTaxCommissionPct;
+
+    @Column(name = "input_secretary_salary", precision = 12, scale = 2)
+    private BigDecimal inputSecretarySalary;
+
+    @Column(name = "input_advertising_amount", precision = 12, scale = 2)
+    private BigDecimal inputAdvertisingAmount;
+
+    @Column(name = "input_admin_pct", precision = 5, scale = 2)
+    private BigDecimal inputAdminPct;
+
+    @Column(name = "input_university_pct", precision = 5, scale = 2)
+    private BigDecimal inputUniversityPct;
+
+    @Column(name = "input_imedba_pct", precision = 5, scale = 2)
+    private BigDecimal inputImedbaPct;
+
+    // ===== Outputs (calculados por SettlementEngine) =====
+
     @Default
     @Column(name = "tax_commission_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal taxCommissionAmount = BigDecimal.ZERO;

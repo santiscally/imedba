@@ -90,6 +90,28 @@ public final class NotificationTemplates {
         return new NotificationTemplate(subject, body);
     }
 
+    /**
+     * Email a directoras cuando se aprueba una liquidación de diplomatura.
+     * Reunión 2026-05-22 §2.6 (Nico 46:56): "el mail que les tiene que llegar
+     * de cuánto van a facturar para que nosotros le paguemos".
+     */
+    public static NotificationTemplate settlementApproved(
+            String directorName, String diplomaName,
+            int periodMonth, int periodYear,
+            BigDecimal amountToInvoice) {
+        String subject = "Liquidación " + diplomaName + " — " + periodMonth + "/" + periodYear;
+        String body = """
+                <p>Hola %s,</p>
+                <p>La liquidación de la diplomatura <strong>%s</strong> correspondiente
+                al período <strong>%d/%d</strong> fue aprobada.</p>
+                <p>Te corresponde facturar: <strong>$%s</strong>.</p>
+                <p>Una vez que envíes la factura, IMEDBA va a coordinar el pago.</p>
+                <p>— Equipo IMEDBA</p>
+                """.formatted(escape(directorName), escape(diplomaName),
+                periodMonth, periodYear, amountToInvoice.toPlainString());
+        return new NotificationTemplate(subject, body);
+    }
+
     /** Escapado mínimo para evitar inyección básica de HTML en los campos dinámicos. */
     private static String escape(String s) {
         if (s == null) return "";

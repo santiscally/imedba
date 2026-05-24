@@ -109,13 +109,31 @@ public class BudgetService {
                 : payment.getPaymentDate()
                         .atZone(java.time.ZoneId.of("America/Argentina/Buenos_Aires"))
                         .toLocalDate();
+
+        // Reunión 2026-05-22 §2.7: enriquecer subcategoría + concept con datos legibles.
+        Enrollment e = payment.getEnrollment();
+        String courseName = (e != null && e.getCourse() != null) ? e.getCourse().getName() : null;
+        BusinessUnit bu = mapBusinessUnit(
+                (e != null && e.getCourse() != null) ? e.getCourse().getBusinessUnit() : null);
+        String studentName = (e != null && e.getStudent() != null)
+                ? formatStudentName(e.getStudent().getLastName(), e.getStudent().getFirstName())
+                : null;
+        Integer installmentNumber = payment.getInstallment() != null
+                ? payment.getInstallment().getNumber()
+                : null;
+        // Total cobrado = amount + lateFeeAmount (V017). Sumamos a la entrada de presupuesto.
+        BigDecimal total = payment.getAmount();
+        if (payment.getLateFeeAmount() != null) {
+            total = total.add(payment.getLateFeeAmount());
+        }
+
         BudgetEntry entry = BudgetEntry.builder()
                 .entryType(EntryType.INCOME)
                 .category(BudgetCategory.INCOME_ENROLLMENT)
-                .subcategory("Cuota")
-                .businessUnit(BusinessUnit.GENERAL)
-                .concept("Pago cuota " + payment.getId())
-                .amount(payment.getAmount())
+                .subcategory(courseName != null ? courseName : "Cuota")
+                .businessUnit(bu)
+                .concept(buildPaymentConcept(installmentNumber, studentName))
+                .amount(total)
                 .entryDate(date)
                 .periodMonth(date.getMonthValue())
                 .periodYear(date.getYear())
@@ -124,6 +142,40 @@ public class BudgetService {
                 .registeredBy(AuthUtils.currentUserId().orElse(null))
                 .build();
         repository.save(entry);
+    }
+
+    private static String buildPaymentConcept(Integer installmentNumber, String studentName) {
+        StringBuilder sb = new StringBuilder();
+        if (installmentNumber == null) {
+            sb.append("Pago");
+        } else if (installmentNumber == 0) {
+            sb.append("Pago matrícula");
+        } else {
+            sb.append("Pago cuota ").append(installmentNumber);
+        }
+        if (studentName != null) {
+            sb.append(" — ").append(studentName);
+        }
+        return sb.toString();
+    }
+
+    private static String formatStudentName(String lastName, String firstName) {
+        boolean hasLast = lastName != null && !lastName.isBlank();
+        boolean hasFirst = firstName != null && !firstName.isBlank();
+        if (hasLast && hasFirst) return lastName + " " + firstName;
+        if (hasLast) return lastName;
+        if (hasFirst) return firstName;
+        return null;
+    }
+
+    /** Mapea el {@code BusinessUnit} de course al del módulo budget (mismos valores, enum distinto). */
+    private static BusinessUnit mapBusinessUnit(com.imedba.modules.course.entity.BusinessUnit src) {
+        if (src == null) return BusinessUnit.GENERAL;
+        try {
+            return BusinessUnit.valueOf(src.name());
+        } catch (IllegalArgumentException ex) {
+            return BusinessUnit.GENERAL;
+        }
     }
 
     /**
@@ -138,12 +190,21 @@ public class BudgetService {
                 ? LocalDate.now()
                 : sale.getSaleDate().atZone(java.time.ZoneId.of("America/Argentina/Buenos_Aires"))
                         .toLocalDate();
+        // Reunión 2026-05-22 §2.7: subcategory = nombre del libro; concept con comprador.
+        String bookName = sale.getBook() != null ? sale.getBook().getName() : null;
+        String buyer = sale.getStudent() != null
+                ? formatStudentName(sale.getStudent().getLastName(), sale.getStudent().getFirstName())
+                : null;
+        String concept = buyer != null
+                ? "Venta libro — " + buyer
+                : (bookName != null ? "Venta libro: " + bookName : "Venta libro");
+
         BudgetEntry entry = BudgetEntry.builder()
                 .entryType(EntryType.INCOME)
                 .category(BudgetCategory.INCOME_SALES)
-                .subcategory("Venta libro")
+                .subcategory(bookName != null ? bookName : "Venta libro")
                 .businessUnit(BusinessUnit.EDITORIAL)
-                .concept("Venta libro " + (sale.getBook() == null ? "" : sale.getBook().getName()))
+                .concept(concept)
                 .amount(sale.getTotalAmount())
                 .entryDate(date)
                 .periodMonth(date.getMonthValue())

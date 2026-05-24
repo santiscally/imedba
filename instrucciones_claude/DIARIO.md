@@ -29,6 +29,28 @@
 
 ## Entradas
 
+## 2026-05-24 — Santi — backend (P1 reunión 22-05: refactor Diploma↔Settlement + email directoras + budget enriquecido)
+**Qué:** Bloque P1 backend cerrado (3 de 4 + 1 diferido). Backend levanta, V018+V019 aplicadas, OpenAPI verificado.
+**Items:**
+  1. **V018 — Inputs por liquidación**: agregadas 6 columnas opcionales en `diploma_settlements` (`input_tax_commission_pct`, `input_secretary_salary`, `input_advertising_amount`, `input_admin_pct`, `input_university_pct`, `input_imedba_pct`). NO toqué `diplomas` para no romper compat: las columnas viejas quedan como **defaults**. `SettlementEngine.Inputs` (record) con fallback al Diploma cuando un campo es NULL. `DiplomaSettlementCreateRequest` acepta los 6 inputs opcionalmente. `DiplomaSettlementResponse` expone los inputs persistidos para que el SPA pueda mostrarlos en el detail. `recomputeDraft` ahora usa los inputs persistidos (estable, no depende del diploma que pudo cambiar).
+  2. **P1.2 totalCollected auto-calculado — DIFERIDO**. `Payment` está atado a `Enrollment` (curso), no a `DiplomaEnrollment`. Para calcularlo automáticamente hay que primero decidir: ¿se agrega `diploma_id` opcional a Payment? ¿se usa Enrollment con businessUnit=FORMACION_SUPERIOR para diplomaturas? Quedó como pregunta para el cliente. Hoy `totalCollected` sigue siendo input manual en el DTO (lo que ya era).
+  3. **V019 + SETTLEMENT_APPROVED email**: agregados `NotificationType.SETTLEMENT_APPROVED` y `RelatedEntityType.DIPLOMA_SETTLEMENT`. V019 hace `DROP CONSTRAINT + ADD CONSTRAINT` para los CHECKs de `notifications.type` y `notifications.related_entity_type` (Postgres no permite extender un CHECK in-place). Template `NotificationTemplates.settlementApproved(directorName, diplomaName, month, year, amountToInvoice)` con escapado HTML. `DiplomaSettlementService.approve()` ahora encola un email por cada directora con su `amount` ya calculado. **Decisión de diseño**: paso `relatedEntityId=null` al enqueue para esquivar la dedup `(type, relatedEntityType, relatedEntityId)` — si pasara `settlement.id`, solo la primera directora recibiría email. La trazabilidad del settlement queda en el subject/body del template.
+  4. **Budget enriquecido**: `BudgetService.linkFromPayment` ahora setea `subcategory = course.name`, `businessUnit` = derivada del course (con mapeo entre los dos enums BU que viven en módulos distintos), `concept` = `"Pago cuota N — Apellido Nombre"` (o `"Pago matrícula — …"` para number=0). Suma `lateFeeAmount` al `amount` total de la entry. `linkFromBookSale` cambió `subcategory = "Venta libro"` a `subcategory = book.name`, y `concept` ahora incluye el nombre del comprador cuando hay `student`.
+**Por qué:** Plan P1 documentado en `08-requerimientos-reunion-20260522.md` §3. Premisa del cliente sigue siendo: pulir al 100% antes de demo del 12-jun.
+**Problemas:**
+  - Tests del módulo Settlement rompieron con las nuevas firmas: `DiplomaSettlementCreateRequest` (4 → 10 args) y `DiplomaSettlementResponse` (17 → 23 args). Ajustados pasando `null` para los inputs nuevos. `DiplomaSettlementServiceTests` necesita inyectar el nuevo mock `NotificationService` en el constructor.
+  - V019 inicial probé con `ALTER ... DROP/ADD CONSTRAINT` (sintaxis correcta en Postgres 16, OK al primer try).
+**Verificación end-to-end:** `docker compose up -d --build backend` exitoso. Logs muestran "Migrating to v018 → v019, Started ImedbaApplication in 11.989s". OpenAPI confirma:
+  - `DiplomaSettlementCreateRequest`: 10 props incluyendo los 6 inputs nuevos.
+  - `DiplomaSettlementResponse`: 23 props con `input*` + outputs calculados.
+**Impacto para el otro / PARA FRAN:** El refactor está backend-side; ya podés implementar la separación visual:
+  - **DiplomaForm se puede simplificar**: dejá nombre/universidad/precios/descripción/directoras. Los campos de costos fijos y % de reparto siguen aceptados por el backend (para compat) pero los podés ocultar en la UI — el cliente quiere que NO aparezcan en el form de diplomatura.
+  - **SettlementForm se enriquece**: agregá 6 inputs opcionales — `taxCommissionPct`, `secretarySalary`, `advertisingAmount`, `adminPct`, `universityPct`, `imedbaPct`. Si los dejás vacíos, el backend hace fallback al Diploma. El `DiplomaSettlementResponse` ahora devuelve también los `input*` que se usaron, para mostrar en el detail.
+  - **Email a directoras**: al `approve` del settlement se manda automático. No tenés que hacer nada — el flujo del SPA sigue igual, solo que ahora envía notificaciones reales (si SendGrid está configurado; sino loguea por NoopMailSender).
+  - **Presupuesto**: las entries auto-creadas ahora vienen con descripciones legibles. La fila de "Pago cuota X — Apellido Nombre" reemplaza el UUID feo de antes. No hay cambio de contrato, solo data más linda. Podés sacar la nota TODO de "Mostrar descripción legible Presupuesto" del ROADMAP.
+  - **Renombre "Socias" → "Directoras"**: backend NO renombró (mantiene `partnersConfig` en DB para no romper). Es solo cambio de labels en UI.
+**Refs:** Migraciones V018, V019. Entidades modificadas: `DiplomaSettlement` (+6 inputs), `NotificationType` (+SETTLEMENT_APPROVED), `RelatedEntityType` (+DIPLOMA_SETTLEMENT). Services: `SettlementEngine` (nuevo Inputs record + overload), `DiplomaSettlementService` (NotificationService inyectado + `enqueueDirectorNotifications`), `BudgetService` (helpers de mapeo + enrich concept/subcategory). Templates: `NotificationTemplates.settlementApproved(...)`.
+
 ## 2026-05-24 — Santi — backend (P0 reunión 22-05 cerrado: 8 items, 2 migraciones, OpenAPI verificado)
 **Qué:** Implementado el bloque P0 completo de la reunión 22-05 en backend. Backend levanta, V016+V017 aplicadas, contratos OpenAPI verificados.
 **Items:**

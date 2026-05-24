@@ -13,6 +13,14 @@ public record DiplomaSettlementResponse(
         Integer periodMonth,
         Integer periodYear,
         BigDecimal totalCollected,
+        // Inputs persistidos (V018): permiten recompute estable y mostrar en UI
+        BigDecimal inputTaxCommissionPct,
+        BigDecimal inputSecretarySalary,
+        BigDecimal inputAdvertisingAmount,
+        BigDecimal inputAdminPct,
+        BigDecimal inputUniversityPct,
+        BigDecimal inputImedbaPct,
+        // Outputs calculados
         BigDecimal taxCommissionAmount,
         BigDecimal secretaryAmount,
         BigDecimal advertisingAmount,
