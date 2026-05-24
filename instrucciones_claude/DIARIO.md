@@ -29,6 +29,21 @@
 
 ## Entradas
 
+## 2026-05-24 — Santi — backend (dashboard endpoints reales para refactor de Fran)
+**Qué:** Implementados los 3 endpoints del dashboard que el SPA ya consume pero solo vivían en mock (pedido del Fran en entrada del 2026-05-22): `GET /api/v1/dashboard/summary`, `GET /api/v1/dashboard/activity`, `GET /api/v1/installments/overdue`. Sin esto, el refactor del dashboard que Fran tiene como P0 #1 iba a chocar contra "Sin datos"/EmptyState.
+**Cambios:**
+  - Módulo nuevo `com.imedba.modules.dashboard` con DTOs (`DashboardSummaryResponse`, `OverdueInstallmentResponse`, `ActivityItemResponse`), `DashboardService` (calcula KPIs + activity feed) y `DashboardController` (`/dashboard/summary`, `/dashboard/activity`).
+  - `InstallmentController.overdue()` agregado (delega a `DashboardService.overdueInstallments()`). Auth: `installments:read`.
+  - Auth de los dos endpoints `/dashboard/*`: `students:read` (info agregada, no expone datos sensibles más allá de KPIs).
+  - Contrato espejado **al pie de la letra** del mock del SPA (handlers.ts:919/931/955) — Fran puede apagar el mock cuando quiera, los nombres de campos y orden coinciden.
+**Decisiones de implementación:**
+  - `summary.ingresosMes` suma `amount + lateFeeAmount` del mes actual (zona AR), alineado con el budget enriquecido (P1.4). El mock viejo solo sumaba `amount`, así que esta versión del backend devuelve **más preciso** que el mock.
+  - `overdue` filtra `status=OVERDUE` Y `diasVencidos > 10` (idéntico al mock). Pre-agrupa el conteo total de cuotas por inscripción para evitar N+1.
+  - `activity` saca top 8 de pagos + top 8 de inscripciones + top 8 de ventas (cada uno con su `paymentDate`/`createdAt`/`saleDate`), los mezcla, sort desc, limit 8. El detail de `payment` y `enrollment` es `"Apellido, Nombre · CursoName"`; el de `sale` es el nombre del libro. `amount` queda null para inscripciones.
+**Verificación end-to-end:** ADMIN con ROPC → token JWT → llamada a los 3 endpoints. Resultados con datos reales del seed (1 alumno, 1 curso, 0 cuotas OVERDUE, 2 inscripciones recientes). Shapes coinciden con el mock.
+**Impacto para el otro / PARA FRAN:** **Ya podés activar `VITE_USE_MOCK=false` y el Dashboard sigue funcionando.** Los 3 endpoints existen, devuelven el mismo shape que el mock. Cuando hagas el refactor del dashboard (refuerzo positivo arriba), seguís usando esos 3 + cualquier endpoint de `/budget/dashboard/*` que ya existe. **No te falta nada del backend** para arrancar el refactor.
+**Refs:** módulo nuevo `backend/src/main/java/com/imedba/modules/dashboard/{dto,service,controller}/*`, `InstallmentController.overdue()`.
+
 ## 2026-05-24 — Santi — backend (P1 reunión 22-05: refactor Diploma↔Settlement + email directoras + budget enriquecido)
 **Qué:** Bloque P1 backend cerrado (3 de 4 + 1 diferido). Backend levanta, V018+V019 aplicadas, OpenAPI verificado.
 **Items:**

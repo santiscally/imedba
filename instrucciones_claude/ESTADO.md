@@ -57,6 +57,12 @@
   12. ✅ Auto-link enriquecido: `linkFromPayment` ahora setea `subcategory` = nombre del curso, `businessUnit` derivada del course (mapeo entre los dos enums BU), `concept` = "Pago cuota N — Apellido Nombre" / "Pago matrícula — Apellido Nombre". `linkFromBookSale`: `subcategory` = nombre del libro, `concept` = "Venta libro — Comprador". Suma `lateFeeAmount` al total en presupuesto.
   13. **Filtro semestral en dashboard** — pendiente (todavía no requerido por SPA; el cliente puede vivir con anual+mensual + filtros).
 
+  **✅ Dashboard endpoints reales (2026-05-24)** — para que Fran pueda hacer el refactor del dashboard sin chocar contra mocks:
+  - `GET /api/v1/dashboard/summary` (alumnosActivos, cursosActivos, cuotasVencidas, ingresosMes). Auth `students:read`.
+  - `GET /api/v1/dashboard/activity` (top 8 mezclando payments+enrollments+sales). Auth `students:read`.
+  - `GET /api/v1/installments/overdue` (cuotas OVERDUE con diasVencidos>10, ordenado desc). Auth `installments:read`.
+  - Shapes espejados 1:1 del mock — Fran puede flipear `VITE_USE_MOCK=false` y todo sigue andando.
+
   **P2 — Módulo nuevo: Seguimiento Académico (Excel Moodle)** — esperar sample de Meli antes de empezar:
   14. Tabla nueva `academic_records` (`student_id`, `subject`, `score`, `period`, `source`, `imported_at`).
   15. Endpoint `POST /api/v1/academic-records/import` (multipart con Excel). Parsear con Apache POI. Idempotente: matchear por `student.email + subject + period` y upsertear.

@@ -1,6 +1,8 @@
 package com.imedba.modules.installment.controller;
 
 import com.imedba.common.dto.PageResponse;
+import com.imedba.modules.dashboard.dto.OverdueInstallmentResponse;
+import com.imedba.modules.dashboard.service.DashboardService;
 import com.imedba.modules.installment.dto.InstallmentResponse;
 import com.imedba.modules.installment.dto.InstallmentUpdateRequest;
 import com.imedba.modules.installment.entity.InstallmentStatus;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InstallmentController {
 
     private final InstallmentService service;
+    private final DashboardService dashboardService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('installments:read')")
@@ -47,6 +50,17 @@ public class InstallmentController {
     @PreAuthorize("hasAuthority('installments:read')")
     public List<InstallmentResponse> byEnrollment(@PathVariable UUID enrollmentId) {
         return service.listByEnrollment(enrollmentId);
+    }
+
+    /**
+     * Cuotas vencidas para el panel del dashboard. Solo devuelve cuotas con
+     * status=OVERDUE y diasVencidos &gt; 10 (umbral del aviso pre-suspensión).
+     * Reunión 2026-05-22 §2.9.
+     */
+    @GetMapping("/overdue")
+    @PreAuthorize("hasAuthority('installments:read')")
+    public List<OverdueInstallmentResponse> overdue() {
+        return dashboardService.overdueInstallments();
     }
 
     @GetMapping("/{id}")
