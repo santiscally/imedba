@@ -1,8 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, LogOut, Settings, UserCircle, Building2 } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { ChevronDown, LogOut, Building2 } from 'lucide-react'
 import { useUnidad, UNIDAD_LABELS, type Unidad } from '../lib/unidad'
+import { currentUser, logout } from '../lib/auth'
+import { ROLE_LABELS } from '../types/user'
 import './Topbar.scss'
+
+// Mes y año actuales, capitalizado (ej. "Junio 2026"). Sin hardcodeo.
+function currentMonthYear(): string {
+  const now = new Date()
+  const month = now.toLocaleDateString('es-AR', { month: 'long' })
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${now.getFullYear()}`
+}
+
+// Primer rol de app del JWT, como label legible (map canónico en types/user.ts).
+function roleLabel(roles: string[]): string {
+  const match = roles.find(r => ROLE_LABELS[r])
+  return match ? ROLE_LABELS[match] : 'Usuario'
+}
 
 const TITLES: Record<string, string> = {
   '/dashboard':      'Dashboard',
@@ -18,19 +33,22 @@ const TITLES: Record<string, string> = {
   '/diplomas':       'Diplomas',
   '/liquidaciones':  'Liquidaciones',
   '/personal':       'Personal',
-  '/horas':          'Registro de horas',
-  '/contactos':      'Contactos',
-  '/notificaciones': 'Notificaciones',
 }
 
 export default function Topbar() {
   const location = useLocation()
-  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const title = TITLES[location.pathname] ?? 'IMEDBA'
   const { unidad, setUnidad } = useUnidad()
+
+  // Usuario real desde el JWT (no hardcodeado).
+  const user      = currentUser()
+  const userName  = user?.fullName || user?.username || user?.email || 'Usuario'
+  const userEmail = user?.email ?? ''
+  const userRole  = roleLabel(user?.roles ?? [])
+  const initial   = userName.charAt(0).toUpperCase()
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -47,7 +65,7 @@ export default function Topbar() {
 
       <div className="topbar__left">
         <h1 className="topbar__title">{title}</h1>
-        <span className="topbar__breadcrumb">Abril 2026</span>
+        <span className="topbar__breadcrumb">{currentMonthYear()}</span>
       </div>
 
       <div className="topbar__right">
@@ -66,20 +84,16 @@ export default function Topbar() {
           </select>
         </label>
 
-        <button className="topbar__icon-btn" aria-label="Notificaciones">
-          <Bell size={18} strokeWidth={2} />
-          <span className="topbar__badge" />
-        </button>
 
         <div className="topbar__user" ref={menuRef}>
           <button
             className={`topbar__user-btn ${menuOpen ? 'topbar__user-btn--open' : ''}`}
             onClick={() => setMenuOpen(o => !o)}
           >
-            <div className="topbar__avatar">A</div>
+            <div className="topbar__avatar">{initial}</div>
             <div className="topbar__user-info">
-              <div className="topbar__user-name">Admin</div>
-              <div className="topbar__user-role">Administrador</div>
+              <div className="topbar__user-name">{userName}</div>
+              <div className="topbar__user-role">{userRole}</div>
             </div>
             <ChevronDown size={16} className="topbar__chevron" />
           </button>
@@ -87,22 +101,13 @@ export default function Topbar() {
           {menuOpen && (
             <div className="topbar__dropdown" role="menu">
               <div className="topbar__dropdown-header">
-                <div className="topbar__user-name">Admin</div>
-                <div className="topbar__user-email">admin@imedba.com</div>
+                <div className="topbar__user-name">{userName}</div>
+                {userEmail && <div className="topbar__user-email">{userEmail}</div>}
               </div>
-              <button className="dropdown-item" role="menuitem">
-                <UserCircle size={16} />
-                Mi perfil
-              </button>
-              <button className="dropdown-item" role="menuitem">
-                <Settings size={16} />
-                Configuración
-              </button>
-              <div className="topbar__dropdown-sep" />
               <button
                 className="dropdown-item dropdown-item--danger"
                 role="menuitem"
-                onClick={() => navigate('/')}
+                onClick={() => logout()}
               >
                 <LogOut size={16} />
                 Cerrar sesión

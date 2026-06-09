@@ -1,4 +1,3 @@
-import { mockFetch } from './mock/handlers'
 import { getAccessToken } from '../lib/auth'
 
 // Fuente de verdad: VITE_API_BASE_URL (la que inyecta docker-compose/Dockerfile).
@@ -18,13 +17,46 @@ function resolveApiBase(): string {
 }
 
 const BASE_URL = resolveApiBase()
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
+export interface ApiFieldError { field: string; message: string }
 
 export class ApiError extends Error {
-  constructor(message: string, public status?: number) {
+  constructor(
+    message: string,
+    public status?: number,
+    public code?: string,                  // ej. CONFLICT, VALIDATION_ERROR, NOT_FOUND
+    public fieldErrors?: ApiFieldError[],   // de validaciones de campos
+  ) {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+// Lee el body de error uniforme del backend (com.imedba.common.error.ApiError):
+// { timestamp, status, error, message, path, errors[] } y arma un ApiError con el
+// `message` real, así los forms muestran "El alumno ya tiene una inscripción activa…"
+// en vez de un "HTTP 409" opaco.
+async function toApiError(response: Response): Promise<ApiError> {
+  let message = `HTTP ${response.status}`
+  let code: string | undefined
+  let fieldErrors: ApiFieldError[] | undefined
+  try {
+    const body = await response.json()
+    if (body && typeof body === 'object') {
+      if (typeof body.message === 'string' && body.message.trim()) message = body.message
+      if (typeof body.error === 'string') code = body.error
+      if (Array.isArray(body.errors) && body.errors.length > 0) {
+        fieldErrors = body.errors as ApiFieldError[]
+        // si no vino message útil, armarlo a partir de los errores de campo
+        if (message === `HTTP ${response.status}`) {
+          message = fieldErrors.map(e => `${e.field}: ${e.message}`).join(' · ')
+        }
+      }
+    }
+  } catch {
+    // sin body JSON (ej. 401/403/502) → queda el "HTTP NNN"
+  }
+  return new ApiError(message, response.status, code, fieldErrors)
 }
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
@@ -35,8 +67,6 @@ async function request<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (USE_MOCK) return mockFetch<T>(method, path, body)
-
   const token = await getAccessToken()
   const headers: Record<string, string> = {}
   if (token)              headers['Authorization'] = `Bearer ${token}`
@@ -48,7 +78,7 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
   })
-  if (!response.ok) throw new ApiError(`HTTP ${response.status}`, response.status)
+  if (!response.ok) throw await toApiError(response)
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }

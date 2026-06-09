@@ -16,6 +16,13 @@
 
   &__header-text { min-width: 0; }
 
+  &__header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   &__title {
     display: flex;
     align-items: center;

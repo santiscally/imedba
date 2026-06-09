@@ -10,6 +10,7 @@ import type { BookSale, BookSaleCreateRequest, RoyaltyLine } from '../types/book
 import EmptyState from '../components/EmptyState'
 import BookSaleForm from '../components/BookSaleForm'
 import BookSaleDetail from '../components/BookSaleDetail'
+import { canWrite } from '../lib/access'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
@@ -99,7 +100,7 @@ export default function Ventas() {
               : `Royalties de ${MONTHS[rmonth - 1]} ${ryear}`}
           </p>
         </div>
-        {tab === 'ventas' && (
+        {tab === 'ventas' && canWrite('/ventas') && (
           <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
             <Plus size={16} strokeWidth={2.2} /> Registrar venta
           </button>

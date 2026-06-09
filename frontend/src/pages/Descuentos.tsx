@@ -12,15 +12,14 @@ import { DISCOUNT_TYPE_LABELS } from '../types/discount-campaign'
 import EmptyState from '../components/EmptyState'
 import DiscountCampaignForm from '../components/DiscountCampaignForm'
 import DiscountCampaignDetail from '../components/DiscountCampaignDetail'
+import { canWrite } from '../lib/access'
 import './Descuentos.scss'
 
 const PAGE_SIZE = 10
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'discountType' | 'discountValue' | 'startDate' | 'endDate' | 'active'
+type SortField = 'name' | 'discountType' | 'discountValue' | 'startDate' | 'endDate'
 type SortState = { field: SortField; dir: SortDir } | null
-
-type ActiveFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS'
 
 type PanelState =
   | { kind: 'closed' }
@@ -31,7 +30,6 @@ type PanelState =
 export default function Descuentos() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('TODAS')
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'name', dir: 'asc' })
 
@@ -51,14 +49,14 @@ export default function Descuentos() {
     setLoading(true); setError(null)
     discountCampaignsApi.list({
       q:      debounced || undefined,
-      active: activeFilter === 'TODAS' ? undefined : activeFilter === 'ACTIVAS',
+      active: true,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, activeFilter, page, sort, reload])
+  }, [debounced, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -92,13 +90,15 @@ export default function Descuentos() {
               : 'Campañas de descuento aplicables a inscripciones'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nueva campaña
-        </button>
+        {canWrite('/descuentos') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nueva campaña
+          </button>
+        )}
       </header>
 
       <div className="descuentos__toolbar">
@@ -111,21 +111,6 @@ export default function Descuentos() {
             onChange={e => setQuery(e.target.value)}
             className="search__input"
           />
-        </div>
-
-        <div className="descuentos__chips" role="tablist" aria-label="Estado">
-          {(['TODAS', 'ACTIVAS', 'INACTIVAS'] as ActiveFilter[]).map(opt => (
-            <button
-              key={opt}
-              type="button"
-              className={`chip ${activeFilter === opt ? 'chip--active' : ''}`}
-              onClick={() => { setActiveFilter(opt); setPage(0) }}
-              role="tab"
-              aria-selected={activeFilter === opt}
-            >
-              {opt === 'TODAS' ? 'Todas' : opt === 'ACTIVAS' ? 'Activas' : 'Inactivas'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -186,13 +171,6 @@ export default function Descuentos() {
                   onClick={() => toggleSort('endDate')}
                   className="col-fecha"
                 />
-                <SortableTh
-                  label="Estado"
-                  field="active"
-                  sort={sort}
-                  onClick={() => toggleSort('active')}
-                  className="col-estado"
-                />
                 <th className="col-acciones">Acciones</th>
               </tr>
             </thead>
@@ -236,11 +214,6 @@ export default function Descuentos() {
                       {formatDate(c.endDate)}
                     </span>
                   </td>
-                  <td className="col-estado">
-                    <span className={`badge ${c.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                      {c.active ? 'Activa' : 'Inactiva'}
-                    </span>
-                  </td>
                   <td className="col-acciones">
                     <div className="row-actions">
                       <button
@@ -252,15 +225,17 @@ export default function Descuentos() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        className="row-actions__btn"
-                        type="button"
-                        onClick={() => setPanel({ kind: 'edit', campaign: c })}
-                        aria-label="Editar"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canWrite('/descuentos') && (
+                        <button
+                          className="row-actions__btn"
+                          type="button"
+                          onClick={() => setPanel({ kind: 'edit', campaign: c })}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

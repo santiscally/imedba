@@ -9,9 +9,6 @@ import { isAuthenticated } from '../lib/auth'
 // Nota: NO usamos `login()` (PKCE redirect a la página hosteada de Keycloak) —
 // el login se pivoteó a ROPC con form propio. `login()` queda en lib/auth.ts
 // disponible por si en prod cambiamos de criterio.
-//
-// Si VITE_USE_MOCK=true se considera siempre autenticado (modo dev sin backend).
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 interface Props {
   children: ReactNode
@@ -19,7 +16,7 @@ interface Props {
 
 export default function RequireAuth({ children }: Props) {
   const loc = useLocation()
-  const ok = USE_MOCK || isAuthenticated()
+  const ok = isAuthenticated()
 
   if (!ok) {
     return <Navigate to="/" replace state={{ from: loc }} />

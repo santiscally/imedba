@@ -6,6 +6,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { DiplomaSettlement } from '../types/diploma-settlement'
 import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 import './SettlementDetail.scss'
 
@@ -30,6 +31,7 @@ export default function SettlementDetail({
   onApprove,
   onMarkPaid,
 }: Props) {
+  const canWrite = hasAuthority('diplomas:write')
   const period = `${MONTHS[settlement.periodMonth - 1]} ${settlement.periodYear}`
   const isDraft    = settlement.status === 'DRAFT'
   const isApproved = settlement.status === 'APPROVED'
@@ -94,12 +96,12 @@ export default function SettlementDetail({
           <section className="detail__section">
             <h4 className="detail__section-title">
               <Users size={14} strokeWidth={1.8} />
-              Socias
+              Directoras
               <span className="detail__sum">Total: {formatPrice(settlement.partnersTotal)}</span>
             </h4>
             <div className="partners-table">
               {settlement.partnersDistribution.length === 0 ? (
-                <div className="partners-table__empty">Sin socias en esta liquidación.</div>
+                <div className="partners-table__empty">Sin directoras en esta liquidación.</div>
               ) : (
                 <table>
                   <thead>
@@ -153,17 +155,17 @@ export default function SettlementDetail({
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          {isDraft && onRecompute && (
+          {canWrite && isDraft && onRecompute && (
             <button type="button" className="btn-ghost" onClick={() => onRecompute(settlement)}>
               <RefreshCw size={15} /> Recomputar
             </button>
           )}
-          {isDraft && onApprove && (
+          {canWrite && isDraft && onApprove && (
             <button type="button" className="btn-primary" onClick={() => onApprove(settlement)}>
               <BadgeCheck size={15} /> Aprobar
             </button>
           )}
-          {isApproved && onMarkPaid && (
+          {canWrite && isApproved && onMarkPaid && (
             <button type="button" className="btn-primary" onClick={() => onMarkPaid(settlement)}>
               <CircleDollarSign size={15} /> Marcar pagada
             </button>

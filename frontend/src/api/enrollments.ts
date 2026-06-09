@@ -10,11 +10,11 @@ import { apiGet, apiPost, apiPut, apiDelete } from './client'
 // Servicio de inscripciones — refleja EnrollmentController (/api/v1/enrollments).
 
 export interface ListEnrollmentsParams {
-  q?:            string              // No soportado por backend — lo usa el mock y es ignorado por Spring
+  q?:            string              // no soportado por el backend (ignorado)
   studentId?:    string
   courseId?:     string
   status?:       EnrollmentStatus
-  businessUnit?: string              // mock-only hasta que el backend segmente enrollments (Fase 9 server-side)
+  businessUnit?: string              // la segmentación es server-side por JWT; este param lo ignora Spring
   page?:         number
   size?:         number
   sort?:         string   // ej: "enrollmentDate,desc"

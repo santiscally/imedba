@@ -12,15 +12,11 @@ import Descuentos    from './pages/Descuentos'
 import Diplomaturas  from './pages/Diplomaturas'
 import Liquidaciones from './pages/Liquidaciones'
 import Presupuesto   from './pages/Presupuesto'
-import Contactos     from './pages/Contactos'
 import Autores       from './pages/Autores'
 import Libros        from './pages/Libros'
 import Ventas        from './pages/Ventas'
-import Placeholder   from './pages/Placeholder'
-
-const MODULES = [
-  'personal', 'horas', 'notificaciones',
-]
+import Colecciones   from './pages/Colecciones'
+import Personal      from './pages/Personal'
 
 export default function App() {
   return (
@@ -38,13 +34,11 @@ export default function App() {
         <Route path="/diplomaturas"  element={<Diplomaturas />} />
         <Route path="/liquidaciones" element={<Liquidaciones />} />
         <Route path="/presupuesto"   element={<Presupuesto />} />
-        <Route path="/contactos"     element={<Contactos />} />
         <Route path="/autores"       element={<Autores />} />
         <Route path="/libros"        element={<Libros />} />
         <Route path="/ventas"        element={<Ventas />} />
-        {MODULES.map(m => (
-          <Route key={m} path={`/${m}`} element={<Placeholder />} />
-        ))}
+        <Route path="/colecciones"   element={<Colecciones />} />
+        <Route path="/personal"      element={<Personal />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

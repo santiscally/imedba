@@ -6,7 +6,7 @@ import { apiGet, apiPost } from './client'
 // Append-only (sin update / delete).
 
 export interface ListBookSalesParams {
-  q?:           string       // mock-only (libro/alumno)
+  q?:           string       // no soportado por el backend (ignorado)
   bookId?:      string
   studentId?:   string
   enrollmentId?: string

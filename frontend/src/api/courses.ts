@@ -13,6 +13,7 @@ export interface ListCoursesParams {
   q?:            string
   businessUnit?: BusinessUnit
   active?:       boolean
+  year?:         number       // ciclo lectivo
   page?:         number
   size?:         number
   sort?:         string       // ej: "name,asc"
@@ -23,6 +24,7 @@ function buildQuery(params: ListCoursesParams): string {
   if (params.q)                      qp.set('q', params.q)
   if (params.businessUnit)           qp.set('businessUnit', params.businessUnit)
   if (params.active !== undefined)   qp.set('active', String(params.active))
+  if (params.year   !== undefined)   qp.set('year',   String(params.year))
   if (params.page   !== undefined)   qp.set('page',   String(params.page))
   if (params.size   !== undefined)   qp.set('size',   String(params.size))
   if (params.sort)                   qp.set('sort',   params.sort)

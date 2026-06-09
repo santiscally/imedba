@@ -13,6 +13,7 @@ import EmptyState from '../components/EmptyState'
 import SettlementForm from '../components/SettlementForm'
 import SettlementDetail from '../components/SettlementDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { canWrite } from '../lib/access'
 import './Liquidaciones.scss'
 
 type SortDir   = 'asc' | 'desc'
@@ -95,7 +96,7 @@ export default function Liquidaciones() {
     const meta = {
       'recompute': { verb: 'recomputar el reparto de',  done: 'Reparto recomputado',  icon: 'question' as const, danger: false },
       'approve':   { verb: 'aprobar',                    done: 'Liquidación aprobada', icon: 'warning'  as const, danger: false },
-      'mark-paid': { verb: 'marcar como pagada',         done: 'Liquidación pagada',   icon: 'warning'  as const, danger: false },
+      'mark-paid': { verb: 'marcar como pagada',         done: 'Liquidación pagada — egresos asentados en Presupuesto', icon: 'warning' as const, danger: false },
     }[action]
     const period = `${MONTHS[s.periodMonth - 1]} ${s.periodYear}`
     const ok = await confirmAction({
@@ -136,18 +137,20 @@ export default function Liquidaciones() {
               ? (total > 0
                   ? `${total} ${total === 1 ? 'liquidación' : 'liquidaciones'} de ${selectedDiploma.name}`
                   : `Sin liquidaciones para ${selectedDiploma.name}`)
-              : 'Liquidaciones mensuales por diplomatura — reparto entre socias, universidad e IMEDBA'}
+              : 'Liquidaciones mensuales por diplomatura — reparto entre directoras, universidad e IMEDBA'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-          disabled={!selectedDiploma}
-          title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
-        </button>
+        {canWrite('/liquidaciones') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+            disabled={!selectedDiploma}
+            title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
+          </button>
+        )}
       </header>
 
       <div className="liquidaciones__toolbar">
@@ -233,7 +236,7 @@ export default function Liquidaciones() {
                   className="col-precio"
                 />
                 <SortableTh
-                  label="Socias"
+                  label="Directoras"
                   field="partnersTotal"
                   sort={sort}
                   onClick={() => toggleSort('partnersTotal')}
@@ -284,7 +287,7 @@ export default function Liquidaciones() {
                       >
                         <Eye size={16} />
                       </button>
-                      {s.status === 'DRAFT' && (
+                      {s.status === 'DRAFT' && canWrite('/liquidaciones') && (
                         <>
                           <button
                             className="row-actions__btn"
@@ -306,7 +309,7 @@ export default function Liquidaciones() {
                           </button>
                         </>
                       )}
-                      {s.status === 'APPROVED' && (
+                      {s.status === 'APPROVED' && canWrite('/liquidaciones') && (
                         <button
                           className="row-actions__btn row-actions__btn--primary"
                           type="button"

@@ -1,6 +1,7 @@
 import { X, Pencil, PenTool, UserCircle2, Mail, Phone, Hash, Calendar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Author } from '../types/author'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function AuthorDetail({ author, onClose, onEdit }: Props) {
+  const canWrite = hasAuthority('authors:write')
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="detail" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -18,11 +20,6 @@ export default function AuthorDetail({ author, onClose, onEdit }: Props) {
             <div className="detail__avatar"><PenTool size={28} strokeWidth={1.4} /></div>
             <div>
               <div className="detail__name">{author.lastName}, {author.firstName}</div>
-              <div className="detail__meta">
-                <span className={`badge ${author.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {author.active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
             </div>
           </div>
           <button className="modal__close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
@@ -50,9 +47,11 @@ export default function AuthorDetail({ author, onClose, onEdit }: Props) {
 
         <footer className="detail__footer">
           <button type="button" className="btn-ghost" onClick={onClose}>Cerrar</button>
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar autor
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar autor
+            </button>
+          )}
         </footer>
       </div>
     </div>

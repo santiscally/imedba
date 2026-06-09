@@ -6,6 +6,7 @@ import type {
 } from '../types/diploma-settlement'
 import type { Diploma } from '../types/diploma'
 import './StudentForm.scss'
+import './DiplomaForm.scss'
 
 interface Props {
   diploma:  Diploma
@@ -21,18 +22,36 @@ const MONTHS = [
 ]
 
 interface FormState {
-  periodMonth:    number
-  periodYear:     number
-  totalCollected: string
+  periodMonth:       number
+  periodYear:        number
+  totalCollected:    string
+  // Inputs por liquidación (vacío = usa el valor de la diplomatura).
+  taxCommissionPct:  string
+  secretarySalary:   string
+  advertisingAmount: string
+  adminPct:          string
+  universityPct:     string
+  imedbaPct:         string
 }
 
 function initialState(): FormState {
   const today = new Date()
   return {
-    periodMonth:    today.getMonth() + 1,
-    periodYear:     today.getFullYear(),
-    totalCollected: '',
+    periodMonth:       today.getMonth() + 1,
+    periodYear:        today.getFullYear(),
+    totalCollected:    '',
+    taxCommissionPct:  '',
+    secretarySalary:   '',
+    advertisingAmount: '',
+    adminPct:          '',
+    universityPct:     '',
+    imedbaPct:         '',
   }
+}
+
+// Placeholder con el valor de la diplomatura (el fallback) o un genérico.
+function ph(v: number | null | undefined, fallback: string): string {
+  return v != null ? `${v} (diplomatura)` : fallback
 }
 
 export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: Props) {
@@ -46,10 +65,14 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
+  // Con curso vinculado, el total puede quedar vacío: el backend suma los pagos
+  // del período de las inscripciones de ese curso (V026).
+  const hasLinkedCourse = diploma.courseId != null
+
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
     if (!state.totalCollected) {
-      e.totalCollected = 'Obligatorio'
+      if (!hasLinkedCourse) e.totalCollected = 'Obligatorio (la diplomatura no tiene curso vinculado)'
     } else {
       const n = Number(state.totalCollected)
       if (Number.isNaN(n) || n < 0) e.totalCollected = 'Debe ser ≥ 0'
@@ -60,6 +83,19 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
     if (!state.periodMonth || state.periodMonth < 1 || state.periodMonth > 12) {
       e.periodMonth = 'Mes entre 1 y 12'
     }
+    const checkNum = (f: keyof FormState, max?: number) => {
+      const v = state[f] as string
+      if (!v) return
+      const n = Number(v)
+      if (Number.isNaN(n) || n < 0) e[f] = 'Debe ser ≥ 0'
+      else if (max !== undefined && n > max) e[f] = `Máx ${max}`
+    }
+    checkNum('taxCommissionPct', 100)
+    checkNum('secretarySalary')
+    checkNum('advertisingAmount')
+    checkNum('adminPct', 100)
+    checkNum('universityPct', 100)
+    checkNum('imedbaPct', 100)
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -69,11 +105,18 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
     if (!validate()) return
     setSaving(true); setSubmitError(null)
 
+    const numOrNull = (v: string) => (v ? Number(v) : null)
     const payload: DiplomaSettlementCreateRequest = {
-      diplomaId:      diploma.id,
-      periodMonth:    state.periodMonth,
-      periodYear:     state.periodYear,
-      totalCollected: Number(state.totalCollected),
+      diplomaId:         diploma.id,
+      periodMonth:       state.periodMonth,
+      periodYear:        state.periodYear,
+      totalCollected:    state.totalCollected ? Number(state.totalCollected) : null,
+      taxCommissionPct:  numOrNull(state.taxCommissionPct),
+      secretarySalary:   numOrNull(state.secretarySalary),
+      advertisingAmount: numOrNull(state.advertisingAmount),
+      adminPct:          numOrNull(state.adminPct),
+      universityPct:     numOrNull(state.universityPct),
+      imedbaPct:         numOrNull(state.imedbaPct),
     }
 
     try {
@@ -105,11 +148,13 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
 
         <form onSubmit={handleSubmit} className="form">
           <div className="form__hint">
-            Liquidación de <strong>{diploma.name}</strong>. El reparto entre socias, universidad,
-            IMEDBA y administración se calcula automáticamente con los porcentajes configurados
-            en la diplomatura — queda en estado <em>Borrador</em> hasta que se apruebe.
+            Liquidación de <strong>{diploma.name}</strong>. Los costos fijos y el reparto se cargan
+            <strong> por liquidación</strong> (no en la diplomatura). Lo que dejes vacío toma el valor
+            de la diplomatura. El reparto entre directoras, universidad, IMEDBA y administración se
+            calcula automáticamente — queda en <em>Borrador</em> hasta aprobarse.
           </div>
 
+          <h4 className="form-section">Período</h4>
           <div className="form__grid">
             <Field label="Mes" required error={errors.periodMonth}>
               <select
@@ -131,13 +176,75 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
               />
             </Field>
 
-            <Field label="Total cobrado (ARS)" required error={errors.totalCollected} fullWidth>
+            <Field label="Total cobrado (ARS)" required={!hasLinkedCourse} error={errors.totalCollected} fullWidth>
               <input
                 type="number" min="0" step="any"
                 value={state.totalCollected}
                 onChange={e => setField('totalCollected', e.target.value)}
                 autoFocus
-                placeholder="5500000"
+                placeholder={hasLinkedCourse ? 'Vacío = suma automática de los pagos del período' : '5500000'}
+              />
+              {hasLinkedCourse && (
+                <span className="field__hint">
+                  Vinculada al curso <strong>{diploma.courseName}</strong>: si lo dejás vacío se suma
+                  automáticamente lo cobrado en el período por sus inscripciones. "Recomputar" lo refresca.
+                </span>
+              )}
+            </Field>
+          </div>
+
+          <h4 className="form-section">Costos fijos del período</h4>
+          <div className="form__grid">
+            <Field label="Comisión impuestos (%)" error={errors.taxCommissionPct}>
+              <input
+                type="number" min="0" step="0.01"
+                value={state.taxCommissionPct}
+                onChange={e => setField('taxCommissionPct', e.target.value)}
+                placeholder={ph(diploma.taxCommissionPct, '15')}
+              />
+            </Field>
+            <Field label="Sueldo secretaria (ARS)" error={errors.secretarySalary}>
+              <input
+                type="number" min="0" step="any"
+                value={state.secretarySalary}
+                onChange={e => setField('secretarySalary', e.target.value)}
+                placeholder={ph(diploma.secretarySalary, '180000')}
+              />
+            </Field>
+            <Field label="Publicidad (ARS)" error={errors.advertisingAmount}>
+              <input
+                type="number" min="0" step="any"
+                value={state.advertisingAmount}
+                onChange={e => setField('advertisingAmount', e.target.value)}
+                placeholder={ph(diploma.advertisingAmount, '90000')}
+              />
+            </Field>
+          </div>
+
+          <h4 className="form-section">Reparto institucional (%)</h4>
+          <div className="form__grid">
+            <Field label="Administración (%)" error={errors.adminPct}>
+              <input
+                type="number" min="0" step="0.01"
+                value={state.adminPct}
+                onChange={e => setField('adminPct', e.target.value)}
+                placeholder={ph(diploma.adminPct, '10')}
+              />
+            </Field>
+            <Field label="Universidad (%)" error={errors.universityPct}>
+              <input
+                type="number" min="0" step="0.01"
+                value={state.universityPct}
+                onChange={e => setField('universityPct', e.target.value)}
+                placeholder={ph(diploma.universityPct, '30')}
+              />
+            </Field>
+            <Field label="IMEDBA (%)" error={errors.imedbaPct}>
+              <input
+                type="number" min="0" step="0.01"
+                value={state.imedbaPct}
+                onChange={e => setField('imedbaPct', e.target.value)}
+                placeholder={ph(diploma.imedbaPct, '15')}
               />
             </Field>
           </div>

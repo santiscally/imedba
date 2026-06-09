@@ -3,12 +3,12 @@ import type { Author, AuthorCreateRequest, AuthorUpdateRequest } from '../types/
 import { apiGet, apiPost, apiPut } from './client'
 
 // Servicio de autores — refleja AuthorController (/api/v1/authors).
-// El backend solo pagina/ordena (sin q/active server-side). `q`/`active` los
-// usa el mock y Spring los ignora.
+// El backend solo pagina/ordena: `q`/`active` no están soportados server-side
+// (Spring los ignora). Se mandan igual por si se agregan más adelante.
 
 export interface ListAuthorsParams {
-  q?:      string       // mock-only
-  active?: boolean       // mock-only
+  q?:      string       // no soportado por el backend (ignorado)
+  active?: boolean       // no soportado por el backend (ignorado)
   page?:   number
   size?:   number
   sort?:   string        // ej: "lastName,asc"

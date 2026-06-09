@@ -1,19 +1,54 @@
+import { useEffect, useState } from 'react'
 import {
   X, Pencil, UserCircle2, Mail, Phone, IdCard, Flag,
-  GraduationCap, MapPin, Hash, Calendar, FileText,
+  GraduationCap, MapPin, Hash, Calendar, FileText, Link2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Student } from '../types/student'
+import { moodleApi } from '../api/moodle'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
 interface Props {
-  student: Student
-  onClose: () => void
-  onEdit:  () => void
+  student:   Student
+  onClose:   () => void
+  onEdit:    () => void
+  onLinked?: () => void   // refrescar la lista tras vincular con Moodle
 }
 
-export default function StudentDetail({ student, onClose, onEdit }: Props) {
+export default function StudentDetail({ student, onClose, onEdit, onLinked }: Props) {
   const fullName = `${student.firstName} ${student.lastName}`
+  const canWrite = hasAuthority('students:write')
+
+  // Vínculo con Moodle por email. El botón sólo aparece si la integración está
+  // habilitada (MOODLE_ENABLED=true) y el alumno todavía no está vinculado.
+  const canLink = hasAuthority('moodle:write')
+  const [moodleEnabled, setMoodleEnabled] = useState(false)
+  const [linking, setLinking] = useState(false)
+
+  useEffect(() => {
+    if (!canLink) return
+    let alive = true
+    moodleApi.status()
+      .then(s => { if (alive) setMoodleEnabled(s.enabled) })
+      .catch(() => { if (alive) setMoodleEnabled(false) })
+    return () => { alive = false }
+  }, [canLink])
+
+  async function handleLink() {
+    setLinking(true)
+    try {
+      const r = await moodleApi.linkStudent(student.id)
+      window.alert(r.message)
+      if (r.linked) onLinked?.()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo vincular con Moodle')
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  const showLinkButton = canLink && moodleEnabled && student.moodleUserId == null
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -89,9 +124,16 @@ export default function StudentDetail({ student, onClose, onEdit }: Props) {
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar alumno
-          </button>
+          {showLinkButton && (
+            <button type="button" className="btn-ghost" onClick={handleLink} disabled={linking}>
+              <Link2 size={15} /> {linking ? 'Vinculando…' : 'Vincular con Moodle'}
+            </button>
+          )}
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar alumno
+            </button>
+          )}
         </footer>
       </div>
     </div>

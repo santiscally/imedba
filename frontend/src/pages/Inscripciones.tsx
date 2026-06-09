@@ -16,6 +16,7 @@ import { ENROLLMENT_STATUSES, ENROLLMENT_STATUS_LABELS } from '../types/enrollme
 import EmptyState from '../components/EmptyState'
 import EnrollmentForm from '../components/EnrollmentForm'
 import EnrollmentDetail from '../components/EnrollmentDetail'
+import { canWrite } from '../lib/access'
 import './Inscripciones.scss'
 
 const PAGE_SIZE = 10
@@ -63,8 +64,8 @@ export default function Inscripciones() {
 
   useEffect(() => {
     setLoading(true); setError(null)
-    // `q` se manda al mock (lo filtra server-side) y al backend real (lo ignora).
-    // Para cuando conecte al backend, agregar filtro client-side ver `filtered`.
+    // `q` se manda igual pero el backend lo ignora (no hay full-text sobre enrollments);
+    // el filtrado por texto se hace client-side en `filtered` (ver abajo).
     enrollmentsApi.list({
       q:            debounced || undefined,
       status:       status === 'TODAS' ? undefined : status,
@@ -81,8 +82,7 @@ export default function Inscripciones() {
   const totalPages = data?.totalPages    ?? 0
 
   // Filtro client-side por `q` (apellido alumno / email / curso / código) — el
-  // backend real no tiene full-text search sobre enrollments. Los mocks lo
-  // soportan server-side, así que esto es redundante con el mock pero correcto.
+  // backend no tiene full-text search sobre enrollments, así que se filtra acá.
   const filtered = useMemo(() => {
     const items = data?.content ?? []
     if (!debounced) return items
@@ -144,13 +144,15 @@ export default function Inscripciones() {
               : 'Gestioná las inscripciones a los cursos'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nueva inscripción
-        </button>
+        {canWrite('/inscripciones') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nueva inscripción
+          </button>
+        )}
       </header>
 
       <div className="inscripciones__toolbar">
@@ -292,15 +294,17 @@ export default function Inscripciones() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        className="row-actions__btn"
-                        type="button"
-                        onClick={() => setPanel({ kind: 'edit', en })}
-                        aria-label="Editar"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canWrite('/inscripciones') && (
+                        <button
+                          className="row-actions__btn"
+                          type="button"
+                          onClick={() => setPanel({ kind: 'edit', en })}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

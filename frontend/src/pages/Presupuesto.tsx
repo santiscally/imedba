@@ -3,7 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   Wallet, ArrowUp, ArrowDown, ArrowUpDown,
   TrendingUp, TrendingDown, Scale, Sparkles,
-  CalendarDays, CircleDollarSign, Tag, Eye, RotateCcw, Banknote,
+  CalendarDays, CircleDollarSign, Tag, Eye, RotateCcw, Banknote, Download,
 } from 'lucide-react'
 import { budgetApi } from '../api/budget'
 import type { PageResponse } from '../types/common'
@@ -16,9 +16,13 @@ import {
   BUDGET_CATEGORIES, BUDGET_CATEGORY_LABELS,
   BUDGET_BUSINESS_UNIT_LABELS,
 } from '../types/budget'
+import { PAYMENT_METHOD_LABELS } from '../types/enrollment'
+import { exportToCsv, type CsvColumn } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import EmptyState from '../components/EmptyState'
 import BudgetEntryForm from '../components/BudgetEntryForm'
 import BudgetEntryDetail from '../components/BudgetEntryDetail'
+import { canWrite } from '../lib/access'
 import './Presupuesto.scss'
 
 const PAGE_SIZE = 10
@@ -102,6 +106,38 @@ export default function Presupuesto() {
       .catch((err: Error) => { setError(err.message); setLoading(false) })
   }, [year, month, typeFilter, catFilter, page, sort, reload])
 
+  const [exporting, setExporting] = useState(false)
+
+  // Exporta a CSV (Excel) los movimientos del período, trayendo todas las filas.
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const from = `${year}-${String(month).padStart(2, '0')}-01`
+      const to   = `${year}-${String(month).padStart(2, '0')}-${lastDayOfMonth(year, month)}`
+      const res = await budgetApi.listEntries({
+        type:     typeFilter === 'TODOS' ? undefined : typeFilter,
+        category: catFilter  === 'TODAS' ? undefined : catFilter,
+        from, to, size: 2000, sort: sort ? `${sort.field},${sort.dir}` : undefined,
+      })
+      const cols: CsvColumn<BudgetEntry>[] = [
+        { label: 'Fecha',        value: e => e.entryDate },
+        { label: 'Tipo',         value: e => ENTRY_TYPE_LABELS[e.entryType] },
+        { label: 'Categoría',    value: e => BUDGET_CATEGORY_LABELS[e.category] },
+        { label: 'Subcategoría', value: e => e.subcategory ?? '' },
+        { label: 'Unidad',       value: e => e.businessUnit ? BUDGET_BUSINESS_UNIT_LABELS[e.businessUnit] : '' },
+        { label: 'Concepto',     value: e => e.concept },
+        { label: 'Monto',        value: e => (e.entryType === 'EXPENSE' ? -e.amount : e.amount) },
+        { label: 'Método',       value: e => e.paymentMethod ? PAYMENT_METHOD_LABELS[e.paymentMethod] : '' },
+        { label: 'Referencia',   value: e => e.referenceNumber ?? '' },
+      ]
+      exportToCsv(`presupuesto-${year}-${String(month).padStart(2, '0')}`, res.content, cols)
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function toggleSort(field: SortField) {
     setSort(prev => {
       if (!prev || prev.field !== field) return { field, dir: 'asc' }
@@ -143,13 +179,20 @@ export default function Presupuesto() {
             Dashboard financiero · {periodLabel}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nuevo movimiento
-        </button>
+        <div className="presupuesto__header-actions">
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
+          </button>
+          {canWrite('/presupuesto') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nuevo movimiento
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="presupuesto__period">

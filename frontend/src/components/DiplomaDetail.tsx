@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Diploma } from '../types/diploma'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 import './DiplomaDetail.scss'
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
+  const canWrite = hasAuthority('diplomas:write')
   const partners = diploma.partnersConfig ?? []
   const sumPartners = Math.round(partners.reduce((acc, p) => acc + p.pct, 0) * 100) / 100
   const totalAssigned = Math.round(
@@ -37,9 +39,6 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
             <div>
               <div className="detail__name">{diploma.name}</div>
               <div className="detail__meta">
-                <span className={`badge ${diploma.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {diploma.active ? 'Activa' : 'Inactiva'}
-                </span>
                 {diploma.universityName && (
                   <span className="detail__moodle">{diploma.universityName}</span>
                 )}
@@ -55,7 +54,8 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
           <section className="detail__section">
             <h4 className="detail__section-title">Identificación</h4>
             <dl className="detail__grid">
-              <Row icon={University} label="Universidad" value={diploma.universityName} />
+              <Row icon={University}    label="Universidad"           value={diploma.universityName} />
+              <Row icon={GraduationCap} label="Curso (inscripciones)" value={diploma.courseName} />
             </dl>
           </section>
 
@@ -91,10 +91,10 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
 
             <div className="partners-table">
               <div className="partners-table__head">
-                <Users size={14} strokeWidth={1.8} /> Socias ({partners.length})
+                <Users size={14} strokeWidth={1.8} /> Directoras ({partners.length})
               </div>
               {partners.length === 0 ? (
-                <div className="partners-table__empty">Sin socias configuradas.</div>
+                <div className="partners-table__empty">Sin directoras configuradas.</div>
               ) : (
                 <table>
                   <thead>
@@ -145,9 +145,11 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar diplomatura
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar diplomatura
+            </button>
+          )}
         </footer>
       </div>
     </div>

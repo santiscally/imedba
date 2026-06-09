@@ -16,6 +16,13 @@
 
   &__header-text { min-width: 0; }
 
+  &__header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   &__title {
     display: flex;
     align-items: center;
@@ -83,6 +90,17 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+  }
+
+  &__viewtoggle {
+    display: inline-flex;
+    gap: 0.4rem;
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
   }
 
   &__filters {
@@ -255,6 +273,97 @@
 
     &--selected,
     &--selected:hover { background: $verde-petroleo-suave; }
+
+    // Cuota dentro de un grupo de deudor (vista "por alumno").
+    &--child td:first-child { padding-left: 1.6rem; }
+  }
+
+  // Fila-encabezado de cada deudor en la vista "por alumno".
+  &__group {
+    background: $fondo-app;
+
+    td {
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid $gris-borde-sutil;
+    }
+  }
+}
+
+// ─── Encabezado de deudor (vista agrupada) ─────────────────────────────────────
+.deudor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  &__course {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: $gris-texto;
+    margin-top: 0.15rem;
+
+    > svg { color: $verde-petroleo; flex-shrink: 0; }
+  }
+
+  &__code {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    color: $gris-texto-sutil;
+  }
+
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__count {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: $texto-medio;
+  }
+
+  &__next {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: $gris-texto;
+
+    > svg { color: $gris-texto-sutil; }
+  }
+
+  &__total {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 700;
+    font-size: 0.98rem;
+    color: $texto-oscuro;
+    font-variant-numeric: tabular-nums;
+
+    > svg { color: $verde-petroleo; }
+  }
+
+  // Link de aviso por WhatsApp (manual) al alumno con cuotas vencidas.
+  &__wa {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: #128c7e;                 // verde WhatsApp
+    background: rgba(18, 140, 126, 0.1);
+    padding: 0.28rem 0.6rem;
+    border-radius: 999px;
+    transition: background 0.15s ease;
+
+    &:hover { background: rgba(18, 140, 126, 0.2); }
+    > svg { flex-shrink: 0; }
   }
 }
 
@@ -281,6 +390,11 @@
   &--matricula {
     background: $verde-petroleo-suave;
     color: $verde-petroleo;
+  }
+
+  &--grupo {
+    background: $azul-bg;
+    color: $azul;
   }
 }
 

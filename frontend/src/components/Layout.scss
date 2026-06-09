@@ -19,6 +19,27 @@
   overflow-x: hidden;
 }
 
+.no-access {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 50vh;
+  text-align: center;
+  color: $gris-texto;
+
+  svg { color: $gris-texto-sutil; }
+
+  h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: $texto-oscuro;
+  }
+
+  p { margin: 0; font-size: 0.9rem; }
+}
+
 @media (max-width: 768px) {
   .layout__content {
     padding: 1.25rem 1rem 2rem;

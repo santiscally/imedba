@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   Book as BookIcon, ArrowUp, ArrowDown, ArrowUpDown,
@@ -11,13 +11,13 @@ import EmptyState from '../components/EmptyState'
 import BookForm from '../components/BookForm'
 import BookDetail from '../components/BookDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { canWrite } from '../lib/access'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'specialty' | 'salePrice' | 'stockQuantity' | 'active'
+type SortField = 'name' | 'specialty' | 'salePrice' | 'stockQuantity'
 type SortState = { field: SortField; dir: SortDir } | null
-type ActiveFilter = 'TODOS' | 'ACTIVOS' | 'INACTIVOS'
 
 type PanelState =
   | { kind: 'closed' }
@@ -28,7 +28,6 @@ type PanelState =
 export default function Libros() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
-  const [activeF,   setActiveF]   = useState<ActiveFilter>('TODOS')
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'name', dir: 'asc' })
 
@@ -48,14 +47,14 @@ export default function Libros() {
     setLoading(true); setError(null)
     booksApi.list({
       q:      debounced || undefined,
-      active: activeF === 'TODOS' ? undefined : activeF === 'ACTIVOS',
+      active: true,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, activeF, page, sort, reload])
+  }, [debounced, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -74,20 +73,18 @@ export default function Libros() {
 
   async function handleDeactivate(b: Book) {
     const ok = await confirmAction({
-      title: '¿Desactivar libro?', text: `"${b.name}" dejará de figurar como activo.`,
-      icon: 'warning', danger: true, confirmText: 'Sí, desactivar',
+      title: '¿Eliminar libro?', text: `"${b.name}" dejará de figurar en el catálogo.`,
+      icon: 'warning', danger: true, confirmText: 'Sí, eliminar',
     })
     if (!ok) return
     try {
       await booksApi.deactivate(b.id)
-      toastSuccess('Libro desactivado')
+      toastSuccess('Libro eliminado')
       setReload(r => r + 1)
     } catch (err) {
-      alertError('No se pudo desactivar', err instanceof Error ? err.message : undefined)
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
     }
   }
-
-  const filters = useMemo<ActiveFilter[]>(() => ['TODOS', 'ACTIVOS', 'INACTIVOS'], [])
 
   return (
     <div className="editorial">
@@ -101,9 +98,11 @@ export default function Libros() {
             {total > 0 ? `${total} ${total === 1 ? 'libro' : 'libros'} en catálogo` : 'Catálogo editorial'}
           </p>
         </div>
-        <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-          <Plus size={16} strokeWidth={2.2} /> Nuevo libro
-        </button>
+        {canWrite('/libros') && (
+          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+            <Plus size={16} strokeWidth={2.2} /> Nuevo libro
+          </button>
+        )}
       </header>
 
       <div className="editorial__toolbar">
@@ -111,14 +110,6 @@ export default function Libros() {
           <Search size={16} strokeWidth={1.8} className="search__icon" />
           <input type="text" className="search__input" placeholder="Buscar por nombre, código o especialidad…"
             value={query} onChange={e => setQuery(e.target.value)} />
-        </div>
-        <div className="editorial__chips" role="tablist" aria-label="Estado">
-          {filters.map(opt => (
-            <button key={opt} type="button" className={`chip ${activeF === opt ? 'chip--active' : ''}`}
-              onClick={() => { setActiveF(opt); setPage(0) }} role="tab" aria-selected={activeF === opt}>
-              {opt === 'TODOS' ? 'Todos' : opt === 'ACTIVOS' ? 'Activos' : 'Inactivos'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -138,7 +129,6 @@ export default function Libros() {
                 <th>Autores</th>
                 <SortTh label="Precio" active={sort?.field === 'salePrice'} dir={sort?.field === 'salePrice' ? sort.dir : null} onClick={() => toggleSort('salePrice')} className="col-precio" />
                 <SortTh label="Stock" active={sort?.field === 'stockQuantity'} dir={sort?.field === 'stockQuantity' ? sort.dir : null} onClick={() => toggleSort('stockQuantity')} className="col-num" />
-                <SortTh label="Estado" active={sort?.field === 'active'} dir={sort?.field === 'active' ? sort.dir : null} onClick={() => toggleSort('active')} className="col-estado" />
                 <th className="col-acciones">Acciones</th>
               </tr>
             </thead>
@@ -176,20 +166,17 @@ export default function Libros() {
                       <Boxes size={13} strokeWidth={1.8} />{b.stockQuantity ?? 0}
                     </span>
                   </td>
-                  <td className="col-estado">
-                    <span className={`badge ${b.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                      {b.active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
                   <td className="col-acciones">
                     <div className="row-actions">
                       <button className="row-actions__btn" type="button" title="Ver detalle"
                         onClick={() => setPanel({ kind: 'detail', book: b })}><Eye size={16} /></button>
-                      <button className="row-actions__btn" type="button" title="Editar"
-                        onClick={() => setPanel({ kind: 'edit', book: b })}><Pencil size={16} /></button>
-                      {b.active && (
-                        <button className="row-actions__btn row-actions__btn--danger" type="button" title="Desactivar"
-                          onClick={() => handleDeactivate(b)}><Trash2 size={16} /></button>
+                      {canWrite('/libros') && (
+                        <>
+                          <button className="row-actions__btn" type="button" title="Editar"
+                            onClick={() => setPanel({ kind: 'edit', book: b })}><Pencil size={16} /></button>
+                          <button className="row-actions__btn row-actions__btn--danger" type="button" title="Eliminar"
+                            onClick={() => handleDeactivate(b)}><Trash2 size={16} /></button>
+                        </>
                       )}
                     </div>
                   </td>

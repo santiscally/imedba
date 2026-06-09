@@ -3,17 +3,21 @@ import {
   LayoutDashboard,
   Users, BookOpen, FileText,
   CreditCard, Tag, Wallet,
-  Book, ShoppingBag, PenTool,
+  Book, ShoppingBag, Library,
   GraduationCap, Calculator,
-  Briefcase, Clock, Mail, Bell,
+  Briefcase,
   ChevronLeft, LogOut,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import logo from '../assets/logo_imedba.png'
 import { currentUser, logout } from '../lib/auth'
+import { canAccess } from '../lib/access'
+import { useUnidad } from '../lib/unidad'
 import './Sidebar.scss'
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+// Secciones que pertenecen exclusivamente a Formación Superior: con la unidad
+// "Residencias Médicas" seleccionada no tiene sentido mostrarlas.
+const FS_ONLY_ROUTES = new Set(['/diplomaturas', '/liquidaciones'])
 
 interface NavItem {
   to:    string
@@ -54,18 +58,15 @@ const NAV: NavGroup[] = [
   {
     title: 'Editorial',
     items: [
-      { to: '/libros',  icon: Book,        label: 'Libros'  },
-      { to: '/ventas',  icon: ShoppingBag, label: 'Ventas'  },
-      { to: '/autores', icon: PenTool,     label: 'Autores' },
+      { to: '/libros',      icon: Book,        label: 'Libros'      },
+      { to: '/colecciones', icon: Library,     label: 'Colecciones' },
+      { to: '/ventas',      icon: ShoppingBag, label: 'Ventas'      },
     ],
   },
   {
     title: 'Administración',
     items: [
-      { to: '/personal',      icon: Briefcase, label: 'Personal'      },
-      { to: '/horas',         icon: Clock,     label: 'Horas'         },
-      { to: '/contactos',     icon: Mail,      label: 'Contactos'     },
-      { to: '/notificaciones',icon: Bell,      label: 'Notificaciones'},
+      { to: '/personal', icon: Briefcase, label: 'Personal' },   // usuarios Keycloak — solo admin
     ],
   },
 ]
@@ -76,6 +77,7 @@ interface Props {
 }
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
+  const { unidad } = useUnidad()
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
 
@@ -94,13 +96,19 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV.map((group, i) => (
+        {NAV.map((group, i) => {
+          // Sólo mostramos los items a los que el usuario tiene acceso (por authority)
+          // y que correspondan a la unidad de negocio seleccionada.
+          const items = group.items.filter(it =>
+            canAccess(it.to) && !(unidad === 'RESIDENCIAS' && FS_ONLY_ROUTES.has(it.to)))
+          if (items.length === 0) return null
+          return (
           <div className="nav-group" key={i}>
             {group.title && !collapsed && (
               <div className="nav-group__title">{group.title}</div>
             )}
             {group.title && collapsed && <div className="nav-group__sep" />}
-            {group.items.map(item => {
+            {items.map(item => {
               const Icon = item.icon
               return (
                 <NavLink
@@ -117,7 +125,8 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
               )
             })}
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       <SidebarFooter collapsed={collapsed} />
@@ -127,20 +136,14 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
 }
 
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
-  const user = USE_MOCK ? null : currentUser()
-  const handleLogout = () => {
-    if (USE_MOCK) {
-      window.location.assign('/')
-    } else {
-      logout()
-    }
-  }
+  const user = currentUser()
+  const handleLogout = () => { logout() }
   return (
     <div className="sidebar__footer">
       {!collapsed && (
         <div className="sidebar__user">
           <div className="sidebar__user-name">
-            {user?.fullName ?? user?.username ?? user?.email ?? (USE_MOCK ? 'Demo' : '—')}
+            {user?.fullName ?? user?.username ?? user?.email ?? '—'}
           </div>
           {user?.email && (
             <div className="sidebar__user-email">{user.email}</div>

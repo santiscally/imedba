@@ -1,4 +1,5 @@
 import type { Instant, UUID } from './common'
+import type { PaymentGroup } from './enrollment'
 
 // Refleja com.imedba.modules.installment.entity.InstallmentStatus
 export type InstallmentStatus = 'PENDING' | 'PAID' | 'OVERDUE'
@@ -42,6 +43,32 @@ export interface Installment {
   status:           InstallmentStatus
   paidAt:           Instant | null
   lastAlertSentAt:  Instant | null
+  notes:            string | null    // aclaración del ajuste manual del monto
   createdAt:        Instant
   updatedAt:        Instant
+}
+
+// Refleja com.imedba.modules.installment.dto.InstallmentUpdateRequest
+export interface InstallmentUpdateRequest {
+  amount?:  number | null
+  dueDate?: string | null           // YYYY-MM-DD
+  notes?:   string | null
+}
+
+// Refleja com.imedba.modules.installment.dto.DebtorResponse
+// Deudor agrupado por inscripción: un alumno (en un curso) con todas sus cuotas
+// impagas juntas. Alimenta la vista "agrupar pendientes por alumno" de Cuotas.
+export interface Debtor {
+  enrollmentId:  UUID
+  studentId:     UUID
+  studentName:   string             // "Apellido, Nombre"
+  studentPhone:  string | null      // para el link de WhatsApp manual
+  courseId:      UUID
+  courseName:    string
+  courseCode:    string | null
+  paymentGroup:  PaymentGroup       // Grupo 1 (vence 10) / Grupo 2 (vence 20)
+  nextDueDate:   string             // LocalDate YYYY-MM-DD (vencimiento más próximo)
+  totalOwed:     number             // suma de totalDue de las cuotas impagas
+  pendingCount:  number
+  installments:  Installment[]
 }

@@ -19,7 +19,6 @@ interface FormState {
   lastName:  string
   email:     string
   phone:     string
-  active:    boolean
 }
 
 function initialState(a?: Author): FormState {
@@ -28,7 +27,6 @@ function initialState(a?: Author): FormState {
     lastName:  a?.lastName  ?? '',
     email:     a?.email     ?? '',
     phone:     a?.phone     ?? '',
-    active:    a?.active ?? true,
   }
 }
 
@@ -71,7 +69,6 @@ export default function AuthorForm({ mode, initial, onClose, onSaved, onSubmit }
       lastName:  toTitleCase(state.lastName.trim()),
       email:     state.email.trim() || null,
       phone:     state.phone.trim() || null,
-      ...(mode === 'edit' ? { active: state.active } : {}),
     }
 
     try {
@@ -118,20 +115,6 @@ export default function AuthorForm({ mode, initial, onClose, onSaved, onSubmit }
                 onChange={e => setField('phone', e.target.value)} />
             </Field>
 
-            {!isCreate && (
-              <Field label="Estado">
-                <div className="toggle">
-                  <label className="toggle__option">
-                    <input type="radio" checked={state.active} onChange={() => setField('active', true)} />
-                    <span>Activo</span>
-                  </label>
-                  <label className="toggle__option">
-                    <input type="radio" checked={!state.active} onChange={() => setField('active', false)} />
-                    <span>Inactivo</span>
-                  </label>
-                </div>
-              </Field>
-            )}
           </div>
 
           {submitError && <div className="form__error">{submitError}</div>}

@@ -14,7 +14,7 @@ export interface ListStudentsParams {
   size?:         number
   sort?:         string       // ej: "lastName,asc"
   active?:       boolean
-  businessUnit?: string       // mock-only hasta que el backend segmente students (Fase 9 server-side)
+  businessUnit?: string       // segmentación server-side por JWT; este param lo ignora Spring
 }
 
 function buildQuery(params: ListStudentsParams): string {

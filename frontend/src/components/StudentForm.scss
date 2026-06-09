@@ -264,6 +264,143 @@
     font-size: 0.75rem;
   }
 
+  &__hint {
+    color: $gris-texto;
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  &__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: $texto-oscuro;
+    cursor: pointer;
+
+    input { width: 16px; height: 16px; accent-color: $verde-petroleo; cursor: pointer; }
+  }
+}
+
+// Lista de checkboxes (ej. libros de una colección).
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  padding: 0.4rem;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: $radio-sm;
+    cursor: pointer;
+    font-size: 0.88rem;
+
+    &:hover { background: $verde-petroleo-overlay; }
+
+    input { width: 15px; height: 15px; accent-color: $verde-petroleo; cursor: pointer; }
+  }
+
+  &__name { flex: 1; color: $texto-oscuro; }
+
+  &__price {
+    color: $gris-texto;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+  }
+}
+
+// Selector de libros/colección en la inscripción.
+.book-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  &__add {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+
+    select { flex: 1; }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      background: $fondo-app;
+      border-radius: $radio-md;
+      font-size: 0.88rem;
+    }
+  }
+
+  &__name { flex: 1; color: $texto-oscuro; }
+
+  &__rm {
+    display: inline-flex;
+    border: none;
+    background: transparent;
+    color: $gris-texto;
+    cursor: pointer;
+    padding: 0.15rem;
+    border-radius: $radio-sm;
+
+    &:hover { background: $rojo-bg; color: $rojo; }
+  }
+}
+
+// Descuento con selector de tipo (% / $).
+.discount-input {
+  display: flex;
+  gap: 0.4rem;
+
+  select { width: 64px; flex-shrink: 0; }
+  input  { flex: 1; min-width: 0; }
+}
+
+// Total en vivo de la inscripción (curso + matrícula + libros).
+.enroll-total {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.8rem 1rem;
+  background: $fondo-app;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-md;
+  margin-top: 0.4rem;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    color: $texto-medio;
+    font-variant-numeric: tabular-nums;
+
+    &--total {
+      border-top: 1px solid $gris-borde-sutil;
+      margin-top: 0.2rem;
+      padding-top: 0.4rem;
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: $texto-oscuro;
+    }
+  }
+
   &--error input,
   &--error textarea,
   &--error select {

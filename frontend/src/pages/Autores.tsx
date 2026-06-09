@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   PenTool, ArrowUp, ArrowDown, ArrowUpDown,
@@ -11,13 +11,13 @@ import EmptyState from '../components/EmptyState'
 import AuthorForm from '../components/AuthorForm'
 import AuthorDetail from '../components/AuthorDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { canWrite } from '../lib/access'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
 type SortDir   = 'asc' | 'desc'
-type SortField = 'lastName' | 'email' | 'active'
+type SortField = 'lastName' | 'email'
 type SortState = { field: SortField; dir: SortDir } | null
-type ActiveFilter = 'TODOS' | 'ACTIVOS' | 'INACTIVOS'
 
 type PanelState =
   | { kind: 'closed' }
@@ -28,7 +28,6 @@ type PanelState =
 export default function Autores() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
-  const [activeF,   setActiveF]   = useState<ActiveFilter>('TODOS')
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'lastName', dir: 'asc' })
 
@@ -48,14 +47,14 @@ export default function Autores() {
     setLoading(true); setError(null)
     authorsApi.list({
       q:      debounced || undefined,
-      active: activeF === 'TODOS' ? undefined : activeF === 'ACTIVOS',
+      active: true,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, activeF, page, sort, reload])
+  }, [debounced, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -74,21 +73,19 @@ export default function Autores() {
 
   async function handleDeactivate(a: Author) {
     const ok = await confirmAction({
-      title: '¿Desactivar autor?',
-      text:  `${a.firstName} ${a.lastName} dejará de figurar como activo.`,
-      icon:  'warning', danger: true, confirmText: 'Sí, desactivar',
+      title: '¿Eliminar autor?',
+      text:  `${a.firstName} ${a.lastName} dejará de figurar en el listado.`,
+      icon:  'warning', danger: true, confirmText: 'Sí, eliminar',
     })
     if (!ok) return
     try {
       await authorsApi.deactivate(a.id)
-      toastSuccess('Autor desactivado')
+      toastSuccess('Autor eliminado')
       setReload(r => r + 1)
     } catch (err) {
-      alertError('No se pudo desactivar', err instanceof Error ? err.message : undefined)
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
     }
   }
-
-  const filters = useMemo<ActiveFilter[]>(() => ['TODOS', 'ACTIVOS', 'INACTIVOS'], [])
 
   return (
     <div className="editorial">
@@ -102,9 +99,11 @@ export default function Autores() {
             {total > 0 ? `${total} ${total === 1 ? 'autor' : 'autores'}` : 'Autores de los libros del catálogo'}
           </p>
         </div>
-        <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-          <Plus size={16} strokeWidth={2.2} /> Nuevo autor
-        </button>
+        {canWrite('/autores') && (
+          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+            <Plus size={16} strokeWidth={2.2} /> Nuevo autor
+          </button>
+        )}
       </header>
 
       <div className="editorial__toolbar">
@@ -112,16 +111,6 @@ export default function Autores() {
           <Search size={16} strokeWidth={1.8} className="search__icon" />
           <input type="text" className="search__input" placeholder="Buscar por nombre o email…"
             value={query} onChange={e => setQuery(e.target.value)} />
-        </div>
-        <div className="editorial__chips" role="tablist" aria-label="Estado">
-          {filters.map(opt => (
-            <button key={opt} type="button"
-              className={`chip ${activeF === opt ? 'chip--active' : ''}`}
-              onClick={() => { setActiveF(opt); setPage(0) }}
-              role="tab" aria-selected={activeF === opt}>
-              {opt === 'TODOS' ? 'Todos' : opt === 'ACTIVOS' ? 'Activos' : 'Inactivos'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -138,7 +127,6 @@ export default function Autores() {
               <tr>
                 <SortTh label="Autor" active={sort?.field === 'lastName'} dir={sort?.field === 'lastName' ? sort.dir : null} onClick={() => toggleSort('lastName')} />
                 <SortTh label="Email" active={sort?.field === 'email'} dir={sort?.field === 'email' ? sort.dir : null} onClick={() => toggleSort('email')} />
-                <SortTh label="Estado" active={sort?.field === 'active'} dir={sort?.field === 'active' ? sort.dir : null} onClick={() => toggleSort('active')} className="col-estado" />
                 <th className="col-acciones">Acciones</th>
               </tr>
             </thead>
@@ -156,20 +144,17 @@ export default function Autores() {
                       ? <a className="cell-inline" href={`mailto:${a.email}`}><Mail size={13} strokeWidth={1.8} />{a.email}</a>
                       : <span className="muted">—</span>}
                   </td>
-                  <td className="col-estado">
-                    <span className={`badge ${a.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                      {a.active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
                   <td className="col-acciones">
                     <div className="row-actions">
                       <button className="row-actions__btn" type="button" title="Ver detalle"
                         onClick={() => setPanel({ kind: 'detail', author: a })}><Eye size={16} /></button>
-                      <button className="row-actions__btn" type="button" title="Editar"
-                        onClick={() => setPanel({ kind: 'edit', author: a })}><Pencil size={16} /></button>
-                      {a.active && (
-                        <button className="row-actions__btn row-actions__btn--danger" type="button" title="Desactivar"
-                          onClick={() => handleDeactivate(a)}><Trash2 size={16} /></button>
+                      {canWrite('/autores') && (
+                        <>
+                          <button className="row-actions__btn" type="button" title="Editar"
+                            onClick={() => setPanel({ kind: 'edit', author: a })}><Pencil size={16} /></button>
+                          <button className="row-actions__btn row-actions__btn--danger" type="button" title="Eliminar"
+                            onClick={() => handleDeactivate(a)}><Trash2 size={16} /></button>
+                        </>
                       )}
                     </div>
                   </td>

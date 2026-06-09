@@ -9,7 +9,7 @@ import type {
 } from '../types/budget'
 import {
   ENTRY_TYPES, ENTRY_TYPE_LABELS,
-  BUDGET_CATEGORIES, BUDGET_CATEGORY_LABELS,
+  BUDGET_CATEGORY_LABELS, INCOME_CATEGORIES, EXPENSE_CATEGORIES,
   BUDGET_BUSINESS_UNITS, BUDGET_BUSINESS_UNIT_LABELS,
 } from '../types/budget'
 import type { PaymentMethod } from '../types/enrollment'
@@ -70,6 +70,14 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
+  }
+
+  // El catálogo de categorías depende del tipo de movimiento (ingreso/egreso).
+  const categoryList = state.entryType === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
+
+  function onEntryTypeChange(t: EntryType) {
+    const list = t === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
+    setState(prev => ({ ...prev, entryType: t, category: list[0] }))
   }
 
   function validate(): boolean {
@@ -147,7 +155,7 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
             <Field label="Tipo" required>
               <select
                 value={state.entryType}
-                onChange={e => setField('entryType', e.target.value as EntryType)}
+                onChange={e => onEntryTypeChange(e.target.value as EntryType)}
               >
                 {ENTRY_TYPES.map(t => (
                   <option key={t} value={t}>{ENTRY_TYPE_LABELS[t]}</option>
@@ -160,7 +168,7 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
                 value={state.category}
                 onChange={e => setField('category', e.target.value as BudgetCategory)}
               >
-                {BUDGET_CATEGORIES.map(c => (
+                {categoryList.map(c => (
                   <option key={c} value={c}>{BUDGET_CATEGORY_LABELS[c]}</option>
                 ))}
               </select>

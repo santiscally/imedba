@@ -11,6 +11,7 @@ import type { Student, StudentCreateRequest } from '../types/student'
 import EmptyState from '../components/EmptyState'
 import StudentForm from '../components/StudentForm'
 import StudentDetail from '../components/StudentDetail'
+import { canWrite } from '../lib/access'
 import './Alumnos.scss'
 
 const PAGE_SIZE = 10
@@ -94,13 +95,15 @@ export default function Alumnos() {
               : 'Gestioná los alumnos del instituto'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nuevo alumno
-        </button>
+        {canWrite('/alumnos') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nuevo alumno
+          </button>
+        )}
       </header>
 
       <div className="alumnos__toolbar">
@@ -204,15 +207,17 @@ export default function Alumnos() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        className="row-actions__btn"
-                        type="button"
-                        onClick={() => setPanel({ kind: 'edit', student: s })}
-                        aria-label="Editar"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canWrite('/alumnos') && (
+                        <button
+                          className="row-actions__btn"
+                          type="button"
+                          onClick={() => setPanel({ kind: 'edit', student: s })}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -254,6 +259,7 @@ export default function Alumnos() {
           student={panel.student}
           onClose={() => setPanel({ kind: 'closed' })}
           onEdit={() => setPanel({ kind: 'edit', student: panel.student })}
+          onLinked={() => { setPanel({ kind: 'closed' }); setReload(r => r + 1) }}
         />
       )}
     </div>

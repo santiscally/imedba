@@ -1,11 +1,12 @@
 import {
   X, Pencil, FileText, UserCircle2, GraduationCap,
-  CircleDollarSign, Percent, Book, Wallet, CreditCard, Hash,
+  CircleDollarSign, Percent, Book, Wallet, Hash,
   Calendar, PauseCircle, XCircle, Play,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Enrollment, EnrollmentStatus } from '../types/enrollment'
-import { ENROLLMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '../types/enrollment'
+import { ENROLLMENT_STATUS_LABELS } from '../types/enrollment'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 export default function EnrollmentDetail({
   en, onClose, onEdit, onSuspend, onReactivate, onCancel,
 }: Props) {
+  const canWrite = hasAuthority('enrollments:write')
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -73,8 +75,6 @@ export default function EnrollmentDetail({
               <Row icon={Wallet}           label="Total"           value={formatPrice(en.totalPrice)} />
               <Row icon={CircleDollarSign} label="Matrícula"       value={formatPrice(en.enrollmentFee)} />
               <Row icon={Hash}             label="Cuotas"          value={en.numInstallments?.toString() ?? null} />
-              <Row icon={CreditCard}       label="Medio de pago"
-                   value={en.paymentMethod ? PAYMENT_METHOD_LABELS[en.paymentMethod] : null} />
             </dl>
           </section>
 
@@ -109,24 +109,26 @@ export default function EnrollmentDetail({
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          {en.status === 'ACTIVE' && onSuspend && (
+          {canWrite && en.status === 'ACTIVE' && onSuspend && (
             <button type="button" className="btn-ghost" onClick={onSuspend}>
               <PauseCircle size={15} /> Suspender
             </button>
           )}
-          {en.status === 'SUSPENDED' && onReactivate && (
+          {canWrite && en.status === 'SUSPENDED' && onReactivate && (
             <button type="button" className="btn-ghost" onClick={onReactivate}>
               <Play size={15} /> Reactivar
             </button>
           )}
-          {(en.status === 'ACTIVE' || en.status === 'SUSPENDED') && onCancel && (
+          {canWrite && (en.status === 'ACTIVE' || en.status === 'SUSPENDED') && onCancel && (
             <button type="button" className="btn-ghost" onClick={onCancel}>
               <XCircle size={15} /> Cancelar
             </button>
           )}
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar
+            </button>
+          )}
         </footer>
       </div>
     </div>

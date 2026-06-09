@@ -26,7 +26,6 @@ interface FormState {
   discountValue: string
   startDate:     string
   endDate:       string
-  active:        boolean
 }
 
 function initialState(c?: DiscountCampaign): FormState {
@@ -37,7 +36,6 @@ function initialState(c?: DiscountCampaign): FormState {
     discountValue: c?.discountValue != null ? String(c.discountValue) : '',
     startDate:     c?.startDate    ?? '',
     endDate:       c?.endDate      ?? '',
-    active:        c?.active ?? true,
   }
 }
 
@@ -89,7 +87,6 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
       discountValue: Number(state.discountValue),
       startDate:     state.startDate,
       endDate:       state.endDate,
-      active:        state.active,
     }
 
     try {
@@ -177,27 +174,6 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
                 value={state.endDate}
                 onChange={e => setField('endDate', e.target.value)}
               />
-            </Field>
-
-            <Field label="Estado">
-              <div className="toggle">
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={state.active}
-                    onChange={() => setField('active', true)}
-                  />
-                  <span>Activa</span>
-                </label>
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={!state.active}
-                    onChange={() => setField('active', false)}
-                  />
-                  <span>Inactiva</span>
-                </label>
-              </div>
             </Field>
           </div>
 

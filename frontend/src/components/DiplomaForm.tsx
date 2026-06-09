@@ -21,18 +21,16 @@ interface Props {
 
 interface PartnerRow { name: string; pct: string; email: string }
 
+// Reunión 2026-05-22 §2.5: la diplomatura sólo tiene datos del "producto" + directoras.
+// Los costos fijos (comisión impuestos, sueldo secretaria, publicidad) y el reparto
+// institucional (admin/universidad/imedba %) se cargan POR LIQUIDACIÓN (SettlementForm),
+// no acá. El backend mantiene esas columnas (compat) — en edición se preservan.
 interface FormState {
   name:               string
   universityName:     string
   description:        string
   enrollmentPrice:    string
   coursePrice:        string
-  taxCommissionPct:   string
-  secretarySalary:    string
-  advertisingAmount:  string
-  adminPct:           string
-  universityPct:      string
-  imedbaPct:          string
   partners:           PartnerRow[]
 }
 
@@ -47,12 +45,6 @@ function initialState(d?: Diploma): FormState {
     description:       d?.description       ?? '',
     enrollmentPrice:   d?.enrollmentPrice   != null ? String(d.enrollmentPrice)   : '',
     coursePrice:       d?.coursePrice       != null ? String(d.coursePrice)       : '',
-    taxCommissionPct:  d?.taxCommissionPct  != null ? String(d.taxCommissionPct)  : '',
-    secretarySalary:   d?.secretarySalary   != null ? String(d.secretarySalary)   : '',
-    advertisingAmount: d?.advertisingAmount != null ? String(d.advertisingAmount) : '',
-    adminPct:          d?.adminPct          != null ? String(d.adminPct)          : '',
-    universityPct:     d?.universityPct     != null ? String(d.universityPct)     : '',
-    imedbaPct:         d?.imedbaPct         != null ? String(d.imedbaPct)         : '',
     partners:          d?.partnersConfig?.map(partnerToRow) ?? [],
   }
 }
@@ -67,6 +59,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
   const [errors,      setErrors]      = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving,      setSaving]      = useState(false)
+
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
@@ -94,14 +87,10 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     setState(prev => ({ ...prev, partners: prev.partners.filter((_, i) => i !== idx) }))
   }
 
-  // Suma % asignados (admin + universidad + imedba + Σ socias)
-  const sumPct = useMemo(() => {
-    const a = Number(state.adminPct)      || 0
-    const u = Number(state.universityPct) || 0
-    const i = Number(state.imedbaPct)     || 0
-    const p = state.partners.reduce((acc, x) => acc + (Number(x.pct) || 0), 0)
-    return Math.round((a + u + i + p) * 100) / 100
-  }, [state.adminPct, state.universityPct, state.imedbaPct, state.partners])
+  // Suma de % de las directoras (no puede superar 100).
+  const sumPct = useMemo(
+    () => Math.round(state.partners.reduce((acc, x) => acc + (Number(x.pct) || 0), 0) * 100) / 100,
+    [state.partners])
 
   const sumOver = sumPct > 100
 
@@ -123,12 +112,6 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     }
     validateNumber('enrollmentPrice',   true,  undefined, 'Debe ser ≥ 0')
     validateNumber('coursePrice',       true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('taxCommissionPct',  true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('secretarySalary',   true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('advertisingAmount', true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('adminPct',          true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('universityPct',     true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('imedbaPct',         true,  undefined, 'Debe ser ≥ 0')
 
     const rowErrors: Record<number, Partial<Record<keyof PartnerRow, string>>> = {}
     state.partners.forEach((p, i) => {
@@ -159,12 +142,14 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
       description:        state.description.trim()    || null,
       enrollmentPrice:    state.enrollmentPrice   ? Number(state.enrollmentPrice)   : null,
       coursePrice:        state.coursePrice       ? Number(state.coursePrice)       : null,
-      taxCommissionPct:   state.taxCommissionPct  ? Number(state.taxCommissionPct)  : null,
-      secretarySalary:    state.secretarySalary   ? Number(state.secretarySalary)   : null,
-      advertisingAmount:  state.advertisingAmount ? Number(state.advertisingAmount) : null,
-      adminPct:           state.adminPct          ? Number(state.adminPct)          : null,
-      universityPct:      state.universityPct     ? Number(state.universityPct)     : null,
-      imedbaPct:          state.imedbaPct         ? Number(state.imedbaPct)         : null,
+      // Costos fijos + reparto institucional: no se editan acá (van por liquidación).
+      // En edición se preservan los valores actuales; en alta quedan null.
+      taxCommissionPct:   initial?.taxCommissionPct  ?? null,
+      secretarySalary:    initial?.secretarySalary   ?? null,
+      advertisingAmount:  initial?.advertisingAmount ?? null,
+      adminPct:           initial?.adminPct          ?? null,
+      universityPct:      initial?.universityPct     ?? null,
+      imedbaPct:          initial?.imedbaPct         ?? null,
       partnersConfig:     state.partners.length === 0
         ? null
         : state.partners.map(p => ({
@@ -229,6 +214,13 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
                 placeholder="Universidad Nacional de Rosario"
               />
             </Field>
+
+          </div>
+
+          <div className="form__hint">
+            La diplomatura <strong>es un curso</strong>: al crearla aparece automáticamente en
+            Cursos (Formación Superior) y los alumnos se inscriben desde Inscripciones como a
+            cualquier curso, con cuotas y pagos. La liquidación suma sola lo cobrado en el período.
           </div>
 
           <h4 className="form-section">Precios</h4>
@@ -251,76 +243,20 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             </Field>
           </div>
 
-          <h4 className="form-section">Costos fijos</h4>
-          <div className="form__grid">
-            <Field label="Comisión impuestos (%)" error={errors.taxCommissionPct}>
-              <input
-                type="number" min="0" step="0.01"
-                value={state.taxCommissionPct}
-                onChange={e => setField('taxCommissionPct', e.target.value)}
-                placeholder="15"
-              />
-            </Field>
-            <Field label="Sueldo secretaria (ARS)" error={errors.secretarySalary}>
-              <input
-                type="number" min="0" step="any"
-                value={state.secretarySalary}
-                onChange={e => setField('secretarySalary', e.target.value)}
-                placeholder="180000"
-              />
-            </Field>
-            <Field label="Publicidad (ARS)" error={errors.advertisingAmount}>
-              <input
-                type="number" min="0" step="any"
-                value={state.advertisingAmount}
-                onChange={e => setField('advertisingAmount', e.target.value)}
-                placeholder="90000"
-              />
-            </Field>
-          </div>
-
-          <h4 className="form-section">
-            Reparto (%)
-            <span className={`form-section__hint ${sumOver ? 'form-section__hint--err' : ''}`}>
-              Total asignado: {sumPct}% / 100%
-            </span>
-          </h4>
-          <div className="form__grid">
-            <Field label="Administración (%)" error={errors.adminPct}>
-              <input
-                type="number" min="0" step="0.01"
-                value={state.adminPct}
-                onChange={e => setField('adminPct', e.target.value)}
-                placeholder="10"
-              />
-            </Field>
-            <Field label="Universidad (%)" error={errors.universityPct}>
-              <input
-                type="number" min="0" step="0.01"
-                value={state.universityPct}
-                onChange={e => setField('universityPct', e.target.value)}
-                placeholder="30"
-              />
-            </Field>
-            <Field label="IMEDBA (%)" error={errors.imedbaPct}>
-              <input
-                type="number" min="0" step="0.01"
-                value={state.imedbaPct}
-                onChange={e => setField('imedbaPct', e.target.value)}
-                placeholder="15"
-              />
-            </Field>
-          </div>
-
           <div className="partners">
             <div className="partners__header">
-              <h4 className="form-section partners__title">Socias</h4>
+              <h4 className="form-section partners__title">
+                Directoras
+                <span className={`form-section__hint ${sumOver ? 'form-section__hint--err' : ''}`}>
+                  Total asignado: {sumPct}% / 100%
+                </span>
+              </h4>
               <button type="button" className="btn-ghost btn-ghost--sm" onClick={addPartner}>
-                <Plus size={14} /> Agregar socia
+                <Plus size={14} /> Agregar directora
               </button>
             </div>
             {state.partners.length === 0 && (
-              <div className="partners__empty">No hay socias configuradas para esta diplomatura.</div>
+              <div className="partners__empty">No hay directoras configuradas para esta diplomatura.</div>
             )}
             {state.partners.map((p, i) => {
               const rowErr = errors.partnerRow?.[i] ?? {}
@@ -354,8 +290,8 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
                     type="button"
                     className="partners__remove"
                     onClick={() => removePartner(i)}
-                    aria-label="Quitar socia"
-                    title="Quitar socia"
+                    aria-label="Quitar directora"
+                    title="Quitar directora"
                   >
                     <Trash2 size={16} />
                   </button>

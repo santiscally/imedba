@@ -7,6 +7,7 @@ import type { Course } from '../types/course'
 import { BUSINESS_UNIT_LABELS } from '../types/course'
 import { countryLabel } from '../types/country'
 import { CourseStudentsList } from './CourseStudents'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function CourseDetail({ course, onClose, onEdit }: Props) {
+  const canWrite = hasAuthority('courses:write')
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -32,9 +34,6 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
             <div>
               <div className="detail__name">{course.name}</div>
               <div className="detail__meta">
-                <span className={`badge ${course.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {course.active ? 'Activo' : 'Inactivo'}
-                </span>
                 {course.moodleCourseId != null && (
                   <span className="detail__moodle">
                     Moodle ID {course.moodleCourseId}
@@ -56,6 +55,7 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               <Row icon={Layers}      label="Modalidad"         value={course.modality} />
               <Row icon={Building2}   label="Unidad de negocio" value={BUSINESS_UNIT_LABELS[course.businessUnit]} />
               <Row icon={Globe}       label="País"              value={countryLabel(course.country)} />
+              <Row icon={CalendarDays} label="Ciclo lectivo"    value={course.academicYear != null ? String(course.academicYear) : 'Libre'} />
               <Row icon={CalendarDays} label="Fecha de examen"  value={formatLocalDate(course.examDate)} />
             </dl>
           </section>
@@ -98,9 +98,11 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar curso
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar curso
+            </button>
+          )}
         </footer>
       </div>
     </div>

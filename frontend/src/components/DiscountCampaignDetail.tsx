@@ -5,6 +5,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { DiscountCampaign } from '../types/discount-campaign'
 import { DISCOUNT_TYPE_LABELS } from '../types/discount-campaign'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function DiscountCampaignDetail({ campaign, onClose, onEdit }: Props) {
+  const canWrite = hasAuthority('discount_campaigns:write')
   const valueLabel = campaign.discountType === 'PERCENTAGE'
     ? `${campaign.discountValue}%`
     : formatPrice(campaign.discountValue) ?? '—'
@@ -34,9 +36,6 @@ export default function DiscountCampaignDetail({ campaign, onClose, onEdit }: Pr
             <div>
               <div className="detail__name">{campaign.name}</div>
               <div className="detail__meta">
-                <span className={`badge ${campaign.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {campaign.active ? 'Activa' : 'Inactiva'}
-                </span>
                 <span className="detail__moodle">{valueLabel}</span>
               </div>
             </div>
@@ -86,9 +85,11 @@ export default function DiscountCampaignDetail({ campaign, onClose, onEdit }: Pr
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="btn-primary" onClick={onEdit}>
-            <Pencil size={15} /> Editar campaña
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}>
+              <Pencil size={15} /> Editar campaña
+            </button>
+          )}
         </footer>
       </div>
     </div>

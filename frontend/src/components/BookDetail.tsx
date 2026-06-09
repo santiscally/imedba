@@ -9,6 +9,7 @@ import type { Author } from '../types/author'
 import { authorsApi } from '../api/authors'
 import { booksApi } from '../api/books'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 import '../pages/Editorial.scss'
 
@@ -25,6 +26,10 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
   const [addAuthorId, setAddAuthorId] = useState('')
   const [addRoyalty,  setAddRoyalty]  = useState('')
   const [busy, setBusy] = useState(false)
+  // Alta de autor inline (ya no hay página /autores — se crean acá, dentro del libro).
+  const [creating, setCreating] = useState(false)
+  const [newFirst, setNewFirst] = useState('')
+  const [newLast,  setNewLast]  = useState('')
 
   useEffect(() => {
     authorsApi.list({ active: true, size: 500, sort: 'lastName,asc' })
@@ -32,6 +37,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
       .catch(() => setAuthorOptions([]))
   }, [])
 
+  const canWrite = hasAuthority('books:write')
   const assignedTotal = current.authors.reduce((acc, a) => acc + a.royaltyPercentage, 0)
   const available = authorOptions.filter(a => !current.authors.some(ba => ba.authorId === a.id))
 
@@ -49,6 +55,22 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
       toastSuccess('Autor agregado')
     } catch (err) {
       alertError('No se pudo agregar el autor', err instanceof Error ? err.message : undefined)
+    } finally { setBusy(false) }
+  }
+
+  async function handleCreateAuthor() {
+    if (!newFirst.trim() || !newLast.trim()) {
+      alertError('Nombre y apellido son obligatorios'); return
+    }
+    setBusy(true)
+    try {
+      const created = await authorsApi.create({ firstName: newFirst.trim(), lastName: newLast.trim() })
+      setAuthorOptions(prev => [...prev, created])
+      setAddAuthorId(created.id)
+      setCreating(false); setNewFirst(''); setNewLast('')
+      toastSuccess('Autora creada — asignale el royalty y agregala')
+    } catch (err) {
+      alertError('No se pudo crear la autora', err instanceof Error ? err.message : undefined)
     } finally { setBusy(false) }
   }
 
@@ -78,9 +100,6 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
             <div>
               <div className="detail__name">{current.name}</div>
               <div className="detail__meta">
-                <span className={`badge ${current.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {current.active ? 'Activo' : 'Inactivo'}
-                </span>
                 {current.specialty && <span className="detail__moodle">{current.specialty}</span>}
               </div>
             </div>
@@ -126,26 +145,49 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
                     <li key={a.authorId} className="book-authors__item">
                       <span className="book-authors__name">{a.lastName}, {a.firstName}</span>
                       <span className="book-authors__pct">{a.royaltyPercentage}%</span>
-                      <button type="button" className="row-actions__btn row-actions__btn--danger" title="Quitar autor"
-                        disabled={busy} onClick={() => handleRemove(a.authorId, `${a.firstName} ${a.lastName}`)}>
-                        <Trash2 size={15} />
-                      </button>
+                      {canWrite && (
+                        <button type="button" className="row-actions__btn row-actions__btn--danger" title="Quitar autor"
+                          disabled={busy} onClick={() => handleRemove(a.authorId, `${a.firstName} ${a.lastName}`)}>
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
 
-            <div className="book-authors__add">
-              <select value={addAuthorId} onChange={e => setAddAuthorId(e.target.value)} disabled={busy}>
-                <option value="">Agregar autor…</option>
-                {available.map(a => <option key={a.id} value={a.id}>{a.lastName}, {a.firstName}</option>)}
-              </select>
-              <input type="number" min="0" step="any" placeholder="royalty %"
-                value={addRoyalty} onChange={e => setAddRoyalty(e.target.value)} disabled={busy} />
-              <button type="button" className="btn-primary" disabled={busy || !addAuthorId} onClick={handleAdd}>
-                <Plus size={15} /> Agregar
+            {canWrite && (
+              <div className="book-authors__add">
+                <select value={addAuthorId} onChange={e => setAddAuthorId(e.target.value)} disabled={busy}>
+                  <option value="">Agregar autor…</option>
+                  {available.map(a => <option key={a.id} value={a.id}>{a.lastName}, {a.firstName}</option>)}
+                </select>
+                <input type="number" min="0" step="any" placeholder="royalty %"
+                  value={addRoyalty} onChange={e => setAddRoyalty(e.target.value)} disabled={busy} />
+                <button type="button" className="btn-primary" disabled={busy || !addAuthorId} onClick={handleAdd}>
+                  <Plus size={15} /> Agregar
+                </button>
+              </div>
+            )}
+
+            {canWrite && (creating ? (
+              <div className="book-authors__add">
+                <input type="text" placeholder="Nombre" value={newFirst}
+                  onChange={e => setNewFirst(e.target.value)} disabled={busy} />
+                <input type="text" placeholder="Apellido" value={newLast}
+                  onChange={e => setNewLast(e.target.value)} disabled={busy} />
+                <button type="button" className="btn-primary" disabled={busy} onClick={handleCreateAuthor}>
+                  <Plus size={15} /> Crear autora
+                </button>
+                <button type="button" className="btn-ghost" disabled={busy} onClick={() => setCreating(false)}>
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="btn-ghost btn-ghost--sm" disabled={busy} onClick={() => setCreating(true)}>
+                <Plus size={13} /> Crear autora nueva
               </button>
-            </div>
+            ))}
           </section>
 
           <section className="detail__section">
@@ -160,7 +202,9 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
 
         <footer className="detail__footer">
           <button type="button" className="btn-ghost" onClick={onClose}>Cerrar</button>
-          <button type="button" className="btn-primary" onClick={onEdit}><Pencil size={15} /> Editar libro</button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={onEdit}><Pencil size={15} /> Editar libro</button>
+          )}
         </footer>
       </div>
     </div>

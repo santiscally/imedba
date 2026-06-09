@@ -3,20 +3,19 @@ import {
   Search, Plus,
   GraduationCap, ArrowUp, ArrowDown, ArrowUpDown,
   University, CircleDollarSign, Percent, Users,
-  Eye, Pencil, PowerOff,
+  Eye, Pencil, Trash2,
 } from 'lucide-react'
 import { diplomasApi } from '../api/diplomas'
 import type { Diploma, DiplomaCreateRequest } from '../types/diploma'
 import EmptyState from '../components/EmptyState'
 import DiplomaForm from '../components/DiplomaForm'
 import DiplomaDetail from '../components/DiplomaDetail'
+import { canWrite } from '../lib/access'
 import './Diplomaturas.scss'
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'universityName' | 'coursePrice' | 'partnersCount' | 'active'
+type SortField = 'name' | 'universityName' | 'coursePrice' | 'partnersCount'
 type SortState = { field: SortField; dir: SortDir } | null
-
-type ActiveFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS'
 
 type PanelState =
   | { kind: 'closed' }
@@ -27,7 +26,6 @@ type PanelState =
 export default function Diplomaturas() {
   const [query,        setQuery]        = useState('')
   const [debounced,    setDebounced]    = useState('')
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('TODAS')
   const [sort,         setSort]         = useState<SortState>({ field: 'name', dir: 'asc' })
 
   const [items,   setItems]   = useState<Diploma[] | null>(null)
@@ -51,9 +49,7 @@ export default function Diplomaturas() {
 
   const visible = useMemo(() => {
     if (!items) return []
-    let list = items
-    if (activeFilter === 'ACTIVAS')   list = list.filter(d => d.active === true)
-    if (activeFilter === 'INACTIVAS') list = list.filter(d => d.active === false)
+    let list = items.filter(d => d.active !== false)
     if (debounced) {
       const needle = debounced.toLowerCase()
       list = list.filter(d =>
@@ -68,7 +64,7 @@ export default function Diplomaturas() {
       list = [...list].sort((a, b) => compare(a, b, field) * mult)
     }
     return list
-  }, [items, activeFilter, debounced, sort])
+  }, [items, debounced, sort])
 
   function toggleSort(field: SortField) {
     setSort(prev => {
@@ -83,13 +79,13 @@ export default function Diplomaturas() {
     setReload(r => r + 1)
   }
 
-  async function handleDeactivate(d: Diploma) {
-    if (!window.confirm(`¿Desactivar la diplomatura "${d.name}"?\nPodés volver a activarla editándola.`)) return
+  async function handleDelete(d: Diploma) {
+    if (!window.confirm(`¿Eliminar la diplomatura "${d.name}"?`)) return
     try {
       await diplomasApi.deactivate(d.id)
       setReload(r => r + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al desactivar')
+      setError(err instanceof Error ? err.message : 'Error al eliminar')
     }
   }
 
@@ -106,16 +102,18 @@ export default function Diplomaturas() {
           <p className="diplomaturas__subtitle">
             {total > 0
               ? `${total} ${total === 1 ? 'diplomatura registrada' : 'diplomaturas registradas'}`
-              : 'Programas de formación superior con reparto de socias'}
+              : 'Programas de formación superior con reparto de directoras'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nueva diplomatura
-        </button>
+        {canWrite('/diplomaturas') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nueva diplomatura
+          </button>
+        )}
       </header>
 
       <div className="diplomaturas__toolbar">
@@ -128,21 +126,6 @@ export default function Diplomaturas() {
             onChange={e => setQuery(e.target.value)}
             className="search__input"
           />
-        </div>
-
-        <div className="diplomaturas__chips" role="tablist" aria-label="Estado">
-          {(['TODAS', 'ACTIVAS', 'INACTIVAS'] as ActiveFilter[]).map(opt => (
-            <button
-              key={opt}
-              type="button"
-              className={`chip ${activeFilter === opt ? 'chip--active' : ''}`}
-              onClick={() => setActiveFilter(opt)}
-              role="tab"
-              aria-selected={activeFilter === opt}
-            >
-              {opt === 'TODAS' ? 'Todas' : opt === 'ACTIVAS' ? 'Activas' : 'Inactivas'}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -191,18 +174,11 @@ export default function Diplomaturas() {
                 />
                 <th className="col-reparto">Reparto</th>
                 <SortableTh
-                  label="Socias"
+                  label="Directoras"
                   field="partnersCount"
                   sort={sort}
                   onClick={() => toggleSort('partnersCount')}
                   className="col-socias"
-                />
-                <SortableTh
-                  label="Estado"
-                  field="active"
-                  sort={sort}
-                  onClick={() => toggleSort('active')}
-                  className="col-estado"
                 />
                 <th className="col-acciones">Acciones</th>
               </tr>
@@ -255,11 +231,6 @@ export default function Diplomaturas() {
                         {d.partnersConfig?.length ?? 0}
                       </span>
                     </td>
-                    <td className="col-estado">
-                      <span className={`badge ${d.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                        {d.active ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
                     <td className="col-acciones">
                       <div className="row-actions">
                         <button
@@ -271,25 +242,27 @@ export default function Diplomaturas() {
                         >
                           <Eye size={16} />
                         </button>
-                        <button
-                          className="row-actions__btn"
-                          type="button"
-                          onClick={() => setPanel({ kind: 'edit', diploma: d })}
-                          aria-label="Editar"
-                          title="Editar"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        {d.active && (
-                          <button
-                            className="row-actions__btn"
-                            type="button"
-                            onClick={() => handleDeactivate(d)}
-                            aria-label="Desactivar"
-                            title="Desactivar"
-                          >
-                            <PowerOff size={16} />
-                          </button>
+                        {canWrite('/diplomaturas') && (
+                          <>
+                            <button
+                              className="row-actions__btn"
+                              type="button"
+                              onClick={() => setPanel({ kind: 'edit', diploma: d })}
+                              aria-label="Editar"
+                              title="Editar"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              className="row-actions__btn"
+                              type="button"
+                              onClick={() => handleDelete(d)}
+                              aria-label="Eliminar"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -363,7 +336,6 @@ function compare(a: Diploma, b: Diploma, field: SortField): number {
     case 'universityName': return strCompare(a.universityName, b.universityName)
     case 'coursePrice':    return numCompare(a.coursePrice,    b.coursePrice)
     case 'partnersCount':  return (a.partnersConfig?.length ?? 0) - (b.partnersConfig?.length ?? 0)
-    case 'active':         return Number(b.active) - Number(a.active)
   }
 }
 

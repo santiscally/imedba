@@ -16,7 +16,7 @@ interface Props {
 interface FormState {
   name: string; code: string; specialty: string; format: string; edition: string
   pages: string; salePrice: string; studentDiscountPct: string; costPerUnit: string
-  stockQuantity: string; branch: string; active: boolean
+  stockQuantity: string; branch: string
 }
 
 function initialState(b?: Book): FormState {
@@ -32,7 +32,6 @@ function initialState(b?: Book): FormState {
     costPerUnit:        b?.costPerUnit != null ? String(b.costPerUnit) : '',
     stockQuantity:      b?.stockQuantity != null ? String(b.stockQuantity) : '',
     branch:             b?.branch ?? '',
-    active:             b?.active ?? true,
   }
 }
 
@@ -86,7 +85,6 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
       costPerUnit:        numOrNull(state.costPerUnit),
       stockQuantity:      numOrNull(state.stockQuantity),
       branch:             state.branch.trim() || null,
-      ...(mode === 'edit' ? { active: state.active } : {}),
     }
 
     try {
@@ -161,19 +159,6 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
               <input type="number" min="0" value={state.stockQuantity}
                 onChange={e => setField('stockQuantity', e.target.value)} placeholder="0" />
             </Field>
-
-            {!isCreate && (
-              <Field label="Estado">
-                <div className="toggle">
-                  <label className="toggle__option">
-                    <input type="radio" checked={state.active} onChange={() => setField('active', true)} /><span>Activo</span>
-                  </label>
-                  <label className="toggle__option">
-                    <input type="radio" checked={!state.active} onChange={() => setField('active', false)} /><span>Inactivo</span>
-                  </label>
-                </div>
-              </Field>
-            )}
           </div>
 
           <p className="form__note">

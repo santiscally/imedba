@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo_imedba.png'
 import { isAuthenticated, loginWithPassword } from '../lib/auth'
+import { firstAccessiblePath } from '../lib/access'
 import './Login.scss'
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -14,7 +13,7 @@ export default function Login() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!USE_MOCK && isAuthenticated()) navigate('/dashboard', { replace: true })
+    if (isAuthenticated()) navigate(firstAccessiblePath() ?? '/dashboard', { replace: true })
   }, [navigate])
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -22,13 +21,8 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      if (USE_MOCK) {
-        await new Promise(r => setTimeout(r, 400))
-        navigate('/dashboard')
-        return
-      }
       await loginWithPassword(username.trim(), password)
-      navigate('/dashboard', { replace: true })
+      navigate(firstAccessiblePath() ?? '/dashboard', { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'No se pudo iniciar sesión'
       setError(msg === 'invalid_grant' ? 'Usuario o contraseña incorrectos' : msg)
@@ -48,40 +42,38 @@ export default function Login() {
       <div className="login-form-side">
         <div className="login-card">
           <h1>Bienvenido</h1>
-          <p className="login-card__subtitle">
-            {USE_MOCK ? 'Modo demo (sin backend). Hacé clic para ingresar.' : 'Ingresá con tu cuenta'}
-          </p>
+          <p className="login-card__subtitle">Ingresá con tu cuenta</p>
 
           <form onSubmit={handleSignIn} noValidate>
-            {!USE_MOCK && (
-              <>
-                <label className="field">
-                  <span>Usuario o email</span>
-                  <input
-                    type="text"
-                    autoComplete="username"
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </label>
-                <label className="field">
-                  <span>Contraseña</span>
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                  />
-                </label>
-                {error && <p className="login-error" role="alert">{error}</p>}
-              </>
-            )}
+            <label className="field">
+              <span>Usuario o email</span>
+              <input
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                required
+                autoFocus
+              />
+            </label>
+            <label className="field">
+              <span>Contraseña</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+            </label>
+            {error && <p className="login-error" role="alert">{error}</p>}
 
-            <button type="submit" className="btn-ingresar" disabled={loading || (!USE_MOCK && (!username || !password))}>
-              {loading ? 'Ingresando…' : USE_MOCK ? 'Entrar (demo)' : 'Ingresar'}
+            <button
+              type="submit"
+              className="btn-ingresar"
+              disabled={loading || !username || !password}
+            >
+              {loading ? 'Ingresando…' : 'Ingresar'}
             </button>
           </form>
         </div>

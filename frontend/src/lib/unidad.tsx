@@ -1,15 +1,16 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import type { BusinessUnit } from '../types/course'
+import { BUSINESS_UNIT_LABELS, type BusinessUnit } from '../types/course'
 
 // Segmentación Residencias ↔ Formación Superior (reunión IMEDBA 2026-04-24).
 // Selector global que filtra las vistas académicas (Cursos, Alumnos, Inscripciones).
 // 'TODAS' = ver ambas (lo usan los socios). Persiste en localStorage.
 export type Unidad = 'TODAS' | 'RESIDENCIAS' | 'FORMACION_SUPERIOR'
 
+// Labels derivados del map canónico (types/course.ts) — no redefinir acá.
 export const UNIDAD_LABELS: Record<Unidad, string> = {
   TODAS:              'Todas las unidades',
-  RESIDENCIAS:        'Residencias Médicas',
-  FORMACION_SUPERIOR: 'Formación Superior',
+  RESIDENCIAS:        BUSINESS_UNIT_LABELS.RESIDENCIAS,
+  FORMACION_SUPERIOR: BUSINESS_UNIT_LABELS.FORMACION_SUPERIOR,
 }
 
 const STORAGE_KEY = 'imedba.unidad'

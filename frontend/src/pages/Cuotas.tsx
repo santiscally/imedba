@@ -1,30 +1,38 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   CreditCard, Receipt, ArrowUp, ArrowDown, ArrowUpDown,
   UserCircle2, GraduationCap, CircleDollarSign,
-  Eye, Hash, Calendar, BadgeCheck, X, Undo2, History, FilterX,
+  Eye, Hash, Calendar, BadgeCheck, X, Undo2, History, FilterX, Users, Pencil, Download, MessageCircle,
 } from 'lucide-react'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { hasAuthority } from '../lib/auth'
 import { installmentsApi } from '../api/installments'
 import { paymentsApi } from '../api/payments'
 import { enrollmentsApi } from '../api/enrollments'
 import type { PageResponse } from '../types/common'
-import type { Installment, InstallmentStatus } from '../types/installment'
+import type { Debtor, Installment, InstallmentStatus } from '../types/installment'
 import {
   INSTALLMENT_STATUSES, INSTALLMENT_STATUS_LABELS, installmentLabel, installmentKind,
 } from '../types/installment'
 import type { Payment, PaymentCreateRequest } from '../types/payment'
-import type { Enrollment } from '../types/enrollment'
-import { PAYMENT_METHOD_LABELS } from '../types/enrollment'
+import type { Enrollment, PaymentGroup } from '../types/enrollment'
+import {
+  PAYMENT_METHOD_LABELS, PAYMENT_GROUPS, PAYMENT_GROUP_SHORT, PAYMENT_GROUP_LABELS,
+} from '../types/enrollment'
 import EmptyState from '../components/EmptyState'
 import PaymentForm from '../components/PaymentForm'
 import PaymentDetail from '../components/PaymentDetail'
+import InstallmentEditForm from '../components/InstallmentEditForm'
+import { exportToCsv, dateStamp, type CsvColumn } from '../lib/exportCsv'
 import './Cuotas.scss'
 
 const PAGE_SIZE = 10
 
 type Tab = 'cuotas' | 'pagos' | 'historico'
+
+// Vista de la pestaña Cuotas: lista plana (por cuota) o agrupada por alumno (deudores).
+type CuotasView = 'flat' | 'byStudent'
 
 type SortDir = 'asc' | 'desc'
 
@@ -42,6 +50,7 @@ type PanelState =
   | { kind: 'create-payment'; preselectInstallmentId?: string }
   | { kind: 'create-payment-batch'; installments: Installment[] }
   | { kind: 'detail-payment'; payment: Payment }
+  | { kind: 'edit-installment'; installment: Installment }
 
 // Datos del alumno/curso resueltos desde el enrollment.
 interface EnrInfo { studentName: string; courseName: string; courseCode: string | null; courseId: string }
@@ -56,12 +65,20 @@ export default function Cuotas() {
   const [enrMap, setEnrMap] = useState<Map<string, EnrInfo>>(new Map())
 
   // ── Cuotas state
+  const [cuotasView,   setCuotasView]   = useState<CuotasView>('flat')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TODAS')
   const [instPage,     setInstPage]     = useState(0)
   const [instSort,     setInstSort]     = useState<InstSort>({ field: 'dueDate', dir: 'asc' })
   const [instData,     setInstData]     = useState<PageResponse<Installment> | null>(null)
   const [instLoading,  setInstLoading]  = useState(true)
   const [instError,    setInstError]    = useState<string | null>(null)
+
+  // ── Deudores (vista agrupada por alumno)
+  const [debPage,    setDebPage]    = useState(0)
+  const [debGroup,   setDebGroup]   = useState<PaymentGroup | 'TODOS'>('TODOS')
+  const [debData,    setDebData]    = useState<PageResponse<Debtor> | null>(null)
+  const [debLoading, setDebLoading] = useState(true)
+  const [debError,   setDebError]   = useState<string | null>(null)
 
   // ── Pagos state
   const [payPage,    setPayPage]    = useState(0)
@@ -88,6 +105,7 @@ export default function Cuotas() {
 
   const [reload, setReload] = useState(0)
   const [panel,  setPanel]  = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   // ── Selección múltiple de cuotas (para pagar varias juntas).
   //    Se guarda la cuota completa para no depender de la página actual, y se
@@ -108,15 +126,20 @@ export default function Cuotas() {
   }
   function clearSelection() { setSelected(new Map()) }
 
+  function changeView(v: CuotasView) {
+    setCuotasView(v)
+    clearSelection()   // la selección múltiple solo aplica a la vista por cuota
+  }
+
   useEffect(() => {
     const t = setTimeout(() => {
-      setDebounced(query.trim()); setInstPage(0); setPayPage(0); setHistPage(0)
+      setDebounced(query.trim()); setInstPage(0); setPayPage(0); setHistPage(0); setDebPage(0)
     }, 300)
     return () => clearTimeout(t)
   }, [query])
 
   // Al cambiar cualquier filtro, volver a la primera página de cada tab.
-  useEffect(() => { setInstPage(0); setPayPage(0); setHistPage(0) }, [dateFrom, dateTo, courseId])
+  useEffect(() => { setInstPage(0); setPayPage(0); setHistPage(0); setDebPage(0) }, [dateFrom, dateTo, courseId])
 
   // Cargar enrollments una vez para resolver nombres por id.
   useEffect(() => {
@@ -179,6 +202,23 @@ export default function Cuotas() {
       .catch((err: Error) => { setHistError(err.message); setHistLoading(false) })
   }, [debounced, courseId, dateFrom, dateTo, histPage, reload])
 
+  // Deudores fetch (solo cuando la pestaña Cuotas está en vista "por alumno")
+  useEffect(() => {
+    if (tab !== 'cuotas' || cuotasView !== 'byStudent') return
+    setDebLoading(true); setDebError(null)
+    installmentsApi.debtors({
+      q:        debounced || undefined,
+      courseId: courseId || undefined,
+      group:    debGroup === 'TODOS' ? undefined : debGroup,
+      dueFrom:  dateFrom  || undefined,
+      dueTo:    dateTo    || undefined,
+      page:     debPage,
+      size:     PAGE_SIZE,
+    })
+      .then(res => { setDebData(res); setDebLoading(false) })
+      .catch((err: Error) => { setDebError(err.message); setDebLoading(false) })
+  }, [tab, cuotasView, debounced, courseId, debGroup, dateFrom, dateTo, debPage, reload])
+
   function toggleInstSort(field: InstSortField) {
     setInstSort(prev => {
       if (!prev || prev.field !== field) return { field, dir: 'asc' }
@@ -225,6 +265,56 @@ export default function Cuotas() {
     }
   }
 
+  // Exporta a CSV (abre en Excel) la pestaña actual, trayendo TODAS las filas (no la página).
+  async function handleExport() {
+    setExporting(true)
+    try {
+      if (tab === 'pagos') {
+        const res = await paymentsApi.list({
+          q: debounced || undefined, courseId: courseId || undefined,
+          from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+          to:   dateTo   ? `${dateTo}T23:59:59Z`   : undefined,
+          size: 2000, sort: paySort ? `${paySort.field},${paySort.dir}` : undefined,
+        })
+        exportToCsv(`pagos-${dateStamp()}`, res.content, [
+          { label: 'Recibo',  value: p => p.receiptNumber ?? '' },
+          { label: 'Alumno',  value: p => lookupEnr(p.enrollmentId).studentName },
+          { label: 'Curso',   value: p => lookupEnr(p.enrollmentId).courseName },
+          { label: 'Fecha',   value: p => formatInstantDate(p.paymentDate) },
+          { label: 'Monto',   value: p => p.amount },
+          { label: 'Método',  value: p => PAYMENT_METHOD_LABELS[p.paymentMethod] },
+        ])
+      } else {
+        const status = tab === 'historico'
+          ? 'PAID' as InstallmentStatus
+          : (statusFilter === 'TODAS' ? undefined : statusFilter)
+        const res = await installmentsApi.list({
+          q: debounced || undefined, status, courseId: courseId || undefined,
+          dueFrom: dateFrom || undefined, dueTo: dateTo || undefined, size: 2000,
+          sort: tab === 'historico' ? 'dueDate,desc' : (instSort ? `${instSort.field},${instSort.dir}` : undefined),
+        })
+        const cols: CsvColumn<Installment>[] = [
+          { label: 'Alumno',      value: i => lookupEnr(i.enrollmentId).studentName },
+          { label: 'Curso',       value: i => lookupEnr(i.enrollmentId).courseName },
+          { label: 'Cuota',       value: i => installmentLabel(i.number) },
+          { label: 'Vencimiento', value: i => formatDate(i.dueDate) },
+          { label: 'Monto',       value: i => i.amount },
+          { label: 'Recargo',     value: i => i.surchargeAmount },
+          { label: 'Total',       value: i => i.totalDue },
+          { label: 'Estado',      value: i => INSTALLMENT_STATUS_LABELS[i.status] },
+        ]
+        if (tab === 'historico') {
+          cols.push({ label: 'Pagada el', value: i => i.paidAt ? formatInstantDate(i.paidAt) : '' })
+        }
+        exportToCsv(`${tab === 'historico' ? 'historico' : 'cuotas'}-${dateStamp()}`, res.content, cols)
+      }
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   async function handleWaiveSurcharge(inst: Installment) {
     if (!window.confirm(`¿Condonar el recargo de ${formatPrice(inst.surchargeAmount)} en la cuota #${inst.number}?`)) return
     try {
@@ -250,9 +340,10 @@ export default function Cuotas() {
 
   const statusOptions = useMemo<StatusFilter[]>(() => ['TODAS', ...INSTALLMENT_STATUSES], [])
 
-  const totalCuotas = instData?.totalElements ?? 0
-  const totalPagos  = payData?.totalElements  ?? 0
-  const totalHist   = histData?.totalElements ?? 0
+  const totalCuotas    = instData?.totalElements ?? 0
+  const totalPagos     = payData?.totalElements  ?? 0
+  const totalHist      = histData?.totalElements ?? 0
+  const totalDeudores  = debData?.totalElements  ?? 0
 
   return (
     <div className="cuotas">
@@ -264,9 +355,13 @@ export default function Cuotas() {
           </h2>
           <p className="cuotas__subtitle">
             {tab === 'cuotas'
-              ? (totalCuotas > 0
-                  ? `${totalCuotas} ${totalCuotas === 1 ? 'cuota' : 'cuotas'} en cartera`
-                  : 'Cronograma de cuotas de las inscripciones activas')
+              ? (cuotasView === 'byStudent'
+                  ? (totalDeudores > 0
+                      ? `${totalDeudores} ${totalDeudores === 1 ? 'alumno con deuda' : 'alumnos con deuda'}`
+                      : 'Deudores agrupados por alumno')
+                  : (totalCuotas > 0
+                      ? `${totalCuotas} ${totalCuotas === 1 ? 'cuota' : 'cuotas'} en cartera`
+                      : 'Cronograma de cuotas de las inscripciones activas'))
               : tab === 'pagos'
                 ? (totalPagos > 0
                     ? `${totalPagos} ${totalPagos === 1 ? 'pago registrado' : 'pagos registrados'}`
@@ -276,13 +371,20 @@ export default function Cuotas() {
                     : 'Histórico de cuotas saldadas')}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create-payment' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Registrar pago
-        </button>
+        <div className="cuotas__header-actions">
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
+          </button>
+          {hasAuthority('payments:write') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create-payment' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Registrar pago
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Tabs */}
@@ -331,6 +433,29 @@ export default function Cuotas() {
         </div>
 
         {tab === 'cuotas' && (
+          <div className="cuotas__viewtoggle" role="tablist" aria-label="Vista">
+            <button
+              type="button"
+              className={`chip ${cuotasView === 'flat' ? 'chip--active' : ''}`}
+              onClick={() => changeView('flat')}
+              role="tab"
+              aria-selected={cuotasView === 'flat'}
+            >
+              <CreditCard size={14} /> Por cuota
+            </button>
+            <button
+              type="button"
+              className={`chip ${cuotasView === 'byStudent' ? 'chip--active' : ''}`}
+              onClick={() => changeView('byStudent')}
+              role="tab"
+              aria-selected={cuotasView === 'byStudent'}
+            >
+              <Users size={14} /> Por alumno
+            </button>
+          </div>
+        )}
+
+        {tab === 'cuotas' && cuotasView === 'flat' && (
           <div className="cuotas__chips" role="tablist" aria-label="Estado">
             {statusOptions.map(opt => (
               <button
@@ -342,6 +467,24 @@ export default function Cuotas() {
                 aria-selected={statusFilter === opt}
               >
                 {opt === 'TODAS' ? 'Todas' : INSTALLMENT_STATUS_LABELS[opt]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'cuotas' && cuotasView === 'byStudent' && (
+          <div className="cuotas__chips" role="tablist" aria-label="Grupo de pago">
+            {(['TODOS', ...PAYMENT_GROUPS] as const).map(opt => (
+              <button
+                key={opt}
+                type="button"
+                className={`chip ${debGroup === opt ? 'chip--active' : ''}`}
+                onClick={() => { setDebGroup(opt); setDebPage(0) }}
+                role="tab"
+                aria-selected={debGroup === opt}
+                title={opt === 'TODOS' ? undefined : PAYMENT_GROUP_LABELS[opt]}
+              >
+                {opt === 'TODOS' ? 'Todos los grupos' : PAYMENT_GROUP_SHORT[opt]}
               </button>
             ))}
           </div>
@@ -374,22 +517,35 @@ export default function Cuotas() {
       </div>
 
       {tab === 'cuotas' ? (
-        <CuotasTab
-          data={instData}
-          loading={instLoading}
-          error={instError}
-          sort={instSort}
-          onToggleSort={toggleInstSort}
-          query={debounced}
-          page={instPage}
-          onPage={setInstPage}
-          onPay={(inst) => setPanel({ kind: 'create-payment', preselectInstallmentId: inst.id })}
-          onWaive={handleWaiveSurcharge}
-          lookupEnr={lookupEnr}
-          selected={selected}
-          selectedEnrId={selectedEnrId}
-          onToggleSelect={toggleSelect}
-        />
+        cuotasView === 'byStudent' ? (
+          <DeudoresTab
+            data={debData}
+            loading={debLoading}
+            error={debError}
+            query={debounced}
+            page={debPage}
+            onPage={setDebPage}
+            onPay={(inst) => setPanel({ kind: 'create-payment', preselectInstallmentId: inst.id })}
+          />
+        ) : (
+          <CuotasTab
+            data={instData}
+            loading={instLoading}
+            error={instError}
+            sort={instSort}
+            onToggleSort={toggleInstSort}
+            query={debounced}
+            page={instPage}
+            onPage={setInstPage}
+            onPay={(inst) => setPanel({ kind: 'create-payment', preselectInstallmentId: inst.id })}
+            onWaive={handleWaiveSurcharge}
+            onEdit={(inst) => setPanel({ kind: 'edit-installment', installment: inst })}
+            lookupEnr={lookupEnr}
+            selected={selected}
+            selectedEnrId={selectedEnrId}
+            onToggleSelect={toggleSelect}
+          />
+        )
       ) : tab === 'pagos' ? (
         <PagosTab
           data={payData}
@@ -416,7 +572,7 @@ export default function Cuotas() {
         />
       )}
 
-      {tab === 'cuotas' && selected.size > 0 && (
+      {tab === 'cuotas' && cuotasView === 'flat' && selected.size > 0 && hasAuthority('payments:write') && (
         <BulkBar
           count={selected.size}
           total={selectedTotal}
@@ -450,6 +606,13 @@ export default function Cuotas() {
           onClose={() => setPanel({ kind: 'closed' })}
         />
       )}
+      {panel.kind === 'edit-installment' && (
+        <InstallmentEditForm
+          installment={panel.installment}
+          onClose={() => setPanel({ kind: 'closed' })}
+          onSaved={() => { setPanel({ kind: 'closed' }); setReload(r => r + 1) }}
+        />
+      )}
     </div>
   )
 }
@@ -468,17 +631,19 @@ function CuotasTab(props: {
   onPage:  (n: number) => void
   onPay:   (i: Installment) => void
   onWaive: (i: Installment) => void
+  onEdit:  (i: Installment) => void
   lookupEnr: (id: string) => EnrInfo
   selected:       Map<string, Installment>
   selectedEnrId:  string | null
   onToggleSelect: (i: Installment) => void
 }) {
   const {
-    data, loading, error, sort, onToggleSort, query, page, onPage, onPay, onWaive, lookupEnr,
+    data, loading, error, sort, onToggleSort, query, page, onPage, onPay, onWaive, onEdit, lookupEnr,
     selected, selectedEnrId, onToggleSelect,
   } = props
   const items = data?.content ?? []
   const totalPages = data?.totalPages ?? 0
+  const canPay = hasAuthority('payments:write')
 
   return (
     <>
@@ -501,7 +666,7 @@ function CuotasTab(props: {
           <table className="cuotas-table">
             <thead>
               <tr>
-                <th className="col-check" aria-label="Seleccionar" />
+                {canPay && <th className="col-check" aria-label="Seleccionar" />}
                 <th>Alumno</th>
                 <th>Curso</th>
                 <th className="col-cuota">Cuota</th>
@@ -538,21 +703,23 @@ function CuotasTab(props: {
                 const lockedOut = selectedEnrId != null && selectedEnrId !== i.enrollmentId
                 return (
                   <tr key={i.id} className={`cuotas-table__row ${isSelected ? 'cuotas-table__row--selected' : ''}`}>
-                    <td className="col-check">
-                      {isPayable && (
-                        <input
-                          type="checkbox"
-                          className="cuotas-check"
-                          checked={isSelected}
-                          disabled={lockedOut}
-                          onChange={() => onToggleSelect(i)}
-                          aria-label={`Seleccionar ${installmentLabel(i.number)}`}
-                          title={lockedOut
-                            ? 'Solo se pueden pagar juntas cuotas de la misma inscripción'
-                            : 'Seleccionar para pago múltiple'}
-                        />
-                      )}
-                    </td>
+                    {canPay && (
+                      <td className="col-check">
+                        {isPayable && (
+                          <input
+                            type="checkbox"
+                            className="cuotas-check"
+                            checked={isSelected}
+                            disabled={lockedOut}
+                            onChange={() => onToggleSelect(i)}
+                            aria-label={`Seleccionar ${installmentLabel(i.number)}`}
+                            title={lockedOut
+                              ? 'Solo se pueden pagar juntas cuotas de la misma inscripción'
+                              : 'Seleccionar para pago múltiple'}
+                          />
+                        )}
+                      </td>
+                    )}
                     <td>
                       <div className="cuotas-cell">
                         <div className="cuotas-cell__avatar">
@@ -608,7 +775,7 @@ function CuotasTab(props: {
                     </td>
                     <td className="col-acciones">
                       <div className="row-actions">
-                        {i.surchargeAmount > 0 && i.status !== 'PAID' && (
+                        {i.surchargeAmount > 0 && i.status !== 'PAID' && hasAuthority('installments:write') && (
                           <button
                             className="row-actions__btn"
                             type="button"
@@ -619,7 +786,18 @@ function CuotasTab(props: {
                             <BadgeCheck size={16} />
                           </button>
                         )}
-                        {i.status !== 'PAID' && (
+                        {i.status !== 'PAID' && hasAuthority('installments:write') && (
+                          <button
+                            className="row-actions__btn"
+                            type="button"
+                            onClick={() => onEdit(i)}
+                            aria-label="Editar cuota"
+                            title="Editar monto / vencimiento / nota"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        )}
+                        {i.status !== 'PAID' && hasAuthority('payments:write') && (
                           <button
                             className="row-actions__btn row-actions__btn--primary"
                             type="button"
@@ -768,15 +946,17 @@ function PagosTab(props: {
                         >
                           <Eye size={16} />
                         </button>
-                        <button
-                          className="row-actions__btn row-actions__btn--danger"
-                          type="button"
-                          onClick={() => onUndo(p)}
-                          aria-label="Deshacer pago"
-                          title="Deshacer pago"
-                        >
-                          <Undo2 size={16} />
-                        </button>
+                        {hasAuthority('payments:write') && (
+                          <button
+                            className="row-actions__btn row-actions__btn--danger"
+                            type="button"
+                            onClick={() => onUndo(p)}
+                            aria-label="Deshacer pago"
+                            title="Deshacer pago"
+                          >
+                            <Undo2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -890,6 +1070,155 @@ function HistoricoTab(props: {
                   </tr>
                 )
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {!loading && !error && totalPages > 1 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          first={data?.first ?? true}
+          last={data?.last ?? true}
+          onChange={onPage}
+        />
+      )}
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Deudores — cuotas impagas agrupadas por alumno (reunión 2026-06-05)
+// ═══════════════════════════════════════════════════════════════════════════════
+function DeudoresTab(props: {
+  data:    PageResponse<Debtor> | null
+  loading: boolean
+  error:   string | null
+  query:   string
+  page:    number
+  onPage:  (n: number) => void
+  onPay:   (i: Installment) => void
+}) {
+  const { data, loading, error, query, page, onPage, onPay } = props
+  const items = data?.content ?? []
+  const totalPages = data?.totalPages ?? 0
+
+  return (
+    <>
+      <div className="cuotas__table-wrap">
+        {loading && <div className="cuotas__loading">Cargando…</div>}
+
+        {!loading && error && (
+          <EmptyState icon={Users} message="No se pudieron cargar los deudores" hint={error} />
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <EmptyState
+            icon={Users}
+            message="Sin deudores"
+            hint={query ? `No hay deudores para "${query}"` : 'No hay cuotas impagas.'}
+          />
+        )}
+
+        {!loading && !error && items.length > 0 && (
+          <table className="cuotas-table">
+            <thead>
+              <tr>
+                <th className="col-cuota">Cuota</th>
+                <th className="col-vencimiento">Vencimiento</th>
+                <th className="col-precio">Total</th>
+                <th className="col-estado">Estado</th>
+                <th className="col-acciones">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(d => (
+                <Fragment key={d.enrollmentId}>
+                  <tr className="cuotas-table__group">
+                    <td colSpan={5}>
+                      <div className="deudor-head">
+                        <div className="cuotas-cell">
+                          <div className="cuotas-cell__avatar">
+                            <UserCircle2 size={26} strokeWidth={1.4} />
+                          </div>
+                          <div>
+                            <div className="cuotas-cell__name">{d.studentName}</div>
+                            <div className="deudor-head__course">
+                              <GraduationCap size={13} strokeWidth={1.6} /> {d.courseName}
+                              {d.courseCode && <span className="deudor-head__code"> · {d.courseCode}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="deudor-head__meta">
+                          <span className="cuota-tag cuota-tag--grupo" title={PAYMENT_GROUP_LABELS[d.paymentGroup]}>
+                            {PAYMENT_GROUP_SHORT[d.paymentGroup]}
+                          </span>
+                          <span className="deudor-head__count">
+                            {d.pendingCount} {d.pendingCount === 1 ? 'cuota impaga' : 'cuotas impagas'}
+                          </span>
+                          <span className="deudor-head__next">
+                            <Calendar size={13} strokeWidth={1.8} /> próx. {formatDate(d.nextDueDate)}
+                          </span>
+                          <span className="deudor-head__total">
+                            <CircleDollarSign size={14} strokeWidth={1.8} /> {formatPrice(d.totalOwed)}
+                          </span>
+                          <WhatsAppDebtorLink d={d} />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  {d.installments.map(i => (
+                    <tr key={i.id} className="cuotas-table__row cuotas-table__row--child">
+                      <td className="td-num col-cuota">
+                        {installmentKind(i.number) === 'MATRICULA' ? (
+                          <span className="cuota-tag cuota-tag--matricula">Matrícula</span>
+                        ) : (
+                          <span className="cell-inline"><Hash size={12} strokeWidth={1.8} /> {i.number}</span>
+                        )}
+                      </td>
+                      <td className="td-date col-vencimiento">
+                        <span className="cell-inline">
+                          <Calendar size={13} strokeWidth={1.8} /> {formatDate(i.dueDate)}
+                        </span>
+                      </td>
+                      <td className="col-precio">
+                        <div className="cuotas-amount">
+                          <span className="price">
+                            <CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(i.totalDue)}
+                          </span>
+                          {i.surchargeAmount > 0 && (
+                            <span className="cuotas-amount__surcharge" title="Recargo del 5%">
+                              +{formatPrice(i.surchargeAmount)} recargo
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="col-estado">
+                        <span className={`badge ${statusBadgeClass(i.status)}`}>
+                          {INSTALLMENT_STATUS_LABELS[i.status]}
+                        </span>
+                      </td>
+                      <td className="col-acciones">
+                        <div className="row-actions">
+                          {hasAuthority('payments:write') && (
+                            <button
+                              className="row-actions__btn row-actions__btn--primary"
+                              type="button"
+                              onClick={() => onPay(i)}
+                              aria-label="Registrar pago"
+                              title="Registrar pago de esta cuota"
+                            >
+                              <CreditCard size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         )}
@@ -1060,6 +1389,36 @@ function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
   return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Link de WhatsApp MANUAL para avisarle al alumno que tiene cuotas vencidas. Se abre
+// WhatsApp Web/app con el mensaje pre-armado; el envío lo decide la persona (no es automático).
+// Sólo aparece si el alumno tiene teléfono cargado. El número se limpia a dígitos; conviene
+// que incluya código de país (ej. 54 9 11 …) para que wa.me lo resuelva bien.
+function WhatsAppDebtorLink({ d }: { d: Debtor }) {
+  if (!d.studentPhone) return null
+  const digits = d.studentPhone.replace(/\D/g, '')
+  if (!digits) return null
+  const firstName = d.studentName.includes(',')
+    ? d.studentName.split(',')[1].trim()
+    : d.studentName
+  const cuotas = d.pendingCount === 1 ? 'una cuota vencida' : `${d.pendingCount} cuotas vencidas`
+  const msg =
+    `Hola ${firstName}, te recordamos que figurás con ${cuotas} en el curso ${d.courseName} ` +
+    `por un total de ${formatPrice(d.totalOwed)} (próximo vencimiento ${formatDate(d.nextDueDate)}). ` +
+    `Por favor regularizá tu situación. ¡Gracias! IMEDBA`
+  const href = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
+  return (
+    <a
+      className="deudor-head__wa"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Avisar por WhatsApp (abre el chat con el mensaje pre-armado)"
+    >
+      <MessageCircle size={14} strokeWidth={1.8} /> WhatsApp
+    </a>
+  )
 }
 
 function formatInstantDate(iso: string): string {

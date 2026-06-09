@@ -5,14 +5,13 @@ import { apiGet, apiPost, apiDelete } from './client'
 
 // Servicio de pagos — refleja PaymentController (/api/v1/payments).
 // Nombres de params alineados al backend: method / from / to (Instant).
-// `courseId` lo soporta el mock; el backend lo ignora hasta que se agregue
-// (ver nota a Santi en DIARIO). `remove` (DELETE) requiere endpoint backend nuevo.
+// `q` (alumno/curso/recibo), `courseId` y `remove` (DELETE) ya existen en el backend.
 
 export interface ListPaymentsParams {
-  q?:            string             // mock-only
+  q?:            string             // busca por alumno, curso o n° de recibo
   enrollmentId?: string
   studentId?:    string
-  courseId?:     string             // mock-only hasta que el backend lo soporte
+  courseId?:     string
   method?:       PaymentMethod
   from?:         string             // Instant ISO (ej. 2026-05-01T00:00:00Z)
   to?:           string             // Instant ISO
@@ -47,8 +46,7 @@ export const paymentsApi = {
   create(body: PaymentCreateRequest): Promise<Payment> {
     return apiPost<Payment, PaymentCreateRequest>('/payments', body)
   },
-  // Deshacer un pago. ⚠️ Requiere DELETE /payments/{id} en el backend
-  // (hoy los pagos son append-only). El mock ya revierte la cuota a impaga.
+  // Deshacer un pago: DELETE /payments/{id} revierte la cuota a PENDING/OVERDUE.
   remove(id: string): Promise<void> {
     return apiDelete(`/payments/${id}`)
   },

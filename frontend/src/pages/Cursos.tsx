@@ -14,12 +14,13 @@ import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
 import CourseDetail from '../components/CourseDetail'
 import CourseStudents from '../components/CourseStudents'
+import { canWrite } from '../lib/access'
 import './Cursos.scss'
 
 const PAGE_SIZE = 10
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'modality' | 'coursePrice' | 'active'
+type SortField = 'name' | 'modality' | 'coursePrice'
 type SortState = { field: SortField; dir: SortDir } | null
 
 type BUFilter = BusinessUnit | 'TODAS'
@@ -35,6 +36,7 @@ export default function Cursos() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
   const [bu,        setBu]        = useState<BUFilter>('TODAS')
+  const [year,      setYear]      = useState<number | undefined>(undefined)
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'name', dir: 'asc' })
 
@@ -63,13 +65,14 @@ export default function Cursos() {
     coursesApi.list({
       q:             debounced || undefined,
       businessUnit:  effectiveBu,
+      year,
       page,
       size:          PAGE_SIZE,
       sort:          sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, effectiveBu, page, sort, reload])
+  }, [debounced, effectiveBu, year, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -90,6 +93,13 @@ export default function Cursos() {
   }
 
   const buOptions = useMemo<BUFilter[]>(() => ['TODAS', ...BUSINESS_UNITS], [])
+  // Ciclos lectivos para el filtro: rango razonable alrededor del año actual.
+  const yearOptions = useMemo<number[]>(() => {
+    const now = new Date().getFullYear()
+    const years: number[] = []
+    for (let y = now + 1; y >= now - 3; y--) years.push(y)
+    return years
+  }, [])
 
   return (
     <div className="cursos">
@@ -105,13 +115,15 @@ export default function Cursos() {
               : 'Catálogo de cursos del instituto'}
           </p>
         </div>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => setPanel({ kind: 'create' })}
-        >
-          <Plus size={16} strokeWidth={2.2} /> Nuevo curso
-        </button>
+        {canWrite('/cursos') && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => setPanel({ kind: 'create' })}
+          >
+            <Plus size={16} strokeWidth={2.2} /> Nuevo curso
+          </button>
+        )}
       </header>
 
       <div className="cursos__toolbar">
@@ -143,6 +155,18 @@ export default function Cursos() {
             ))}
           </div>
         )}
+
+        <select
+          className="cursos__year-select"
+          value={year ?? ''}
+          onChange={e => { setYear(e.target.value ? Number(e.target.value) : undefined); setPage(0) }}
+          aria-label="Ciclo lectivo"
+        >
+          <option value="">Todos los ciclos</option>
+          {yearOptions.map(y => (
+            <option key={y} value={y}>Ciclo {y}</option>
+          ))}
+        </select>
       </div>
 
       <div className="cursos__table-wrap">
@@ -181,6 +205,7 @@ export default function Cursos() {
                   onClick={() => toggleSort('modality')}
                 />
                 <th>Unidad</th>
+                <th>Ciclo</th>
                 <th>Examen</th>
                 <SortableTh
                   label="Precio curso"
@@ -188,13 +213,6 @@ export default function Cursos() {
                   sort={sort}
                   onClick={() => toggleSort('coursePrice')}
                   className="col-precio"
-                />
-                <SortableTh
-                  label="Estado"
-                  field="active"
-                  sort={sort}
-                  onClick={() => toggleSort('active')}
-                  className="col-estado"
                 />
                 <th className="col-acciones" />
               </tr>
@@ -227,6 +245,11 @@ export default function Cursos() {
                       {BUSINESS_UNIT_LABELS[c.businessUnit]}
                     </span>
                   </td>
+                  <td>
+                    {c.academicYear != null
+                      ? <span className="pill">{c.academicYear}</span>
+                      : <span className="muted">Libre</span>}
+                  </td>
                   <td className="td-date">
                     {c.examDate
                       ? <><CalendarDays size={13} strokeWidth={1.8} /> {formatDate(c.examDate)}</>
@@ -236,11 +259,6 @@ export default function Cursos() {
                     {c.coursePrice != null
                       ? <span className="price"><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(c.coursePrice)}</span>
                       : <span className="muted">—</span>}
-                  </td>
-                  <td>
-                    <span className={`badge ${c.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                      {c.active ? 'Activo' : 'Inactivo'}
-                    </span>
                   </td>
                   <td className="col-acciones">
                     <div className="row-actions">
@@ -262,15 +280,17 @@ export default function Cursos() {
                       >
                         <Eye size={16} />
                       </button>
-                      <button
-                        className="row-actions__btn"
-                        type="button"
-                        onClick={() => setPanel({ kind: 'edit', course: c })}
-                        aria-label="Editar"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canWrite('/cursos') && (
+                        <button
+                          className="row-actions__btn"
+                          type="button"
+                          onClick={() => setPanel({ kind: 'edit', course: c })}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

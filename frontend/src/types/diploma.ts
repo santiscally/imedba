@@ -12,6 +12,10 @@ export interface Diploma {
   id:                 UUID
   name:               string
   universityName:     string | null
+  // La diplomatura ES un curso: el backend crea/sincroniza automáticamente su curso
+  // espejo en FS (V026 + decisión 2026-06-09). Los alumnos se inscriben a ese curso.
+  courseId:           UUID | null
+  courseName:         string | null
   description:        string | null
   enrollmentPrice:    number | null   // BigDecimal en backend
   coursePrice:        number | null

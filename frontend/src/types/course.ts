@@ -16,9 +16,11 @@ export const BUSINESS_UNITS: BusinessUnit[] = [
   'GENERAL',
 ]
 
-// Etiquetas visibles
+// Etiquetas visibles — FUENTE ÚNICA de los labels de unidad de negocio.
+// Cualquier select/header/columna que muestre la unidad importa de acá
+// (unidad.tsx y budget.ts re-exportan este map). No redefinir en otro lado.
 export const BUSINESS_UNIT_LABELS: Record<BusinessUnit, string> = {
-  RESIDENCIAS:        'Residencias',
+  RESIDENCIAS:        'Residencias Médicas',
   EDITORIAL:          'Editorial',
   FORMACION_SUPERIOR: 'Formación Superior',
   GENERAL:            'General',
@@ -54,6 +56,7 @@ export interface Course {
   enrollmentPrice:      number | null   // BigDecimal en backend → number en JS
   coursePrice:          number | null
   examDate:             string | null   // LocalDate ISO (YYYY-MM-DD)
+  academicYear:         number | null   // ciclo lectivo (ej. 2026); null = curso "libre"
   contractTemplatePath: string | null
   moodleCourseId:       number | null
   active:               boolean | null
@@ -72,6 +75,7 @@ export interface CourseCreateRequest {
   enrollmentPrice?:      number | null            // ≥ 0
   coursePrice?:          number | null            // ≥ 0
   examDate?:             string | null            // YYYY-MM-DD
+  academicYear?:         number | null            // ciclo lectivo (ej. 2026)
   contractTemplatePath?: string | null            // max 500
   moodleCourseId?:       number | null
   active?:               boolean

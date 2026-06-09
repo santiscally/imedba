@@ -30,7 +30,7 @@ interface FormState {
   enrollmentPrice: string
   coursePrice:     string
   examDate:        string
-  active:          boolean
+  academicYear:    string
 }
 
 function initialState(c?: Course): FormState {
@@ -44,7 +44,7 @@ function initialState(c?: Course): FormState {
     enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
     coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
     examDate:        c?.examDate        ?? '',
-    active:          c?.active ?? true,
+    academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
   }
 }
 
@@ -78,6 +78,10 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (state.examDate && !/^\d{4}-\d{2}-\d{2}$/.test(state.examDate)) {
       e.examDate = 'Formato YYYY-MM-DD'
     }
+    if (state.academicYear) {
+      const y = Number(state.academicYear)
+      if (!Number.isInteger(y) || y < 2000 || y > 2100) e.academicYear = 'Año inválido (2000–2100)'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -97,7 +101,7 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       enrollmentPrice: state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
       coursePrice:     state.coursePrice        ? Number(state.coursePrice)     : null,
       examDate:        state.examDate           || null,
-      active:          state.active,
+      academicYear:    state.academicYear       ? Number(state.academicYear)    : null,
     }
 
     try {
@@ -199,6 +203,18 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               />
             </Field>
 
+            <Field label="Ciclo lectivo (año)" error={errors.academicYear}>
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                step="1"
+                value={state.academicYear}
+                onChange={e => setField('academicYear', e.target.value)}
+                placeholder="2026 — vacío = curso libre"
+              />
+            </Field>
+
             <Field label="Precio matrícula (ARS)" error={errors.enrollmentPrice}>
               <input
                 type="number"
@@ -221,26 +237,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               />
             </Field>
 
-            <Field label="Estado">
-              <div className="toggle">
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={state.active}
-                    onChange={() => setField('active', true)}
-                  />
-                  <span>Activo</span>
-                </label>
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={!state.active}
-                    onChange={() => setField('active', false)}
-                  />
-                  <span>Inactivo</span>
-                </label>
-              </div>
-            </Field>
           </div>
 
           <Field label="Descripción" fullWidth>

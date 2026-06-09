@@ -47,6 +47,26 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   OTRO:              'Otro',
 }
 
+// Refleja com.imedba.modules.enrollment.entity.PaymentGroup (reunión 2026-06-05).
+// Grupo 1: cuota vence día 10, recargo día 11+. Grupo 2: vence día 20, recargo día 21+.
+export type PaymentGroup = 'GROUP_1' | 'GROUP_2'
+
+export const PAYMENT_GROUPS: PaymentGroup[] = ['GROUP_1', 'GROUP_2']
+
+export const PAYMENT_GROUP_LABELS: Record<PaymentGroup, string> = {
+  GROUP_1: 'Grupo 1 — vence día 10',
+  GROUP_2: 'Grupo 2 — vence día 20',
+}
+
+export const PAYMENT_GROUP_SHORT: Record<PaymentGroup, string> = {
+  GROUP_1: 'Grupo 1',
+  GROUP_2: 'Grupo 2',
+}
+
+export function paymentGroupDueDay(g: PaymentGroup): number {
+  return g === 'GROUP_2' ? 20 : 10
+}
+
 // Refleja EnrollmentResponse.StudentSummary
 export interface EnrollmentStudentSummary {
   id:        UUID
@@ -79,7 +99,7 @@ export interface Enrollment {
 
   enrollmentFee:      number | null
   numInstallments:    number | null
-  paymentMethod:      PaymentMethod | null
+  paymentGroup:       PaymentGroup
 
   contractFilePath:   string | null
   contractSentAt:     Instant | null
@@ -106,7 +126,8 @@ export interface EnrollmentCreateRequest {
 
   enrollmentFee?:      number | null
   numInstallments?:    number | null   // ≥ 1
-  paymentMethod?:      PaymentMethod | null
+  paymentGroup?:       PaymentGroup    // default GROUP_1 en el backend
+  useTotalDistribution?: boolean       // true = agrupar (curso+matrícula+libros / N); false = matrícula aparte
 
   contractFilePath?:   string | null   // max 500
   notes?:              string | null
@@ -123,7 +144,6 @@ export interface EnrollmentUpdateRequest {
 
   enrollmentFee?:      number | null
   numInstallments?:    number | null
-  paymentMethod?:      PaymentMethod | null
 
   contractFilePath?:   string | null
   contractSentAt?:     Instant | null
