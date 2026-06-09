@@ -83,7 +83,13 @@ Reglas duras:
 - `instrucciones_claude/05-moodle-integration-spec.md`
 - `instrucciones_claude/06-api-endpoints.md`
 - `instrucciones_claude/07-requerimientos-reunion-20260424.md` — requerimientos detectados en reunión con IMEDBA (fase 9)
+- `instrucciones_claude/08-requerimientos-reunion-20260522.md` — reunión IMEDBA 22-05 (pulido al 100% pre-demo)
+- `instrucciones_claude/09-requerimientos-reunion-20260529-20260605.md` — reuniones 29-05 (Moodle) + 05-06 (funcional); backlog para demo 12-jun
 - `instrucciones_claude/09-claude-code-instructions.md`
+- `instrucciones_claude/10-usuarios-y-roles.md` — login de usuarios de prueba, qué ve/edita cada rol, admin Keycloak
+- `instrucciones_claude/11-modulo-personal-usuarios.md` — módulo Personal (gestión de usuarios Keycloak, solo admin)
+- `instrucciones_claude/12-notificaciones-mail-whatsapp.md` — mail (provider-agnostic, proveedor pendiente) + WhatsApp (SIEMPRE manual)
+- `instrucciones_claude/13-preguntas-reunion-20260612.md` — preguntas abiertas para la demo del 12-jun
 
 ## Comandos comunes
 
