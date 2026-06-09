@@ -17,6 +17,32 @@ public final class PaymentSpecs {
                 ? null : cb.equal(root.get("enrollment").get("id"), enrollmentId);
     }
 
+    /**
+     * Búsqueda libre por alumno (nombre + apellido), curso (nombre + código) o
+     * número de recibo. Case-insensitive. Reunión 2026-06-05: el SPA ya mandaba
+     * {@code q} pero el backend lo ignoraba.
+     */
+    public static Specification<Payment> matchesText(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        final String needle = "%" + text.trim().toLowerCase() + "%";
+        return (root, q, cb) -> {
+            var student = root.get("enrollment").get("student");
+            var course = root.get("enrollment").get("course");
+            var fullName = cb.lower(cb.concat(cb.concat(
+                    student.<String>get("firstName"), " "), student.<String>get("lastName")));
+            var courseName = cb.lower(course.<String>get("name"));
+            var courseCode = cb.lower(cb.coalesce(course.<String>get("code"), ""));
+            var receipt = cb.lower(cb.coalesce(root.<String>get("receiptNumber"), ""));
+            return cb.or(
+                    cb.like(fullName, needle),
+                    cb.like(courseName, needle),
+                    cb.like(courseCode, needle),
+                    cb.like(receipt, needle));
+        };
+    }
+
     /** Filtra pagos por curso resolviendo vía enrollment.course.id (reunión 2026-05-22 §2.4). */
     public static Specification<Payment> byCourse(UUID courseId) {
         return (root, q, cb) -> courseId == null

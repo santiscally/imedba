@@ -32,6 +32,7 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
               AND c.businessUnit IN :allowedUnits
               AND (:country IS NULL OR c.country = :country)
               AND (:active IS NULL OR c.active = :active)
+              AND (:year IS NULL OR c.academicYear = :year)
               AND (:q = '' OR LOWER(c.name) LIKE CONCAT('%', :q, '%')
                            OR LOWER(COALESCE(c.code, '')) LIKE CONCAT('%', :q, '%'))
             """)
@@ -41,5 +42,6 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
             @Param("allowedUnits") Collection<BusinessUnit> allowedUnits,
             @Param("country") String country,
             @Param("active") Boolean active,
+            @Param("year") Integer year,
             Pageable pageable);
 }

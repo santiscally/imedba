@@ -74,6 +74,10 @@ public class Installment {
     @Column(name = "last_alert_sent_at")
     private Instant lastAlertSentAt;
 
+    /** Aclaración del ajuste manual del monto/vencimiento (reunión 2026-06-05). */
+    @Column(name = "notes", columnDefinition = "text")
+    private String notes;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

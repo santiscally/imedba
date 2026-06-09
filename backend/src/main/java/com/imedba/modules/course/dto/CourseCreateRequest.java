@@ -19,6 +19,7 @@ public record CourseCreateRequest(
         @PositiveOrZero  BigDecimal enrollmentPrice,
         @PositiveOrZero  BigDecimal coursePrice,
         LocalDate examDate,
+        Integer academicYear,
         @Size(max = 500) String contractTemplatePath,
         Integer moodleCourseId,
         Boolean active

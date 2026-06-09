@@ -17,6 +17,7 @@ public record InstallmentResponse(
         InstallmentStatus status,
         Instant paidAt,
         Instant lastAlertSentAt,
+        String notes,
         Instant createdAt,
         Instant updatedAt
 ) {}

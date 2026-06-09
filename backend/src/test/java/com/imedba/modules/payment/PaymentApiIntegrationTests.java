@@ -130,8 +130,8 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
         var req = new EnrollmentCreateRequest(
                 studentId, courseId, null, null,
                 null, null, null,
-                new BigDecimal("10000.00"), 6, PaymentMethod.TRANSFERENCIA,
-                null, null, null);
+                new BigDecimal("10000.00"), 6,
+                null, null, null, null);
         String body = mockMvc.perform(post("/api/v1/enrollments").with(admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

@@ -17,7 +17,9 @@ import com.imedba.modules.diplomasettlement.entity.SettlementStatus;
 import com.imedba.modules.diplomasettlement.mapper.DiplomaSettlementMapper;
 import com.imedba.modules.diplomasettlement.repository.DiplomaSettlementRepository;
 import com.imedba.modules.diplomasettlement.service.DiplomaSettlementService;
+import com.imedba.modules.budget.repository.BudgetEntryRepository;
 import com.imedba.modules.notification.service.NotificationService;
+import com.imedba.modules.payment.repository.PaymentRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -36,12 +38,15 @@ class DiplomaSettlementServiceTests {
     @Mock private DiplomaSettlementMapper mapper;
     @Mock private DiplomaService diplomaService;
     @Mock private NotificationService notificationService;
+    @Mock private PaymentRepository paymentRepository;
+    @Mock private BudgetEntryRepository budgetEntryRepository;
 
     private DiplomaSettlementService service;
 
     @BeforeEach
     void setUp() {
-        service = new DiplomaSettlementService(repository, mapper, diplomaService, notificationService);
+        service = new DiplomaSettlementService(repository, mapper, diplomaService,
+                notificationService, paymentRepository, budgetEntryRepository);
         lenient().when(repository.save(any(DiplomaSettlement.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(mapper.toResponse(any(DiplomaSettlement.class)))

@@ -1,9 +1,18 @@
 package com.imedba.modules.installment.service;
 
+import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.installment.entity.Installment;
 import com.imedba.modules.installment.entity.InstallmentStatus;
 import com.imedba.modules.installment.repository.InstallmentRepository;
+import com.imedba.modules.moodle.service.MoodleService;
+import com.imedba.modules.notification.entity.NotificationType;
+import com.imedba.modules.notification.entity.RelatedEntityType;
+import com.imedba.modules.notification.service.NotificationService;
+import com.imedba.modules.notification.template.NotificationTemplate;
+import com.imedba.modules.notification.template.NotificationTemplates;
+import com.imedba.modules.notification.whatsapp.WhatsAppSender;
+import com.imedba.modules.student.entity.Student;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -17,28 +26,37 @@ import org.springframework.transaction.annotation.Transactional;
  * Tareas programadas de la fase 2 — cobranza.
  *
  * Se ejecutan en horario Buenos Aires (ver propiedades de Spring):
- *   - Recargos:       06:00 — aplica 5% a cuotas con >10 días de mora sin recargo.
- *   - Suspensión LMS: 06:10 — marca {@code enrollment.moodleStatus = 'SUSPENDED'} a los 22 días.
+ *   - Recargos:       06:00 — aplica 5% a cuotas vencidas (día siguiente al vencimiento) sin recargo.
+ *   - Suspensión LMS: 06:10 — marca {@code enrollment.moodleStatus = 'SUSPENDED'} a los 12 días del vencimiento.
  *
- * La notificación "a 2 días de suspensión" (día 20) queda a cargo de Fase 3 (SendGrid).
+ * Modelo "día del mes" (reunión 2026-06-05): el vencimiento es el día 10 (GROUP_1) o 20 (GROUP_2),
+ * el recargo corre al día siguiente (11 / 21) y la suspensión a los 12 días (día 22 para GROUP_1).
+ * La notificación "a 2 días de suspensión" queda a cargo de Fase 3 (SendGrid).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class InstallmentScheduler {
 
-    /** Días desde el vencimiento a partir de los cuales se marca Moodle como suspendido. */
-    public static final int MOODLE_SUSPEND_DAYS = 22;
+    /**
+     * Días desde el vencimiento a partir de los cuales se marca Moodle como suspendido.
+     * Vencimiento día 10 (GROUP_1) + 12 = día 22 (CLAUDE.md). GROUP_2 (venc. día 20): equivalente.
+     */
+    public static final int MOODLE_SUSPEND_DAYS = 12;
 
     private static final ZoneId ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final String MOODLE_SUSPENDED = "SUSPENDED";
 
     private final InstallmentRepository installmentRepository;
     private final InstallmentService installmentService;
+    private final MoodleService moodleService;
+    private final NotificationService notificationService;
+    private final WhatsAppSender whatsAppSender;
 
     /**
-     * Todos los días a las 06:00 (zona {@link #ZONE}): aplica recargos a las cuotas que ya
-     * tienen más de 10 días de mora y siguen en PENDING.
+     * Todos los días a las 06:00 (zona {@link #ZONE}): aplica recargos a las cuotas vencidas
+     * (al día siguiente del vencimiento, ver {@link InstallmentService#SURCHARGE_GRACE_DAYS})
+     * que siguen en PENDING.
      */
     @Scheduled(cron = "0 0 6 * * *", zone = "America/Argentina/Buenos_Aires")
     @Transactional
@@ -63,10 +81,16 @@ public class InstallmentScheduler {
 
     /**
      * Todos los días a las 06:10: marca {@code moodleStatus=SUSPENDED} en las inscripciones
-     * cuyas cuotas están OVERDUE hace >= {@value #MOODLE_SUSPEND_DAYS} días.
+     * cuyas cuotas están OVERDUE hace >= {@value #MOODLE_SUSPEND_DAYS} días y, para cada una
+     * recién suspendida, dispara los efectos: suspensión real en Moodle (no-op si
+     * {@code moodle.enabled=false}) + notificación al alumno (mail + WhatsApp).
      *
-     * El sync real con Moodle es fase 7 — acá sólo se levanta la bandera que el cron de
-     * integración consumirá.
+     * <p>Cada efecto va dentro de su propio try/catch para que un fallo (red Moodle, mail)
+     * no aborte el batch ni revierta el flag en DB.</p>
+     *
+     * <p>NOTA: cuando la integración Moodle se prenda en prod, conviene mover la llamada de
+     * red FUERA de esta {@code @Transactional} (hoy se hace I/O con la conexión DB tomada).
+     * Mientras está deshabilitada es un no-op, así que no aplica.</p>
      */
     @Scheduled(cron = "0 10 6 * * *", zone = "America/Argentina/Buenos_Aires")
     @Transactional
@@ -81,9 +105,50 @@ public class InstallmentScheduler {
             if (e != null && !MOODLE_SUSPENDED.equals(e.getMoodleStatus())) {
                 e.setMoodleStatus(MOODLE_SUSPENDED);
                 flagged++;
+                onSuspended(e);
             }
         }
         log.info("Moodle suspension job: flagged {} enrollments as SUSPENDED (cutoff={})",
                 flagged, suspendOnOrBefore);
+    }
+
+    /** Efectos al suspender una inscripción: Moodle + notificación (mail + WhatsApp). Best-effort. */
+    private void onSuspended(Enrollment e) {
+        Student s = e.getStudent();
+        Course c = e.getCourse();
+        String courseName = c != null && c.getName() != null ? c.getName() : "el curso";
+
+        try {
+            moodleService.suspendStudent(s);
+        } catch (Exception ex) {
+            log.warn("No se pudo suspender en Moodle (enrollment={}): {}", e.getId(), ex.getMessage());
+        }
+
+        if (s == null) {
+            return;
+        }
+        if (s.getEmail() != null && !s.getEmail().isBlank()) {
+            try {
+                NotificationTemplate tpl = NotificationTemplates.suspended(firstName(s), courseName);
+                notificationService.enqueue(
+                        NotificationType.SUSPENDED, s.getEmail(), tpl,
+                        RelatedEntityType.ENROLLMENT, e.getId());
+            } catch (Exception ex) {
+                log.warn("No se pudo encolar mail SUSPENDED (enrollment={}): {}", e.getId(), ex.getMessage());
+            }
+        }
+        if (s.getPhone() != null && !s.getPhone().isBlank()) {
+            try {
+                whatsAppSender.send(s.getPhone(),
+                        "Hola " + firstName(s) + ", tu acceso a " + courseName
+                                + " en Moodle fue suspendido por cuotas impagas. Contactá a administración para reactivarlo.");
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar WhatsApp SUSPENDED (enrollment={}): {}", e.getId(), ex.getMessage());
+            }
+        }
+    }
+
+    private static String firstName(Student s) {
+        return s.getFirstName() != null ? s.getFirstName() : "";
     }
 }

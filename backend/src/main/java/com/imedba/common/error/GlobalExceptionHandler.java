@@ -1,5 +1,6 @@
 package com.imedba.common.error;
 
+import com.imedba.modules.useradmin.client.KeycloakAdminException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +62,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
     public ResponseEntity<ApiError> handleUnauthenticated(AuthenticationCredentialsNotFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Token inválido o ausente", req);
+    }
+
+    @ExceptionHandler(KeycloakAdminException.class)
+    public ResponseEntity<ApiError> handleKeycloakAdmin(KeycloakAdminException ex, HttpServletRequest req) {
+        log.warn("Keycloak admin error en {}: {}", req.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_GATEWAY, "KEYCLOAK_ADMIN_ERROR",
+                "Error gestionando usuarios en Keycloak: " + ex.getMessage(), req);
     }
 
     @ExceptionHandler(Exception.class)

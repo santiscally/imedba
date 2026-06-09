@@ -1,6 +1,6 @@
 package com.imedba.modules.enrollment.dto;
 
-import com.imedba.common.enums.PaymentMethod;
+import com.imedba.modules.enrollment.entity.PaymentGroup;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -33,8 +33,8 @@ public record EnrollmentCreateRequest(
 
         @Digits(integer = 10, fraction = 2) BigDecimal enrollmentFee,
         @Min(1) Integer numInstallments,
-        PaymentMethod paymentMethod,
         Boolean useTotalDistribution,
+        PaymentGroup paymentGroup,
 
         @Size(max = 500) String contractFilePath,
         String notes

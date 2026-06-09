@@ -2,6 +2,7 @@ package com.imedba.modules.payment.repository;
 
 import com.imedba.modules.payment.entity.Payment;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,4 +39,21 @@ public interface PaymentRepository
             WHERE p.enrollment.id = :enrollmentId
            """)
     BigDecimal sumByEnrollment(@Param("enrollmentId") UUID enrollmentId);
+
+    /**
+     * Total cobrado en un rango para las inscripciones de un curso. Alimenta el
+     * {@code totalCollected} automático de la liquidación de la diplomatura
+     * vinculada a ese curso (V026).
+     */
+    @Query("""
+           SELECT COALESCE(SUM(p.amount + p.lateFeeAmount), 0)
+             FROM Payment p
+            WHERE p.enrollment.course.id = :courseId
+              AND p.paymentDate >= :from
+              AND p.paymentDate < :to
+           """)
+    BigDecimal sumByCourseBetween(
+            @Param("courseId") UUID courseId,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
 }

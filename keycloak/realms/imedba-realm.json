@@ -41,7 +41,16 @@
               "discount_campaigns:read", "discount_campaigns:write",
               "notifications:manage",
               "reports:read",
-              "admin:manage"
+              "admin:manage",
+              "authors:read", "authors:write",
+              "books:read", "books:write",
+              "book_sales:read", "book_sales:write",
+              "diplomas:read", "diplomas:write",
+              "staff:read", "staff:write",
+              "hour_logs:read", "hour_logs:write",
+              "contacts:read", "contacts:write",
+              "notifications:read", "notifications:write",
+              "moodle:read", "moodle:write"
             ]
           }
         }
@@ -61,7 +70,9 @@
               "discount_campaigns:read",
               "residencias:read", "residencias:write",
               "formacion_superior:read", "formacion_superior:write",
-              "notifications:manage"
+              "notifications:manage",
+              "notifications:read", "notifications:write",
+              "contacts:read"
             ]
           }
         }
@@ -79,7 +90,10 @@
               "installments:read",
               "teaching:read",
               "formacion_superior:read", "formacion_superior:write",
-              "notifications:manage"
+              "notifications:manage",
+              "diplomas:read", "diplomas:write",
+              "notifications:read", "notifications:write",
+              "contacts:read"
             ]
           }
         }
@@ -93,7 +107,10 @@
             "imedba-backend": [
               "students:read",
               "editorial:read", "editorial:write",
-              "stock:read", "stock:write"
+              "stock:read", "stock:write",
+              "books:read", "books:write",
+              "authors:read", "authors:write",
+              "book_sales:read", "book_sales:write"
             ]
           }
         }
@@ -107,7 +124,9 @@
             "imedba-backend": [
               "budget:read", "budget:write",
               "payments:read",
-              "reports:read"
+              "reports:read",
+              "book_sales:read",
+              "contacts:read"
             ]
           }
         }
@@ -130,7 +149,15 @@
               "budget:read",
               "teaching:read",
               "settlements:read",
-              "reports:read"
+              "reports:read",
+              "authors:read",
+              "books:read",
+              "book_sales:read",
+              "diplomas:read",
+              "staff:read",
+              "hour_logs:read",
+              "contacts:read",
+              "notifications:read"
             ]
           }
         }
@@ -169,7 +196,27 @@
         { "name": "discount_campaigns:write" },
         { "name": "notifications:manage" },
         { "name": "reports:read" },
-        { "name": "admin:manage" }
+        { "name": "admin:manage" },
+
+        { "name": "authors:read" },
+        { "name": "authors:write" },
+        { "name": "books:read" },
+        { "name": "books:write" },
+        { "name": "book_sales:read" },
+        { "name": "book_sales:write" },
+        { "name": "diplomas:read" },
+        { "name": "diplomas:write" },
+        { "name": "staff:read" },
+        { "name": "staff:write" },
+        { "name": "hour_logs:read" },
+        { "name": "hour_logs:write" },
+        { "name": "contacts:read" },
+        { "name": "contacts:write" },
+        { "name": "notifications:read" },
+        { "name": "notifications:write" },
+
+        { "name": "moodle:read" },
+        { "name": "moodle:write" }
       ]
     }
   },

@@ -1,7 +1,6 @@
 package com.imedba.modules.enrollment.entity;
 
 import com.imedba.common.entity.BaseEntity;
-import com.imedba.common.enums.PaymentMethod;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.student.entity.Student;
 import jakarta.persistence.Column;
@@ -78,9 +77,8 @@ public class Enrollment extends BaseEntity {
     @Column(name = "num_installments", nullable = false)
     private Integer numInstallments = 1;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", length = 30)
-    private PaymentMethod paymentMethod;
+    // El medio de pago vive en la cuota/pago (Payment), no en la inscripción
+    // (reunión 2026-06-08). Columna payment_method dropeada en V024.
 
     @Column(name = "contract_file_path", length = 500)
     private String contractFilePath;
@@ -95,6 +93,15 @@ public class Enrollment extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
+
+    /**
+     * Grupo de pago: define el día de vencimiento de las cuotas (10 o 20) y el umbral del
+     * recargo. Reunión 2026-06-05. Default GROUP_1 (vence día 10, recargo día 11).
+     */
+    @Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_group", nullable = false, length = 20)
+    private PaymentGroup paymentGroup = PaymentGroup.GROUP_1;
 
     @Column(name = "moodle_status", length = 20)
     private String moodleStatus;

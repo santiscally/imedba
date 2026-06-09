@@ -4,7 +4,10 @@ import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.common.security.SegmentationFilter;
+import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.enrollment.entity.Enrollment;
+import com.imedba.modules.enrollment.entity.PaymentGroup;
+import com.imedba.modules.installment.dto.DebtorResponse;
 import com.imedba.modules.installment.dto.InstallmentResponse;
 import com.imedba.modules.installment.dto.InstallmentUpdateRequest;
 import com.imedba.modules.installment.entity.Installment;
@@ -12,16 +15,22 @@ import com.imedba.modules.installment.entity.InstallmentStatus;
 import com.imedba.modules.installment.mapper.InstallmentMapper;
 import com.imedba.modules.installment.repository.InstallmentRepository;
 import com.imedba.modules.installment.repository.InstallmentSpecs;
+import com.imedba.modules.student.entity.Student;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,19 +40,25 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class InstallmentService {
 
-    /** Recargo por mora: 5% sobre el amount, a partir del día 11 desde el vencimiento. */
+    /**
+     * Recargo por mora: 5% sobre el amount, a partir del día SIGUIENTE al vencimiento
+     * (reunión 2026-06-05, modelo "día del mes"): el vencimiento es el último día sin recargo
+     * (día 10 para GROUP_1, día 20 para GROUP_2), así que el recargo corre al día siguiente
+     * (día 11 / día 21). El umbral queda baked en el dueDate de cada cuota (ver PaymentGroup).
+     */
     public static final BigDecimal SURCHARGE_PCT = new BigDecimal("0.05");
-    public static final int SURCHARGE_GRACE_DAYS = 10;
+    public static final int SURCHARGE_GRACE_DAYS = 1;
 
     private final InstallmentRepository repository;
     private final InstallmentMapper mapper;
 
     @Transactional(readOnly = true)
     public Page<InstallmentResponse> list(
-            UUID enrollmentId, UUID courseId, InstallmentStatus status,
+            String q, UUID enrollmentId, UUID courseId, InstallmentStatus status,
             LocalDate from, LocalDate to, Pageable pageable) {
         Specification<Installment> spec = Specification
-                .where(InstallmentSpecs.byEnrollment(enrollmentId))
+                .where(InstallmentSpecs.matchesText(q))
+                .and(InstallmentSpecs.byEnrollment(enrollmentId))
                 .and(InstallmentSpecs.byCourse(courseId))
                 .and(InstallmentSpecs.byStatus(status))
                 .and(InstallmentSpecs.dueFrom(from))
@@ -60,6 +75,67 @@ public class InstallmentService {
                 .toList();
     }
 
+    /**
+     * Deudores agrupados por inscripción: cada alumno con sus cuotas impagas
+     * (PENDING/OVERDUE) juntas, ordenados por vencimiento más próximo. Paginado por
+     * deudor (no por cuota). Reunión 2026-06-05 — vista "agrupar pendientes por alumno".
+     *
+     * <p>Agrupa en memoria: el universo de cuotas impagas de IMEDBA es chico, así que
+     * traemos las filtradas y las agrupamos acá (evita SQL de GROUP BY + paginación
+     * anidada). Respeta búsqueda, curso, rango de vencimiento, segmentación y vendedora.</p>
+     */
+    @Transactional(readOnly = true)
+    public Page<DebtorResponse> debtors(
+            String q, UUID courseId, PaymentGroup group, LocalDate from, LocalDate to, Pageable pageable) {
+        Specification<Installment> spec = Specification
+                .where(InstallmentSpecs.matchesText(q))
+                .and(InstallmentSpecs.byCourse(courseId))
+                .and(InstallmentSpecs.byPaymentGroup(group))
+                .and(InstallmentSpecs.notPaid())
+                .and(InstallmentSpecs.dueFrom(from))
+                .and(InstallmentSpecs.dueTo(to))
+                .and(InstallmentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
+                .and(vendedoraScope());
+        List<Installment> all = repository.findAll(spec, Sort.by(Sort.Direction.ASC, "dueDate"));
+
+        LinkedHashMap<UUID, List<Installment>> byEnrollment = new LinkedHashMap<>();
+        for (Installment i : all) {
+            byEnrollment.computeIfAbsent(i.getEnrollment().getId(), k -> new ArrayList<>()).add(i);
+        }
+
+        List<DebtorResponse> debtors = byEnrollment.values().stream()
+                .map(this::toDebtor)
+                .sorted(Comparator.comparing(DebtorResponse::nextDueDate,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+
+        int total = debtors.size();
+        int fromIdx = (int) Math.min(pageable.getOffset(), total);
+        int toIdx = Math.min(fromIdx + pageable.getPageSize(), total);
+        return new PageImpl<>(debtors.subList(fromIdx, toIdx), pageable, total);
+    }
+
+    private DebtorResponse toDebtor(List<Installment> items) {
+        Enrollment e = items.get(0).getEnrollment();
+        Student s = e.getStudent();
+        Course c = e.getCourse();
+        BigDecimal totalOwed = items.stream()
+                .map(Installment::totalDue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDate nextDue = items.stream()
+                .map(Installment::getDueDate)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
+        List<InstallmentResponse> resp = items.stream()
+                .sorted(Comparator.comparing(Installment::getNumber))
+                .map(mapper::toResponse)
+                .toList();
+        return new DebtorResponse(
+                e.getId(), s.getId(), s.getLastName() + ", " + s.getFirstName(), s.getPhone(),
+                c.getId(), c.getName(), c.getCode(), e.getPaymentGroup(),
+                nextDue, totalOwed, items.size(), resp);
+    }
+
     @Transactional(readOnly = true)
     public InstallmentResponse get(UUID id) {
         return mapper.toResponse(findVisible(id));
@@ -72,6 +148,7 @@ public class InstallmentService {
         }
         if (req.amount() != null) i.setAmount(req.amount());
         if (req.dueDate() != null) i.setDueDate(req.dueDate());
+        if (req.notes() != null) i.setNotes(req.notes());
         return mapper.toResponse(i);
     }
 

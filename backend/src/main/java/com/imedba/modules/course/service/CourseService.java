@@ -28,13 +28,14 @@ public class CourseService {
     private final CourseMapper mapper;
 
     @Transactional(readOnly = true)
-    public Page<CourseResponse> list(String q, BusinessUnit businessUnit, String country, Boolean active, Pageable pageable) {
+    public Page<CourseResponse> list(String q, BusinessUnit businessUnit, String country,
+                                     Boolean active, Integer year, Pageable pageable) {
         Set<BusinessUnit> allowed = SegmentationFilter.allowedBusinessUnits();
         if (businessUnit != null && !allowed.contains(businessUnit)) {
             return Page.empty(pageable);
         }
         String search = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase();
-        return repository.search(search, businessUnit, allowed, country, active, pageable)
+        return repository.search(search, businessUnit, allowed, country, active, year, pageable)
                 .map(mapper::toResponse);
     }
 

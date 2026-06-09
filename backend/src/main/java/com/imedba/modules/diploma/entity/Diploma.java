@@ -1,8 +1,12 @@
 package com.imedba.modules.diploma.entity;
 
 import com.imedba.common.entity.BaseEntity;
+import com.imedba.modules.course.entity.Course;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -34,6 +38,15 @@ public class Diploma extends BaseEntity {
 
     @Column(name = "university_name", length = 200)
     private String universityName;
+
+    /**
+     * Curso (unidad FS) por el que se inscriben los alumnos de esta diplomatura.
+     * La inscripción/cuotas/pagos pasan por el flujo de cursos; la liquidación
+     * suma los pagos del período de las inscripciones de este curso (V026).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
+    private Course course;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;

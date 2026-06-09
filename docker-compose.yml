@@ -74,6 +74,18 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-no-reply@imedba.local}
       SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-IMEDBA}
+      # Moodle (LMS) — inerte hasta tener token de David. Activar: MOODLE_ENABLED=true + URL + TOKEN.
+      MOODLE_ENABLED: ${MOODLE_ENABLED:-false}
+      MOODLE_URL: ${MOODLE_URL:-}
+      MOODLE_TOKEN: ${MOODLE_TOKEN:-}
+      MOODLE_DEFAULT_STUDENT_ROLE_ID: ${MOODLE_DEFAULT_STUDENT_ROLE_ID:-5}
+      # Módulo Personal: gestión de usuarios vía Keycloak Admin API (red interna).
+      # En dev usa el admin del realm master (admin/admin). Prod: service account dedicado.
+      KEYCLOAK_ADMIN_BASE_URL: ${KEYCLOAK_ADMIN_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-imedba}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      USER_ADMIN_ENABLED: ${USER_ADMIN_ENABLED:-true}
       TZ: ${TZ:-America/Argentina/Buenos_Aires}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"

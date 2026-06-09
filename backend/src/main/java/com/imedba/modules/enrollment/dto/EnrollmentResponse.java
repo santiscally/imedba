@@ -1,7 +1,7 @@
 package com.imedba.modules.enrollment.dto;
 
-import com.imedba.common.enums.PaymentMethod;
 import com.imedba.modules.enrollment.entity.EnrollmentStatus;
+import com.imedba.modules.enrollment.entity.PaymentGroup;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -22,7 +22,7 @@ public record EnrollmentResponse(
 
         BigDecimal enrollmentFee,
         Integer numInstallments,
-        PaymentMethod paymentMethod,
+        PaymentGroup paymentGroup,
 
         String contractFilePath,
         Instant contractSentAt,

@@ -38,8 +38,9 @@ public class CourseController {
             @RequestParam(required = false) BusinessUnit businessUnit,
             @RequestParam(required = false) String country,
             @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return PageResponse.of(service.list(q, businessUnit, country, active, pageable));
+        return PageResponse.of(service.list(q, businessUnit, country, active, year, pageable));
     }
 
     @GetMapping("/{id}")

@@ -3,6 +3,8 @@ package com.imedba.modules.installment.controller;
 import com.imedba.common.dto.PageResponse;
 import com.imedba.modules.dashboard.dto.OverdueInstallmentResponse;
 import com.imedba.modules.dashboard.service.DashboardService;
+import com.imedba.modules.enrollment.entity.PaymentGroup;
+import com.imedba.modules.installment.dto.DebtorResponse;
 import com.imedba.modules.installment.dto.InstallmentResponse;
 import com.imedba.modules.installment.dto.InstallmentUpdateRequest;
 import com.imedba.modules.installment.entity.InstallmentStatus;
@@ -35,6 +37,7 @@ public class InstallmentController {
     @GetMapping
     @PreAuthorize("hasAuthority('installments:read')")
     public PageResponse<InstallmentResponse> list(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID enrollmentId,
             @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) InstallmentStatus status,
@@ -43,13 +46,31 @@ public class InstallmentController {
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
             @PageableDefault(size = 20, sort = "dueDate") Pageable pageable) {
-        return PageResponse.of(service.list(enrollmentId, courseId, status, dueFrom, dueTo, pageable));
+        return PageResponse.of(service.list(q, enrollmentId, courseId, status, dueFrom, dueTo, pageable));
     }
 
     @GetMapping("/by-enrollment/{enrollmentId}")
     @PreAuthorize("hasAuthority('installments:read')")
     public List<InstallmentResponse> byEnrollment(@PathVariable UUID enrollmentId) {
         return service.listByEnrollment(enrollmentId);
+    }
+
+    /**
+     * Deudores agrupados por alumno/inscripción (cuotas impagas juntas). Para la vista
+     * "agrupar pendientes por alumno" de Cuotas. Reunión 2026-06-05. Paginado por deudor.
+     */
+    @GetMapping("/debtors")
+    @PreAuthorize("hasAuthority('installments:read')")
+    public PageResponse<DebtorResponse> debtors(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID courseId,
+            @RequestParam(required = false) PaymentGroup group,
+            @RequestParam(required = false)
+                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
+            @RequestParam(required = false)
+                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.of(service.debtors(q, courseId, group, dueFrom, dueTo, pageable));
     }
 
     /**

@@ -49,7 +49,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
         createCourse("X", "DUP-01", BusinessUnit.GENERAL, true);
         var dup = new CourseCreateRequest(
                 "Y", "DUP-01", null, BusinessUnit.GENERAL, null, "AR",
-                BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, true);
+                BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, null, true);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dup)))
@@ -60,7 +60,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
         var req = new CourseCreateRequest(
                 name, code, null, bu, "VIRTUAL", "AR",
                 new BigDecimal("10000.00"), new BigDecimal("50000.00"),
-                null, null, null, active);
+                null, null, null, null, active);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

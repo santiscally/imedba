@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 #
-# Sincroniza las 4 authorities (installments + discount_campaigns) al
+# Sincroniza TODAS las authorities que el backend chequea (@PreAuthorize) al
 # Keycloak corriendo, sin necesidad de `docker compose down -v`.
 #
 # El realm export (`keycloak/realms/imedba-realm.json`) sólo se importa la
-# primera vez (cuando arranca con DB vacía). Este script aplica esas
-# authorities + composites al Keycloak vivo via kcadm.sh.
+# primera vez (cuando arranca con DB vacía). Este script aplica las client
+# roles faltantes + sus composites por rol al Keycloak vivo via kcadm.sh.
 #
-# Idempotente: si una authority o composite ya existe, no rompe.
+# Es ADITIVO e IDEMPOTENTE: crea lo que falta, no borra lo que sobra.
 #
-# Uso:
-#   ./scripts/kc-sync-authorities.sh
+# Contexto: el realm original definió authorities "conceptuales" (editorial,
+# stock, teaching, settlements, notifications:manage) que el código NUNCA usó —
+# el código quedó con authorities por módulo (books, authors, book_sales,
+# diplomas, staff, hour_logs, contacts, notifications:read/write). Por eso
+# Diplomaturas/Libros/Ventas/Personal/Horas/Contactos/Notificaciones daban 403.
 #
-# Requiere: docker compose up para el servicio `keycloak` corriendo.
+# Uso:   ./scripts/kc-sync-authorities.sh
+# Requiere: el servicio `keycloak` corriendo.
 #
 set -euo pipefail
 
-# Evita que MSYS/Git-Bash en Windows convierta /opt/... a C:/Program Files/Git/opt/...
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
 
@@ -25,26 +28,43 @@ CLIENT_ID="imedba-backend"
 ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
 ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
 
+# Client roles que el código usa y que faltaban en el realm export.
 NEW_ROLES=(
-  "installments:read"
-  "installments:write"
-  "discount_campaigns:read"
-  "discount_campaigns:write"
+  "authors:read"        "authors:write"
+  "books:read"          "books:write"
+  "book_sales:read"     "book_sales:write"
+  "diplomas:read"       "diplomas:write"
+  "staff:read"          "staff:write"
+  "hour_logs:read"      "hour_logs:write"
+  "contacts:read"       "contacts:write"
+  "notifications:read"  "notifications:write"
+  "moodle:read"         "moodle:write"
 )
 
-# Realm-role -> lista de client-roles a componer
+# Realm-role -> client-roles a componer (additivo; los previos quedan).
 composites_for() {
   case "$1" in
-    ADMIN)         echo "installments:read installments:write discount_campaigns:read discount_campaigns:write" ;;
-    VENDEDORA)     echo "installments:read installments:write discount_campaigns:read" ;;
-    SECRETARIA_FS) echo "installments:read" ;;
-    CONTABLE)      echo "installments:read installments:write discount_campaigns:read discount_campaigns:write" ;;
-    VIEWER)        echo "installments:read discount_campaigns:read" ;;
+    ADMIN)
+      echo "authors:read authors:write books:read books:write book_sales:read book_sales:write \
+            diplomas:read diplomas:write staff:read staff:write hour_logs:read hour_logs:write \
+            contacts:read contacts:write notifications:read notifications:write \
+            moodle:read moodle:write" ;;
+    VENDEDORA)
+      echo "notifications:read notifications:write contacts:read" ;;
+    SECRETARIA_FS)
+      echo "diplomas:read diplomas:write notifications:read notifications:write contacts:read" ;;
+    EDITORIAL)
+      echo "books:read books:write authors:read authors:write book_sales:read book_sales:write" ;;
+    CONTABLE)
+      echo "book_sales:read contacts:read" ;;
+    VIEWER)
+      echo "authors:read books:read book_sales:read diplomas:read staff:read hour_logs:read \
+            contacts:read notifications:read" ;;
     *) echo "" ;;
   esac
 }
 
-REALM_ROLES=(ADMIN VENDEDORA SECRETARIA_FS CONTABLE VIEWER)
+REALM_ROLES=(ADMIN VENDEDORA SECRETARIA_FS EDITORIAL CONTABLE VIEWER)
 
 KC=(docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh)
 
@@ -58,10 +78,7 @@ CLIENT_UUID="$(
     -q "clientId=${CLIENT_ID}" --fields id --format csv --noquotes \
   | tr -d '\r' | tail -n1
 )"
-if [ -z "$CLIENT_UUID" ]; then
-  echo "✗ No se pudo encontrar el client ${CLIENT_ID} en el realm ${REALM}" >&2
-  exit 1
-fi
+[ -n "$CLIENT_UUID" ] || { echo "✗ client ${CLIENT_ID} no encontrado" >&2; exit 1; }
 echo "  UUID = ${CLIENT_UUID}"
 
 echo "→ Creando client roles faltantes…"
@@ -76,8 +93,7 @@ done
 
 echo "→ Componiendo realm roles…"
 for REALM_ROLE in "${REALM_ROLES[@]}"; do
-  CR_LIST="$(composites_for "$REALM_ROLE")"
-  for CR in $CR_LIST; do
+  for CR in $(composites_for "$REALM_ROLE"); do
     if "${KC[@]}" add-roles -r "$REALM" --rname "$REALM_ROLE" \
          --cclientid "$CLIENT_ID" --rolename "$CR" >/dev/null 2>&1; then
       echo "  + ${REALM_ROLE} ← ${CR}"

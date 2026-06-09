@@ -36,6 +36,7 @@ public class PaymentController {
     @GetMapping
     @PreAuthorize("hasAuthority('payments:read')")
     public PageResponse<PaymentResponse> list(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) UUID enrollmentId,
             @RequestParam(required = false) UUID installmentId,
             @RequestParam(required = false) UUID courseId,
@@ -45,7 +46,7 @@ public class PaymentController {
             @RequestParam(required = false)
                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 20, sort = "paymentDate") Pageable pageable) {
-        return PageResponse.of(service.list(enrollmentId, installmentId, courseId, method, from, to, pageable));
+        return PageResponse.of(service.list(q, enrollmentId, installmentId, courseId, method, from, to, pageable));
     }
 
     @GetMapping("/by-enrollment/{enrollmentId}")

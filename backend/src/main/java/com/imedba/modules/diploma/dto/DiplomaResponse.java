@@ -9,6 +9,8 @@ public record DiplomaResponse(
         UUID id,
         String name,
         String universityName,
+        UUID courseId,
+        String courseName,
         String description,
         BigDecimal enrollmentPrice,
         BigDecimal coursePrice,

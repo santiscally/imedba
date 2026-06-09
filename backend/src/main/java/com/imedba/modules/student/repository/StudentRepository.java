@@ -1,6 +1,7 @@
 package com.imedba.modules.student.repository;
 
 import com.imedba.modules.student.entity.Student;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     boolean existsByEmailIgnoreCase(String email);
+
+    /** Alumnos todavía no vinculados a Moodle (sin {@code moodle_user_id}). Para el vínculo masivo. */
+    List<Student> findByMoodleUserIdIsNull();
 
     /**
      * Búsqueda libre por nombre/apellido/email/DNI. Case-insensitive. Aprovecha el

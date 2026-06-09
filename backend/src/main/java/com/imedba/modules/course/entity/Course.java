@@ -58,6 +58,13 @@ public class Course extends BaseEntity {
     @Column(name = "exam_date")
     private LocalDate examDate;
 
+    /**
+     * Ciclo lectivo / año del curso (ej. 2026). Nullable: los cursos "libres" (el
+     * básico de Residencias) no llevan año. Reunión 2026-06-05 §3.7: agrupar por ciclo.
+     */
+    @Column(name = "academic_year")
+    private Integer academicYear;
+
     @Column(name = "contract_template_path", length = 500)
     private String contractTemplatePath;
 

@@ -13,7 +13,10 @@ public interface DiplomaMapper {
     default DiplomaResponse toResponse(Diploma d) {
         if (d == null) return null;
         return new DiplomaResponse(
-                d.getId(), d.getName(), d.getUniversityName(), d.getDescription(),
+                d.getId(), d.getName(), d.getUniversityName(),
+                d.getCourse() != null ? d.getCourse().getId() : null,
+                d.getCourse() != null ? d.getCourse().getName() : null,
+                d.getDescription(),
                 d.getEnrollmentPrice(), d.getCoursePrice(),
                 d.getTaxCommissionPct(), d.getSecretarySalary(), d.getAdvertisingAmount(),
                 d.getAdminPct(), d.getUniversityPct(), d.getImedbaPct(),

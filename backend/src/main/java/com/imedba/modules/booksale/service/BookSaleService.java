@@ -94,6 +94,33 @@ public class BookSaleService {
         return mapper.toResponse(saved);
     }
 
+    /**
+     * Crea una venta de libro como parte de una venta de colección, con un precio
+     * unitario ya calculado (el split de la colección). Reserva 1 de stock, registra
+     * la venta y la linkea al presupuesto. Reunión 2026-06-05.
+     */
+    public BookSale createForCollection(
+            UUID bookId, BigDecimal unitPrice, boolean studentSale,
+            Student student, Enrollment enrollment, String notes) {
+        Book book = bookService.reserveStock(bookId, 1);
+        BigDecimal price = unitPrice.setScale(2, RoundingMode.HALF_UP);
+        BookSale sale = BookSale.builder()
+                .book(book)
+                .student(student)
+                .enrollment(enrollment)
+                .quantity(1)
+                .unitPrice(price)
+                .studentSale(studentSale)
+                .totalAmount(price)
+                .saleDate(Instant.now())
+                .soldBy(AuthUtils.currentUserId().orElse(null))
+                .notes(notes)
+                .build();
+        BookSale saved = repository.save(sale);
+        budgetService.linkFromBookSale(saved);
+        return saved;
+    }
+
     @Transactional(readOnly = true)
     public BookSaleResponse get(UUID id) {
         return mapper.toResponse(find(id));

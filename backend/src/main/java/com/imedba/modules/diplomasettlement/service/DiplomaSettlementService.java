@@ -3,6 +3,11 @@ package com.imedba.modules.diplomasettlement.service;
 import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
+import com.imedba.modules.budget.entity.BudgetCategory;
+import com.imedba.modules.budget.entity.BudgetEntry;
+import com.imedba.modules.budget.entity.BusinessUnit;
+import com.imedba.modules.budget.entity.EntryType;
+import com.imedba.modules.budget.repository.BudgetEntryRepository;
 import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.service.DiplomaService;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementCreateRequest;
@@ -17,21 +22,31 @@ import com.imedba.modules.notification.entity.RelatedEntityType;
 import com.imedba.modules.notification.service.NotificationService;
 import com.imedba.modules.notification.template.NotificationTemplate;
 import com.imedba.modules.notification.template.NotificationTemplates;
+import com.imedba.modules.payment.repository.PaymentRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class DiplomaSettlementService {
 
+    private static final ZoneId ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
+
     private final DiplomaSettlementRepository repository;
     private final DiplomaSettlementMapper mapper;
     private final DiplomaService diplomaService;
     private final NotificationService notificationService;
+    private final PaymentRepository paymentRepository;
+    private final BudgetEntryRepository budgetEntryRepository;
 
     public DiplomaSettlementResponse createDraft(DiplomaSettlementCreateRequest req) {
         repository.findByDiplomaIdAndPeriodYearAndPeriodMonth(
@@ -43,11 +58,18 @@ public class DiplomaSettlementService {
                 });
 
         Diploma d = diplomaService.findEntity(req.diplomaId());
+
+        // totalCollected: si no viene, se suma automáticamente lo cobrado en el período
+        // por las inscripciones del curso vinculado a la diplomatura (V026).
+        BigDecimal total = req.totalCollected() != null
+                ? req.totalCollected()
+                : collectedForPeriod(d, req.periodYear(), req.periodMonth());
+
         SettlementEngine.Inputs inputs = new SettlementEngine.Inputs(
                 req.taxCommissionPct(), req.secretarySalary(), req.advertisingAmount(),
                 req.adminPct(), req.universityPct(), req.imedbaPct());
         DiplomaSettlement settlement = SettlementEngine.compute(
-                d, req.periodYear(), req.periodMonth(), req.totalCollected(), inputs);
+                d, req.periodYear(), req.periodMonth(), total, inputs);
         settlement.setStatus(SettlementStatus.DRAFT);
         settlement.setCreatedBy(AuthUtils.currentUserId().orElse(null));
         return mapper.toResponse(repository.save(settlement));
@@ -60,6 +82,12 @@ public class DiplomaSettlementService {
                     "Sólo se puede recalcular mientras la liquidación está en DRAFT");
         }
         // Recompute usa los inputs persistidos en el settlement (ya cargados por createDraft).
+        // Si la diplomatura tiene curso vinculado, refresca también el totalCollected desde
+        // los pagos (pueden haber entrado cobros nuevos del período desde que se creó el draft).
+        if (existing.getDiploma() != null && existing.getDiploma().getCourse() != null) {
+            existing.setTotalCollected(collectedForPeriod(
+                    existing.getDiploma(), existing.getPeriodYear(), existing.getPeriodMonth()));
+        }
         SettlementEngine.Inputs inputs = new SettlementEngine.Inputs(
                 existing.getInputTaxCommissionPct(), existing.getInputSecretarySalary(),
                 existing.getInputAdvertisingAmount(), existing.getInputAdminPct(),
@@ -129,7 +157,82 @@ public class DiplomaSettlementService {
                     "Sólo se puede marcar PAID una liquidación APPROVED (actual: " + s.getStatus() + ")");
         }
         s.setStatus(SettlementStatus.PAID);
+        createBudgetExpenses(s);
         return mapper.toResponse(s);
+    }
+
+    // ─── totalCollected automático (V026) ────────────────────────────────────
+
+    /**
+     * Total cobrado en el período por las inscripciones del curso vinculado a la
+     * diplomatura. Null si la diplomatura no tiene curso vinculado (el engine lo
+     * trata como 0; en ese caso conviene cargar el total a mano).
+     */
+    private BigDecimal collectedForPeriod(Diploma d, int year, int month) {
+        if (d == null || d.getCourse() == null) {
+            return null;
+        }
+        LocalDate first = LocalDate.of(year, month, 1);
+        return paymentRepository.sumByCourseBetween(
+                d.getCourse().getId(),
+                first.atStartOfDay(ZONE).toInstant(),
+                first.plusMonths(1).atStartOfDay(ZONE).toInstant());
+    }
+
+    // ─── Egresos en Presupuesto al marcar PAID ───────────────────────────────
+
+    /**
+     * La liquidación pagada ES plata que sale (pedido 2026-06-09: "cuando liquidás
+     * debería quedar como un egreso"). Genera un asiento EXPENSE por cada componente
+     * que se le paga a un tercero, en la unidad FORMACION_SUPERIOR y el período de
+     * la liquidación. La porción IMEDBA no se asienta: es lo que queda en la casa.
+     *
+     * <p>Idempotente por diseño: markPaid sólo transiciona APPROVED→PAID una vez.</p>
+     */
+    private void createBudgetExpenses(DiplomaSettlement s) {
+        String diplomaName = s.getDiploma() != null ? s.getDiploma().getName() : "";
+        String period = String.format("%02d/%d", s.getPeriodMonth(), s.getPeriodYear());
+        String prefix = "Liquidación " + diplomaName + " " + period;
+
+        int created = 0;
+        created += expense(s, BudgetCategory.TAXES, prefix + " — Impuestos y comisiones",
+                s.getTaxCommissionAmount());
+        created += expense(s, BudgetCategory.SALARIES, prefix + " — Sueldo secretaría",
+                s.getSecretaryAmount());
+        created += expense(s, BudgetCategory.ADVERTISING, prefix + " — Publicidad",
+                s.getAdvertisingAmount());
+        created += expense(s, BudgetCategory.OTHER, prefix + " — Administración",
+                s.getAdminAmount());
+        created += expense(s, BudgetCategory.SUPPLIERS, prefix + " — Universidad",
+                s.getUniversityAmount());
+        if (s.getPartnersDistribution() != null) {
+            for (PartnerDistribution p : s.getPartnersDistribution()) {
+                created += expense(s, BudgetCategory.SUPPLIERS,
+                        prefix + " — Directora " + (p.name() != null ? p.name() : ""),
+                        p.amount());
+            }
+        }
+        log.info("Liquidación {} marcada PAID: {} egresos asentados en Presupuesto", s.getId(), created);
+    }
+
+    private int expense(DiplomaSettlement s, BudgetCategory category, String concept, BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            return 0;
+        }
+        budgetEntryRepository.save(BudgetEntry.builder()
+                .entryType(EntryType.EXPENSE)
+                .category(category)
+                .subcategory("Liquidación diplomatura")
+                .businessUnit(BusinessUnit.FORMACION_SUPERIOR)
+                .concept(concept)
+                .amount(amount)
+                .entryDate(LocalDate.now(ZONE))
+                .periodMonth(s.getPeriodMonth())
+                .periodYear(s.getPeriodYear())
+                .referenceNumber("LIQ-" + s.getId())
+                .registeredBy(AuthUtils.currentUserId().orElse(null))
+                .build());
+        return 1;
     }
 
     @Transactional(readOnly = true)

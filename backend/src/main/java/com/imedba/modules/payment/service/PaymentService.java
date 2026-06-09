@@ -52,10 +52,11 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public Page<PaymentResponse> list(
-            UUID enrollmentId, UUID installmentId, UUID courseId, PaymentMethod method,
+            String q, UUID enrollmentId, UUID installmentId, UUID courseId, PaymentMethod method,
             Instant from, Instant to, Pageable pageable) {
         Specification<Payment> spec = Specification
-                .where(PaymentSpecs.byEnrollment(enrollmentId))
+                .where(PaymentSpecs.matchesText(q))
+                .and(PaymentSpecs.byEnrollment(enrollmentId))
                 .and(PaymentSpecs.byInstallment(installmentId))
                 .and(PaymentSpecs.byCourse(courseId))
                 .and(PaymentSpecs.byMethod(method))
