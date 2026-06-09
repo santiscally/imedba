@@ -4,6 +4,7 @@ import com.imedba.common.dto.PageResponse;
 import com.imedba.modules.book.dto.BookAuthorRequest;
 import com.imedba.modules.book.dto.BookCreateRequest;
 import com.imedba.modules.book.dto.BookResponse;
+import com.imedba.modules.book.dto.BookStockUpdateRequest;
 import com.imedba.modules.book.dto.BookUpdateRequest;
 import com.imedba.modules.book.service.BookService;
 import jakarta.validation.Valid;
@@ -59,6 +60,13 @@ public class BookController {
     @PreAuthorize("hasAuthority('books:write')")
     public BookResponse update(@PathVariable UUID id, @Valid @RequestBody BookUpdateRequest req) {
         return service.update(id, req);
+    }
+
+    @PutMapping("/{id}/stock")
+    @PreAuthorize("hasAuthority('books:write')")
+    public BookResponse updateStock(@PathVariable UUID id,
+                                    @Valid @RequestBody BookStockUpdateRequest req) {
+        return service.updateStock(id, req.stockQuantity());
     }
 
     @PutMapping("/{id}/deactivate")

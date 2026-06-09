@@ -10,6 +10,7 @@ import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.mapper.CourseMapper;
 import com.imedba.modules.course.repository.CourseRepository;
+import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CourseService {
 
     private final CourseRepository repository;
+    private final EnrollmentRepository enrollmentRepository;
     private final CourseMapper mapper;
 
     @Transactional(readOnly = true)
@@ -81,6 +83,14 @@ public class CourseService {
     public void delete(UUID id) {
         Course c = find(id);
         ensureVisible(c);
+        // Un curso soft-deleted rompe los joins de inscripciones/cuotas que lo referencian:
+        // bloquear si tiene inscripciones (de cualquier estado). Para sacarlo de circulación
+        // alcanza con desactivarlo (active=false).
+        if (enrollmentRepository.existsByCourseId(id)) {
+            throw new ConflictException(
+                    "El curso tiene inscripciones asociadas: no puede eliminarse. "
+                            + "Desactivalo para que no aparezca en nuevas inscripciones.");
+        }
         repository.delete(c);
     }
 

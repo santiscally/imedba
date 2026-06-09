@@ -140,6 +140,24 @@ public class NotificationService {
         return repository.save(n);
     }
 
+    /**
+     * Cancela todas las notificaciones QUEUED asociadas a una entidad (p. ej. al eliminar
+     * una inscripción, para que no salgan mails de algo que ya no existe).
+     */
+    @Transactional
+    public int cancelQueuedByRelated(RelatedEntityType relatedEntityType, UUID relatedEntityId) {
+        List<Notification> related = repository.findAllByRelatedEntityTypeAndRelatedEntityId(
+                relatedEntityType, relatedEntityId);
+        int cancelled = 0;
+        for (Notification n : related) {
+            if (n.getStatus() == NotificationStatus.QUEUED) {
+                n.setStatus(NotificationStatus.CANCELLED);
+                cancelled++;
+            }
+        }
+        return cancelled;
+    }
+
     private static String truncate(String s, int max) {
         if (s == null) return null;
         return s.length() <= max ? s : s.substring(0, max);

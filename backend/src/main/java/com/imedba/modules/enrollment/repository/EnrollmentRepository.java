@@ -16,4 +16,8 @@ public interface EnrollmentRepository
 
     boolean existsByStudentIdAndStatusIn(
             UUID studentId, java.util.Collection<EnrollmentStatus> statuses);
+
+    boolean existsByStudentId(UUID studentId);
+
+    boolean existsByCourseId(UUID courseId);
 }

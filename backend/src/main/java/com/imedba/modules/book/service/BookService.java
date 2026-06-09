@@ -80,6 +80,17 @@ public class BookService {
         b.setActive(Boolean.FALSE);
     }
 
+    /**
+     * Ajuste manual de stock a valor absoluto (recepción de imprenta, corrección de
+     * inventario). Separado del update general para que un form stale no pise el stock
+     * que las ventas descuentan solas.
+     */
+    public BookResponse updateStock(UUID id, int stockQuantity) {
+        Book b = find(id);
+        b.setStockQuantity(stockQuantity);
+        return toResponse(b);
+    }
+
     public BookResponse addAuthor(UUID bookId, BookAuthorRequest link) {
         Book b = find(bookId);
         Author a = authorRepository.findById(link.authorId())

@@ -19,6 +19,7 @@ import com.imedba.modules.enrollment.mapper.EnrollmentMapper;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.enrollment.repository.EnrollmentSpecs;
 import com.imedba.modules.installment.entity.Installment;
+import com.imedba.modules.installment.entity.InstallmentStatus;
 import com.imedba.modules.installment.repository.InstallmentRepository;
 import com.imedba.modules.installment.service.InstallmentGenerator;
 import com.imedba.modules.notification.entity.NotificationType;
@@ -203,11 +204,32 @@ public class EnrollmentService {
                     "No se puede cancelar una inscripción " + e.getStatus());
         }
         e.setStatus(EnrollmentStatus.CANCELLED);
+        cancelOpenInstallments(e.getId());
         return mapper.toResponse(e);
     }
 
     public void delete(UUID id) {
-        repository.delete(findVisible(id));
+        Enrollment e = findVisible(id);
+        boolean hasPaid = installmentRepository.findByEnrollmentIdOrderByNumberAsc(id).stream()
+                .anyMatch(i -> i.getStatus() == InstallmentStatus.PAID);
+        if (hasPaid) {
+            throw new ConflictException(
+                    "La inscripción tiene cuotas pagadas: no puede eliminarse. "
+                            + "Cancelala para conservar el historial de pagos.");
+        }
+        cancelOpenInstallments(id);
+        notificationService.cancelQueuedByRelated(RelatedEntityType.ENROLLMENT, id);
+        repository.delete(e);
+    }
+
+    /** Anula las cuotas PENDING/OVERDUE de la inscripción (no tocan PAID ni CANCELLED). */
+    private void cancelOpenInstallments(UUID enrollmentId) {
+        for (Installment i : installmentRepository.findByEnrollmentIdOrderByNumberAsc(enrollmentId)) {
+            if (i.getStatus() == InstallmentStatus.PENDING
+                    || i.getStatus() == InstallmentStatus.OVERDUE) {
+                i.setStatus(InstallmentStatus.CANCELLED);
+            }
+        }
     }
 
     // --- helpers ---

@@ -1,6 +1,7 @@
 package com.imedba.common.error;
 
 import com.imedba.modules.useradmin.client.KeycloakAdminException;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -69,6 +73,39 @@ public class GlobalExceptionHandler {
         log.warn("Keycloak admin error en {}: {}", req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_GATEWAY, "KEYCLOAK_ADMIN_ERROR",
                 "Error gestionando usuarios en Keycloak: " + ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiError> handleMissingParam(
+            MissingServletRequestParameterException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",
+                "Falta el parámetro requerido: " + ex.getParameterName(), req);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                "Método " + ex.getMethod() + " no soportado en esta ruta", req);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(
+            HttpMessageNotReadableException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST",
+                "Cuerpo de la petición inválido (JSON malformado o valor de enum inexistente)", req);
+    }
+
+    /**
+     * Proxy lazy contra una fila soft-deleted (p. ej. inscripción cuyo alumno fue borrado
+     * antes de que existieran los guards de integridad). Sin esto explotaba como 500 pelado.
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiError> handleEntityNotFound(
+            EntityNotFoundException ex, HttpServletRequest req) {
+        log.warn("Referencia a entidad eliminada en {}: {}", req.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.CONFLICT, "DELETED_REFERENCE",
+                "El registro referencia datos que fueron eliminados", req);
     }
 
     @ExceptionHandler(Exception.class)

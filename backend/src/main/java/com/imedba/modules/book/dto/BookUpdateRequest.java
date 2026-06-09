@@ -5,6 +5,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
+/**
+ * El stock NO se edita por acá: las ventas lo descuentan solas y un PUT con el valor
+ * stale del form lo pisaba (bug testeo integral 2026-06-09). Ajustes manuales de stock:
+ * {@code PUT /books/{id}/stock} con {@link BookStockUpdateRequest}.
+ */
 public record BookUpdateRequest(
         @Size(max = 255) String name,
         @Size(max = 50) String code,
@@ -15,7 +20,6 @@ public record BookUpdateRequest(
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal salePrice,
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal studentDiscountPct,
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal costPerUnit,
-        @Min(0) Integer stockQuantity,
         @Size(max = 50) String branch,
         Boolean active
 ) {}

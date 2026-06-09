@@ -18,6 +18,8 @@ import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,21 @@ public class InstallmentScheduler {
     private final MoodleService moodleService;
     private final NotificationService notificationService;
     private final WhatsAppSender whatsAppSender;
+
+    /**
+     * Catch-up al arrancar la app: los crons de las 06:00/06:10 NO se recuperan si la app
+     * estaba apagada a esa hora (Spring no hace catch-up de corridas perdidas). Sin esto,
+     * en dev (stack prendido a demanda) las cuotas vencidas quedaban PENDING para siempre
+     * y nunca se aplicaba recargo ni suspensión (testeo integral 2026-06-09).
+     * Ambos jobs son idempotentes, así que correrlos de más no duplica efectos.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void catchUpOnStartup() {
+        log.info("Installment catch-up al startup: corriendo jobs de recargo y suspensión");
+        applySurchargesJob();
+        flagMoodleSuspensionsJob();
+    }
 
     /**
      * Todos los días a las 06:00 (zona {@link #ZONE}): aplica recargos a las cuotas vencidas

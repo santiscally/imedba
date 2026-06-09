@@ -2,6 +2,7 @@ package com.imedba.modules.student.service;
 
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
+import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.student.dto.StudentCreateRequest;
 import com.imedba.modules.student.dto.StudentResponse;
 import com.imedba.modules.student.dto.StudentUpdateRequest;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class StudentService {
 
     private final StudentRepository repository;
+    private final EnrollmentRepository enrollmentRepository;
     private final StudentMapper mapper;
 
     @Transactional(readOnly = true)
@@ -62,6 +64,14 @@ public class StudentService {
 
     public void delete(UUID id) {
         Student s = find(id);
+        // Un alumno soft-deleted rompe los proxies lazy de sus inscripciones (los listados
+        // de Inscripciones/Deudores devolvían 500). Cualquier inscripción, incluso
+        // cancelada, referencia al alumno: bloquear el borrado.
+        if (enrollmentRepository.existsByStudentId(id)) {
+            throw new ConflictException(
+                    "El alumno tiene inscripciones asociadas: no puede eliminarse. "
+                            + "Desactivalo o cancelá/eliminá primero sus inscripciones.");
+        }
         repository.delete(s); // @SQLDelete → UPDATE deleted_at = NOW()
     }
 
