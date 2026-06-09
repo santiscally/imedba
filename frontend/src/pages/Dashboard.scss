@@ -5,6 +5,65 @@
   flex-direction: column;
   gap: 1.75rem;
   max-width: 1400px;
+
+  &__greeting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  &__hello {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $texto-oscuro;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  &__period {
+    font-size: 0.92rem;
+    color: $gris-texto;
+    margin: 0;
+  }
+
+  &__empty {
+    background: $blanco;
+    border: 1px dashed $gris-borde;
+    border-radius: $radio-lg;
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+}
+
+.stat-card__value-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: $texto-oscuro;
+  line-height: 1.3;
+  margin-bottom: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  &.muted {
+    color: $gris-texto-sutil;
+    font-weight: 500;
+    font-style: italic;
+  }
+}
+
+.stat-card__sub {
+  font-size: 0.78rem;
+  color: $gris-texto;
+}
+
+.stat-card__trend.muted {
+  color: $gris-texto-sutil;
+  font-weight: 500;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

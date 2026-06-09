@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  Search, Plus, ChevronLeft, ChevronRight,
+  Search, Plus, ChevronLeft, ChevronRight, ChevronDown,
   ShoppingBag, Coins, ArrowUp, ArrowDown, ArrowUpDown,
   Book as BookIcon, CircleDollarSign, Calendar, Eye, GraduationCap,
+  Download, User as UserIcon,
 } from 'lucide-react'
 import { bookSalesApi } from '../api/book-sales'
 import type { PageResponse } from '../types/common'
@@ -11,6 +12,7 @@ import EmptyState from '../components/EmptyState'
 import BookSaleForm from '../components/BookSaleForm'
 import BookSaleDetail from '../components/BookSaleDetail'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
@@ -19,12 +21,29 @@ type SortDir = 'asc' | 'desc'
 type SaleSortField = 'saleDate' | 'totalAmount' | 'quantity'
 type SaleSort = { field: SaleSortField; dir: SortDir } | null
 
+type PeriodType = 'mes' | 'trimestre' | 'semestre' | 'anio'
+
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create' }
   | { kind: 'detail'; sale: BookSale }
 
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+const PERIOD_LABELS: Record<PeriodType, string> = {
+  mes:       'Mes',
+  trimestre: 'Trimestre',
+  semestre:  'Semestre',
+  anio:      'Año',
+}
+
+interface AuthorGroup {
+  authorId:     string
+  firstName:    string
+  lastName:     string
+  totalSales:   number
+  totalRoyalty: number
+  books:        Array<{ bookId: string; bookName: string | null; royaltyPercentage: number; totalSales: number; royaltyAmount: number }>
+}
 
 export default function Ventas() {
   const [tab, setTab] = useState<Tab>('ventas')
@@ -40,13 +59,19 @@ export default function Ventas() {
   const [reload,    setReload]    = useState(0)
   const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
 
-  // ── Royalties
+  // ── Royalties — período por defecto: semestre actual (Nico paga cada 6 meses)
   const today = new Date()
-  const [ryear,  setRyear]  = useState(today.getUTCFullYear())
-  const [rmonth, setRmonth] = useState(today.getUTCMonth() + 1)
-  const [royalties, setRoyalties] = useState<RoyaltyLine[] | null>(null)
-  const [rLoading,  setRLoading]  = useState(false)
-  const [rError,    setRError]    = useState<string | null>(null)
+  const [periodType, setPeriodType] = useState<PeriodType>('semestre')
+  const [pyear,      setPyear]      = useState(today.getFullYear())
+  const [pmonth,     setPmonth]     = useState(today.getMonth() + 1)
+  const [pquarter,   setPquarter]   = useState(Math.floor(today.getMonth() / 3) + 1)
+  const [psemester,  setPsemester]  = useState(today.getMonth() < 6 ? 1 : 2)
+
+  const [royalties,      setRoyalties]      = useState<RoyaltyLine[] | null>(null)
+  const [rLoading,       setRLoading]       = useState(false)
+  const [rError,         setRError]         = useState<string | null>(null)
+  const [authorSearch,   setAuthorSearch]   = useState('')
+  const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
@@ -64,13 +89,70 @@ export default function Ventas() {
       .catch((err: Error) => { setError(err.message); setLoading(false) })
   }, [tab, debounced, page, sort, reload])
 
+  // Lista de (year, month) a pedir según el tipo de período
+  const periodMonths = useMemo<Array<{ year: number; month: number }>>(() => {
+    switch (periodType) {
+      case 'mes':
+        return [{ year: pyear, month: pmonth }]
+      case 'trimestre': {
+        const start = (pquarter - 1) * 3 + 1
+        return [0, 1, 2].map(i => ({ year: pyear, month: start + i }))
+      }
+      case 'semestre': {
+        const start = (psemester - 1) * 6 + 1
+        return [0, 1, 2, 3, 4, 5].map(i => ({ year: pyear, month: start + i }))
+      }
+      case 'anio':
+        return Array.from({ length: 12 }, (_, i) => ({ year: pyear, month: i + 1 }))
+    }
+  }, [periodType, pyear, pmonth, pquarter, psemester])
+
   useEffect(() => {
     if (tab !== 'royalties') return
     setRLoading(true); setRError(null)
-    bookSalesApi.royaltiesByPeriod(ryear, rmonth)
-      .then(res => { setRoyalties(res); setRLoading(false) })
+    Promise.all(periodMonths.map(p => bookSalesApi.royaltiesByPeriod(p.year, p.month)))
+      .then(results => { setRoyalties(results.flat()); setRLoading(false) })
       .catch((err: Error) => { setRError(err.message); setRLoading(false) })
-  }, [tab, ryear, rmonth, reload])
+  }, [tab, periodMonths, reload])
+
+  // Agrupar por autora (sumando líneas que se repiten en distintos meses)
+  const authorsGrouped = useMemo<AuthorGroup[]>(() => {
+    if (!royalties) return []
+    const map = new Map<string, AuthorGroup>()
+    for (const r of royalties) {
+      let g = map.get(r.authorId)
+      if (!g) {
+        g = {
+          authorId: r.authorId, firstName: r.firstName, lastName: r.lastName,
+          totalSales: 0, totalRoyalty: 0, books: [],
+        }
+        map.set(r.authorId, g)
+      }
+      const existing = g.books.find(b => b.bookId === r.bookId)
+      if (existing) {
+        existing.totalSales    += r.totalSales
+        existing.royaltyAmount += r.royaltyAmount
+      } else {
+        g.books.push({
+          bookId: r.bookId, bookName: r.bookName,
+          royaltyPercentage: r.royaltyPercentage,
+          totalSales: r.totalSales, royaltyAmount: r.royaltyAmount,
+        })
+      }
+      g.totalSales    += r.totalSales
+      g.totalRoyalty  += r.royaltyAmount
+    }
+
+    const needle = authorSearch.trim().toLowerCase()
+    let groups = Array.from(map.values())
+    if (needle) {
+      groups = groups.filter(g => `${g.firstName} ${g.lastName}`.toLowerCase().includes(needle))
+    }
+    for (const g of groups) g.books.sort((a, b) => b.royaltyAmount - a.royaltyAmount)
+    return groups.sort((a, b) => b.totalRoyalty - a.totalRoyalty)
+  }, [royalties, authorSearch])
+
+  const grandTotal = authorsGrouped.reduce((acc, g) => acc + g.totalRoyalty, 0)
 
   function toggleSort(field: SaleSortField) {
     setSort(prev => {
@@ -81,10 +163,62 @@ export default function Ventas() {
     setPage(0)
   }
 
+  function toggleAuthor(authorId: string) {
+    setExpandedAuthors(prev => {
+      const next = new Set(prev)
+      if (next.has(authorId)) next.delete(authorId)
+      else next.add(authorId)
+      return next
+    })
+  }
+
+  function expandAll() { setExpandedAuthors(new Set(authorsGrouped.map(g => g.authorId))) }
+  function collapseAll() { setExpandedAuthors(new Set()) }
+
+  function periodSlug(): string {
+    switch (periodType) {
+      case 'mes':       return `${MONTHS[pmonth - 1]}-${pyear}`
+      case 'trimestre': return `Q${pquarter}-${pyear}`
+      case 'semestre':  return `S${psemester}-${pyear}`
+      case 'anio':      return `${pyear}`
+    }
+  }
+
+  function periodTitle(): string {
+    switch (periodType) {
+      case 'mes':       return `${MONTHS[pmonth - 1]} ${pyear}`
+      case 'trimestre': return `Q${pquarter} ${pyear} (${MONTHS[(pquarter - 1) * 3]}–${MONTHS[(pquarter - 1) * 3 + 2]})`
+      case 'semestre':  return `Semestre ${psemester} ${pyear} (${psemester === 1 ? 'ene–jun' : 'jul–dic'})`
+      case 'anio':      return `Año ${pyear}`
+    }
+  }
+
+  function handleExportRoyalties() {
+    const rows: Array<{ author: string; book: string; pct: number; sales: number; royalty: number }> = []
+    for (const g of authorsGrouped) {
+      for (const b of g.books) {
+        rows.push({
+          author:  `${g.lastName}, ${g.firstName}`,
+          book:    b.bookName ?? '—',
+          pct:     b.royaltyPercentage,
+          sales:   b.totalSales,
+          royalty: b.royaltyAmount,
+        })
+      }
+    }
+    if (rows.length === 0) return
+    exportToCsv(`royalties-${periodSlug()}-${dateStamp()}`, rows, [
+      { label: 'Autora',             value: r => r.author },
+      { label: 'Libro',              value: r => r.book },
+      { label: 'Royalty %',          value: r => `${r.pct}%` },
+      { label: 'Ventas del período', value: r => r.sales },
+      { label: 'Royalty',            value: r => r.royalty },
+    ])
+  }
+
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
   const sales      = data?.content       ?? []
-  const royaltyTotal = (royalties ?? []).reduce((acc, r) => acc + r.royaltyAmount, 0)
 
   return (
     <div className="editorial">
@@ -97,7 +231,7 @@ export default function Ventas() {
           <p className="editorial__subtitle">
             {tab === 'ventas'
               ? (total > 0 ? `${total} ${total === 1 ? 'venta registrada' : 'ventas registradas'}` : 'Ventas de libros')
-              : `Royalties de ${MONTHS[rmonth - 1]} ${ryear}`}
+              : `Royalties — ${periodTitle()}`}
           </p>
         </div>
         {tab === 'ventas' && canWrite('/ventas') && (
@@ -189,54 +323,125 @@ export default function Ventas() {
         </>
       ) : (
         <>
-          <div className="editorial__toolbar">
-            <div className="editorial__period">
+          <div className="editorial__toolbar royalty-toolbar">
+            <div className="royalty-period">
               <Calendar size={16} strokeWidth={1.8} />
-              <select value={rmonth} onChange={e => setRmonth(Number(e.target.value))}>
-                {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              <select value={periodType} onChange={e => setPeriodType(e.target.value as PeriodType)}>
+                {(['mes','trimestre','semestre','anio'] as PeriodType[]).map(p => (
+                  <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
+                ))}
               </select>
-              <select value={ryear} onChange={e => setRyear(Number(e.target.value))}>
-                {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+
+              {periodType === 'mes' && (
+                <select value={pmonth} onChange={e => setPmonth(Number(e.target.value))}>
+                  {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+              )}
+              {periodType === 'trimestre' && (
+                <select value={pquarter} onChange={e => setPquarter(Number(e.target.value))}>
+                  <option value={1}>Q1 (ene–mar)</option>
+                  <option value={2}>Q2 (abr–jun)</option>
+                  <option value={3}>Q3 (jul–sep)</option>
+                  <option value={4}>Q4 (oct–dic)</option>
+                </select>
+              )}
+              {periodType === 'semestre' && (
+                <select value={psemester} onChange={e => setPsemester(Number(e.target.value))}>
+                  <option value={1}>S1 (ene–jun)</option>
+                  <option value={2}>S2 (jul–dic)</option>
+                </select>
+              )}
+
+              <select value={pyear} onChange={e => setPyear(Number(e.target.value))}>
+                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-            {royalties && royalties.length > 0 && (
-              <div className="sale-total" style={{ minWidth: 240 }}>
-                <span>Total royalties del período</span>
-                <span className="sale-total__amount">{formatPrice(royaltyTotal)}</span>
-              </div>
-            )}
+
+            <div className="search royalty-toolbar__search">
+              <Search size={16} strokeWidth={1.8} className="search__icon" />
+              <input type="text" className="search__input" placeholder="Buscar autora…"
+                value={authorSearch} onChange={e => setAuthorSearch(e.target.value)} />
+            </div>
+
+            <button className="btn-ghost" type="button" onClick={handleExportRoyalties}
+              disabled={authorsGrouped.length === 0}>
+              <Download size={15} strokeWidth={2} /> Exportar
+            </button>
           </div>
+
+          {!rLoading && !rError && authorsGrouped.length > 0 && (
+            <div className="royalty-summary">
+              <div className="royalty-summary__total">
+                <span>Total a pagar — {periodTitle()}</span>
+                <strong>{formatPrice(grandTotal)}</strong>
+              </div>
+              <div className="royalty-summary__actions">
+                <button type="button" className="link-btn" onClick={expandAll}>Expandir todo</button>
+                <span className="muted">·</span>
+                <button type="button" className="link-btn" onClick={collapseAll}>Colapsar todo</button>
+              </div>
+            </div>
+          )}
 
           <div className="editorial__table-wrap">
             {rLoading && <div className="editorial__loading">Cargando…</div>}
             {!rLoading && rError && <EmptyState icon={Coins} message="No se pudieron cargar los royalties" hint={rError} />}
-            {!rLoading && !rError && (royalties?.length ?? 0) === 0 && (
+            {!rLoading && !rError && authorsGrouped.length === 0 && (
               <EmptyState icon={Coins} message="Sin royalties"
-                hint={`No hay ventas con royalties en ${MONTHS[rmonth - 1]} ${ryear}.`} />
+                hint={authorSearch
+                  ? `Ninguna autora coincide con "${authorSearch}".`
+                  : `No hay ventas con royalties en ${periodTitle()}.`} />
             )}
-            {!rLoading && !rError && royalties && royalties.length > 0 && (
-              <table className="editorial-table">
-                <thead>
-                  <tr>
-                    <th>Autor</th>
-                    <th>Libro</th>
-                    <th className="col-num">Royalty %</th>
-                    <th className="col-precio">Ventas período</th>
-                    <th className="col-precio">Royalty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {royalties.map(r => (
-                    <tr key={`${r.bookId}-${r.authorId}`} className="editorial-table__row">
-                      <td><div className="ed-cell__name">{r.lastName}, {r.firstName}</div></td>
-                      <td>{r.bookName}</td>
-                      <td className="col-num">{r.royaltyPercentage}%</td>
-                      <td className="col-precio">{formatPrice(r.totalSales)}</td>
-                      <td className="col-precio"><span className="royalty-amount">{formatPrice(r.royaltyAmount)}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {!rLoading && !rError && authorsGrouped.length > 0 && (
+              <div className="royalty-list">
+                {authorsGrouped.map(g => {
+                  const open = expandedAuthors.has(g.authorId)
+                  return (
+                    <div key={g.authorId} className={`royalty-group ${open ? 'royalty-group--open' : ''}`}>
+                      <button type="button" className="royalty-group__header" onClick={() => toggleAuthor(g.authorId)}>
+                        <span className="royalty-group__chevron">
+                          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </span>
+                        <span className="royalty-group__name">
+                          <UserIcon size={14} strokeWidth={1.8} />
+                          {g.lastName}, {g.firstName}
+                        </span>
+                        <span className="royalty-group__count muted">
+                          {g.books.length} {g.books.length === 1 ? 'libro' : 'libros'}
+                        </span>
+                        <span className="royalty-group__sales muted">
+                          {formatPrice(g.totalSales)} en ventas
+                        </span>
+                        <span className="royalty-group__total">
+                          {formatPrice(g.totalRoyalty)}
+                        </span>
+                      </button>
+                      {open && (
+                        <table className="royalty-books">
+                          <thead>
+                            <tr>
+                              <th>Libro</th>
+                              <th className="col-num">Royalty %</th>
+                              <th className="col-precio">Ventas</th>
+                              <th className="col-precio">Royalty</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {g.books.map(b => (
+                              <tr key={b.bookId}>
+                                <td>{b.bookName ?? '—'}</td>
+                                <td className="col-num">{b.royaltyPercentage}%</td>
+                                <td className="col-precio">{formatPrice(b.totalSales)}</td>
+                                <td className="col-precio"><span className="royalty-amount">{formatPrice(b.royaltyAmount)}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         </>
