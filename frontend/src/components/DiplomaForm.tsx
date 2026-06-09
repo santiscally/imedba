@@ -100,32 +100,27 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     if (state.name.length > 300)          e.name = 'Máx 300 caracteres'
     if (state.universityName.length > 200) e.universityName = 'Máx 200 caracteres'
 
-    function validateNumber(field: keyof FormState, allowZero: boolean, max?: number, label = 'Número inválido') {
+    function validateNumber(field: keyof FormState) {
       const v = state[field] as string
       if (!v) return
-      const n = Number(v)
-      if (Number.isNaN(n) || (allowZero ? n < 0 : n <= 0)) {
-        e[field] = label
-      } else if (max !== undefined && n > max) {
-        e[field] = `Máx ${max}`
-      }
+      if (Number.isNaN(Number(v))) e[field] = 'No es un número válido'
     }
-    validateNumber('enrollmentPrice',   true,  undefined, 'Debe ser ≥ 0')
-    validateNumber('coursePrice',       true,  undefined, 'Debe ser ≥ 0')
+    validateNumber('enrollmentPrice')
+    validateNumber('coursePrice')
 
     const rowErrors: Record<number, Partial<Record<keyof PartnerRow, string>>> = {}
     state.partners.forEach((p, i) => {
       const re: Partial<Record<keyof PartnerRow, string>> = {}
       if (!p.name.trim()) re.name = 'Obligatorio'
-      const n = Number(p.pct)
       if (!p.pct)                          re.pct = 'Obligatorio'
-      else if (Number.isNaN(n) || n < 0)   re.pct = 'Debe ser ≥ 0'
+      else if (Number.isNaN(Number(p.pct))) re.pct = 'No es un número válido'
       if (p.email && !/^\S+@\S+\.\S+$/.test(p.email)) re.email = 'Email inválido'
       if (Object.keys(re).length) rowErrors[i] = re
     })
     if (Object.keys(rowErrors).length) e.partnerRow = rowErrors
 
-    if (sumOver) e.partners = `La suma de % asignados es ${sumPct}, no puede superar 100`
+    // Guard de la suma de % de directoras: visible como hint en el header (sumPct),
+    // pero ya no bloquea el submit (pedido del usuario: solo validar "es un número").
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -227,7 +222,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
           <div className="form__grid">
             <Field label="Matrícula (ARS)" error={errors.enrollmentPrice}>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.enrollmentPrice}
                 onChange={e => setField('enrollmentPrice', e.target.value)}
                 placeholder="250000"
@@ -235,7 +230,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             </Field>
             <Field label="Precio curso (ARS)" error={errors.coursePrice}>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.coursePrice}
                 onChange={e => setField('coursePrice', e.target.value)}
                 placeholder="2400000"
@@ -272,7 +267,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
                   </Field>
                   <Field label="Porcentaje (%)" required error={rowErr.pct} className="partners__pct">
                     <input
-                      type="number" min="0" step="0.01"
+                      type="number" step="0.01"
                       value={p.pct}
                       onChange={e => setPartner(i, 'pct', e.target.value)}
                       placeholder="20"
@@ -317,7 +312,7 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             <button type="button" className="btn-ghost" onClick={onClose} disabled={saving}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={saving || sumOver}>
+            <button type="submit" className="btn-primary" disabled={saving}>
               {saving ? 'Guardando…' : isCreate ? 'Crear diplomatura' : 'Guardar cambios'}
             </button>
           </footer>

@@ -89,9 +89,8 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
 
     if (!state.amount) {
       e.amount = 'Obligatorio'
-    } else {
-      const n = Number(state.amount)
-      if (Number.isNaN(n) || n < 0) e.amount = 'Debe ser ≥ 0'
+    } else if (Number.isNaN(Number(state.amount))) {
+      e.amount = 'No es un número válido'
     }
 
     if (!state.entryDate || !/^\d{4}-\d{2}-\d{2}$/.test(state.entryDate)) {
@@ -209,7 +208,7 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
 
             <Field label="Monto (ARS)" required error={errors.amount}>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.amount}
                 onChange={e => setField('amount', e.target.value)}
                 placeholder="780000"

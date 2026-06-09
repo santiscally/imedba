@@ -1,6 +1,6 @@
 import type { PageResponse } from '../types/common'
 import type {
-  Book, BookCreateRequest, BookUpdateRequest, BookAuthorRequest,
+  Book, BookCreateRequest, BookUpdateRequest, BookAuthorRequest, BookStockUpdateRequest,
 } from '../types/book'
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
 
@@ -44,6 +44,10 @@ export const booksApi = {
   },
   deactivate(id: string): Promise<void> {
     return apiPut<void, undefined>(`/books/${id}/deactivate`, undefined)
+  },
+  // Ajuste manual del stock (no se pisa con el PUT general — V027 backend).
+  updateStock(id: string, body: BookStockUpdateRequest): Promise<Book> {
+    return apiPut<Book, BookStockUpdateRequest>(`/books/${id}/stock`, body)
   },
   // Gestión de autores del libro — devuelven el Book actualizado.
   addAuthor(id: string, body: BookAuthorRequest): Promise<Book> {

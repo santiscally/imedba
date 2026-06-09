@@ -59,8 +59,8 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
       e.discountValue = 'Obligatorio'
     } else {
       const n = Number(state.discountValue)
-      if (Number.isNaN(n) || n <= 0) {
-        e.discountValue = 'Debe ser un número mayor a 0'
+      if (Number.isNaN(n)) {
+        e.discountValue = 'No es un número válido'
       }
     }
 
@@ -152,7 +152,6 @@ export default function DiscountCampaignForm({ mode, initial, onClose, onSaved, 
             <Field label={valueLabel} required error={errors.discountValue}>
               <input
                 type="number"
-                min="0"
                 step={state.discountType === 'PERCENTAGE' ? '0.01' : 'any'}
                 value={state.discountValue}
                 onChange={e => setField('discountValue', e.target.value)}

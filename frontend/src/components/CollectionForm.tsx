@@ -48,7 +48,7 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
     ev.preventDefault()
     if (!name.trim()) { setError('El nombre es obligatorio'); return }
     const p = Number(price)
-    if (!price || Number.isNaN(p) || p < 0) { setError('El precio debe ser ≥ 0'); return }
+    if (!price || Number.isNaN(p)) { setError('El precio debe ser un número'); return }
     if (bookIds.length === 0) { setError('Elegí al menos un libro'); return }
     setSaving(true); setError(null)
     try {
@@ -97,12 +97,12 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
             </div>
             <div className="field">
               <label className="field__label">Precio de lista (ARS)<span className="field__required">*</span></label>
-              <input type="number" min="0" step="any" value={price}
+              <input type="number" step="any" value={price}
                 onChange={e => setPrice(e.target.value)} placeholder="700000" />
             </div>
             <div className="field">
               <label className="field__label">Descuento alumno (%)</label>
-              <input type="number" min="0" step="0.01" value={discount}
+              <input type="number" step="0.01" value={discount}
                 onChange={e => setDiscount(e.target.value)} placeholder="35" />
               <span className="field__hint">Se aplica al vender la colección a un alumno.</span>
             </div>

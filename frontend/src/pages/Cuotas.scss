@@ -515,6 +515,7 @@
   &--activo      { background: $verde-bg;  color: $verde; }   // PAID
   &--pendiente   { background: $azul-bg;   color: $azul;  }   // PENDING
   &--inactivo    { background: $rojo-bg;   color: $rojo;  }   // OVERDUE
+  &--cancelada   { background: $fondo-hover; color: $gris-texto; }  // CANCELLED
   &--suspendida  { background: $ambar-bg;  color: $ambar; }   // SUSPENDED
   &--moodle      {
     margin-left: 0.35rem;

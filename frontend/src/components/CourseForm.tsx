@@ -67,20 +67,17 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (state.code.length     > 50)  e.code         = 'Máx 50 caracteres'
     if (state.modality.length > 50)  e.modality     = 'Máx 50 caracteres'
 
-    if (state.enrollmentPrice) {
-      const n = Number(state.enrollmentPrice)
-      if (Number.isNaN(n) || n <= 0) e.enrollmentPrice = 'Debe ser un número mayor a 0'
+    if (state.enrollmentPrice && Number.isNaN(Number(state.enrollmentPrice))) {
+      e.enrollmentPrice = 'No es un número válido'
     }
-    if (state.coursePrice) {
-      const n = Number(state.coursePrice)
-      if (Number.isNaN(n) || n <= 0) e.coursePrice = 'Debe ser un número mayor a 0'
+    if (state.coursePrice && Number.isNaN(Number(state.coursePrice))) {
+      e.coursePrice = 'No es un número válido'
     }
     if (state.examDate && !/^\d{4}-\d{2}-\d{2}$/.test(state.examDate)) {
       e.examDate = 'Formato YYYY-MM-DD'
     }
-    if (state.academicYear) {
-      const y = Number(state.academicYear)
-      if (!Number.isInteger(y) || y < 2000 || y > 2100) e.academicYear = 'Año inválido (2000–2100)'
+    if (state.academicYear && Number.isNaN(Number(state.academicYear))) {
+      e.academicYear = 'No es un número válido'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -206,8 +203,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
             <Field label="Ciclo lectivo (año)" error={errors.academicYear}>
               <input
                 type="number"
-                min="2000"
-                max="2100"
                 step="1"
                 value={state.academicYear}
                 onChange={e => setField('academicYear', e.target.value)}
@@ -218,7 +213,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
             <Field label="Precio matrícula (ARS)" error={errors.enrollmentPrice}>
               <input
                 type="number"
-                min="0"
                 step="any"
                 value={state.enrollmentPrice}
                 onChange={e => setField('enrollmentPrice', e.target.value)}
@@ -229,7 +223,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
             <Field label="Precio curso (ARS)" error={errors.coursePrice}>
               <input
                 type="number"
-                min="0"
                 step="any"
                 value={state.coursePrice}
                 onChange={e => setField('coursePrice', e.target.value)}

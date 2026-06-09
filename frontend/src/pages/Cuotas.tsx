@@ -316,12 +316,19 @@ export default function Cuotas() {
   }
 
   async function handleWaiveSurcharge(inst: Installment) {
-    if (!window.confirm(`¿Condonar el recargo de ${formatPrice(inst.surchargeAmount)} en la cuota #${inst.number}?`)) return
+    const ok = await confirmAction({
+      title:       '¿Condonar el recargo?',
+      text:        `${formatPrice(inst.surchargeAmount)} en la cuota #${inst.number}.`,
+      icon:        'warning',
+      confirmText: 'Sí, condonar',
+    })
+    if (!ok) return
     try {
       await installmentsApi.waiveSurcharge(inst.id)
+      toastSuccess('Recargo condonado')
       setReload(r => r + 1)
     } catch (err) {
-      setInstError(err instanceof Error ? err.message : 'Error al condonar recargo')
+      alertError('No se pudo condonar el recargo', err instanceof Error ? err.message : undefined)
     }
   }
 
@@ -697,7 +704,7 @@ function CuotasTab(props: {
             <tbody>
               {items.map(i => {
                 const enr = lookupEnr(i.enrollmentId)
-                const isPayable = i.status !== 'PAID'
+                const isPayable = i.status === 'PENDING' || i.status === 'OVERDUE'
                 const isSelected = selected.has(i.id)
                 // Bloqueo a una sola inscripción: si ya hay selección de otra, deshabilitar.
                 const lockedOut = selectedEnrId != null && selectedEnrId !== i.enrollmentId
@@ -775,7 +782,7 @@ function CuotasTab(props: {
                     </td>
                     <td className="col-acciones">
                       <div className="row-actions">
-                        {i.surchargeAmount > 0 && i.status !== 'PAID' && hasAuthority('installments:write') && (
+                        {i.surchargeAmount > 0 && isPayable && hasAuthority('installments:write') && (
                           <button
                             className="row-actions__btn"
                             type="button"
@@ -786,7 +793,7 @@ function CuotasTab(props: {
                             <BadgeCheck size={16} />
                           </button>
                         )}
-                        {i.status !== 'PAID' && hasAuthority('installments:write') && (
+                        {isPayable && hasAuthority('installments:write') && (
                           <button
                             className="row-actions__btn"
                             type="button"
@@ -797,7 +804,7 @@ function CuotasTab(props: {
                             <Pencil size={16} />
                           </button>
                         )}
-                        {i.status !== 'PAID' && hasAuthority('payments:write') && (
+                        {isPayable && hasAuthority('payments:write') && (
                           <button
                             className="row-actions__btn row-actions__btn--primary"
                             type="button"
@@ -1373,9 +1380,10 @@ function enrInfoOf(e: Enrollment): EnrInfo {
 
 function statusBadgeClass(s: InstallmentStatus): string {
   switch (s) {
-    case 'PAID':    return 'badge--activo'
-    case 'PENDING': return 'badge--pendiente'
-    case 'OVERDUE': return 'badge--inactivo'
+    case 'PAID':      return 'badge--activo'
+    case 'PENDING':   return 'badge--pendiente'
+    case 'OVERDUE':   return 'badge--inactivo'
+    case 'CANCELLED': return 'badge--cancelada'
   }
 }
 

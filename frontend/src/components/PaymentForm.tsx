@@ -150,9 +150,8 @@ export default function PaymentForm({
 
     if (!isBatch) {
       if (!state.amount) e.amount = 'Obligatorio'
-      if (state.amount) {
-        const n = Number(state.amount)
-        if (Number.isNaN(n) || n <= 0) e.amount = 'Debe ser un número mayor a 0'
+      if (state.amount && Number.isNaN(Number(state.amount))) {
+        e.amount = 'No es un número válido'
       }
     }
     setErrors(e)
@@ -296,7 +295,6 @@ export default function PaymentForm({
               <Field label="Monto (ARS)" required error={errors.amount}>
                 <input
                   type="number"
-                  min="0"
                   step="any"
                   value={state.amount}
                   onChange={e => setField('amount', e.target.value)}

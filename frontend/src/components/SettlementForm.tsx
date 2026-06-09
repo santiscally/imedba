@@ -73,29 +73,22 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
     const e: Partial<Record<keyof FormState, string>> = {}
     if (!state.totalCollected) {
       if (!hasLinkedCourse) e.totalCollected = 'Obligatorio (la diplomatura no tiene curso vinculado)'
-    } else {
-      const n = Number(state.totalCollected)
-      if (Number.isNaN(n) || n < 0) e.totalCollected = 'Debe ser ≥ 0'
+    } else if (Number.isNaN(Number(state.totalCollected))) {
+      e.totalCollected = 'No es un número válido'
     }
-    if (!state.periodYear) {
-      e.periodYear = 'Obligatorio'
-    }
-    if (!state.periodMonth || state.periodMonth < 1 || state.periodMonth > 12) {
-      e.periodMonth = 'Mes entre 1 y 12'
-    }
-    const checkNum = (f: keyof FormState, max?: number) => {
+    if (!state.periodYear) e.periodYear = 'Obligatorio'
+    if (!state.periodMonth) e.periodMonth = 'Obligatorio'
+    const checkNum = (f: keyof FormState) => {
       const v = state[f] as string
       if (!v) return
-      const n = Number(v)
-      if (Number.isNaN(n) || n < 0) e[f] = 'Debe ser ≥ 0'
-      else if (max !== undefined && n > max) e[f] = `Máx ${max}`
+      if (Number.isNaN(Number(v))) e[f] = 'No es un número válido'
     }
-    checkNum('taxCommissionPct', 100)
+    checkNum('taxCommissionPct')
     checkNum('secretarySalary')
     checkNum('advertisingAmount')
-    checkNum('adminPct', 100)
-    checkNum('universityPct', 100)
-    checkNum('imedbaPct', 100)
+    checkNum('adminPct')
+    checkNum('universityPct')
+    checkNum('imedbaPct')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -178,7 +171,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
 
             <Field label="Total cobrado (ARS)" required={!hasLinkedCourse} error={errors.totalCollected} fullWidth>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.totalCollected}
                 onChange={e => setField('totalCollected', e.target.value)}
                 autoFocus
@@ -197,7 +190,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
           <div className="form__grid">
             <Field label="Comisión impuestos (%)" error={errors.taxCommissionPct}>
               <input
-                type="number" min="0" step="0.01"
+                type="number" step="0.01"
                 value={state.taxCommissionPct}
                 onChange={e => setField('taxCommissionPct', e.target.value)}
                 placeholder={ph(diploma.taxCommissionPct, '15')}
@@ -205,7 +198,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             </Field>
             <Field label="Sueldo secretaria (ARS)" error={errors.secretarySalary}>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.secretarySalary}
                 onChange={e => setField('secretarySalary', e.target.value)}
                 placeholder={ph(diploma.secretarySalary, '180000')}
@@ -213,7 +206,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             </Field>
             <Field label="Publicidad (ARS)" error={errors.advertisingAmount}>
               <input
-                type="number" min="0" step="any"
+                type="number" step="any"
                 value={state.advertisingAmount}
                 onChange={e => setField('advertisingAmount', e.target.value)}
                 placeholder={ph(diploma.advertisingAmount, '90000')}
@@ -225,7 +218,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
           <div className="form__grid">
             <Field label="Administración (%)" error={errors.adminPct}>
               <input
-                type="number" min="0" step="0.01"
+                type="number" step="0.01"
                 value={state.adminPct}
                 onChange={e => setField('adminPct', e.target.value)}
                 placeholder={ph(diploma.adminPct, '10')}
@@ -233,7 +226,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             </Field>
             <Field label="Universidad (%)" error={errors.universityPct}>
               <input
-                type="number" min="0" step="0.01"
+                type="number" step="0.01"
                 value={state.universityPct}
                 onChange={e => setField('universityPct', e.target.value)}
                 placeholder={ph(diploma.universityPct, '30')}
@@ -241,7 +234,7 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             </Field>
             <Field label="IMEDBA (%)" error={errors.imedbaPct}>
               <input
-                type="number" min="0" step="0.01"
+                type="number" step="0.01"
                 value={state.imedbaPct}
                 onChange={e => setField('imedbaPct', e.target.value)}
                 placeholder={ph(diploma.imedbaPct, '15')}

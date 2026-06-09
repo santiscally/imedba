@@ -2,18 +2,21 @@ import type { Instant, UUID } from './common'
 import type { PaymentGroup } from './enrollment'
 
 // Refleja com.imedba.modules.installment.entity.InstallmentStatus
-export type InstallmentStatus = 'PENDING' | 'PAID' | 'OVERDUE'
+// CANCELLED (V027): cuota anulada al cancelar la inscripción (no cuenta como deuda).
+export type InstallmentStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
 
 export const INSTALLMENT_STATUSES: InstallmentStatus[] = [
   'PENDING',
   'PAID',
   'OVERDUE',
+  'CANCELLED',
 ]
 
 export const INSTALLMENT_STATUS_LABELS: Record<InstallmentStatus, string> = {
-  PENDING: 'Pendiente',
-  PAID:    'Pagada',
-  OVERDUE: 'Vencida',
+  PENDING:   'Pendiente',
+  PAID:      'Pagada',
+  OVERDUE:   'Vencida',
+  CANCELLED: 'Anulada',
 }
 
 // Tipo de cuota según el número. El backend usa number=0 para la matrícula

@@ -36,6 +36,9 @@ function initialState(b?: Book): FormState {
 }
 
 export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
+  const isCreate = mode === 'create'
+  const Icon = isCreate ? BookPlus : Save
+
   const [state,       setState]       = useState<FormState>(initialState(initial))
   const [errors,      setErrors]      = useState<Partial<Record<keyof FormState, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -46,11 +49,9 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
-  function posNum(v: string, label: keyof FormState, e: Partial<Record<keyof FormState, string>>, max?: number) {
+  function numOnly(v: string, label: keyof FormState, e: Partial<Record<keyof FormState, string>>) {
     if (!v) return
-    const n = Number(v)
-    if (Number.isNaN(n) || n < 0) e[label] = 'Debe ser ≥ 0'
-    else if (max != null && n > max) e[label] = `Máx ${max}`
+    if (Number.isNaN(Number(v))) e[label] = 'No es un número válido'
   }
 
   function validate(): boolean {
@@ -58,11 +59,11 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
     if (!state.name.trim())      e.name = 'Obligatorio'
     if (state.name.length > 255) e.name = 'Máx 255 caracteres'
     if (!state.salePrice)        e.salePrice = 'Obligatorio'
-    posNum(state.salePrice, 'salePrice', e)
-    posNum(state.studentDiscountPct, 'studentDiscountPct', e)
-    posNum(state.costPerUnit, 'costPerUnit', e)
-    posNum(state.pages, 'pages', e)
-    posNum(state.stockQuantity, 'stockQuantity', e)
+    numOnly(state.salePrice, 'salePrice', e)
+    numOnly(state.studentDiscountPct, 'studentDiscountPct', e)
+    numOnly(state.costPerUnit, 'costPerUnit', e)
+    numOnly(state.pages, 'pages', e)
+    if (isCreate) numOnly(state.stockQuantity, 'stockQuantity', e)
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -73,7 +74,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
     setSaving(true); setSubmitError(null)
 
     const numOrNull = (v: string) => (v ? Number(v) : null)
-    const payload: Payload = {
+    const base = {
       name:               state.name.trim(),
       code:               state.code.trim() || null,
       specialty:          state.specialty.trim() || null,
@@ -83,9 +84,12 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
       salePrice:          Number(state.salePrice),
       studentDiscountPct: numOrNull(state.studentDiscountPct),
       costPerUnit:        numOrNull(state.costPerUnit),
-      stockQuantity:      numOrNull(state.stockQuantity),
       branch:             state.branch.trim() || null,
     }
+    // En alta se manda el stock inicial; en edición se gestiona por endpoint aparte.
+    const payload: Payload = isCreate
+      ? { ...base, stockQuantity: numOrNull(state.stockQuantity) } as BookCreateRequest
+      : base as BookUpdateRequest
 
     try {
       const saved = await onSubmit(payload)
@@ -95,9 +99,6 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
       setSaving(false)
     }
   }
-
-  const isCreate = mode === 'create'
-  const Icon = isCreate ? BookPlus : Save
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -136,7 +137,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
                 onChange={e => setField('edition', e.target.value)} placeholder="1ra, 2026…" />
             </Field>
             <Field label="Páginas" error={errors.pages}>
-              <input type="number" min="0" value={state.pages}
+              <input type="number" value={state.pages}
                 onChange={e => setField('pages', e.target.value)} />
             </Field>
             <Field label="Sucursal / unidad" error={errors.branch}>
@@ -144,26 +145,29 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
                 onChange={e => setField('branch', e.target.value)} placeholder="Residencias…" />
             </Field>
             <Field label="Precio venta (ARS)" required error={errors.salePrice}>
-              <input type="number" min="0" step="any" value={state.salePrice}
+              <input type="number" step="any" value={state.salePrice}
                 onChange={e => setField('salePrice', e.target.value)} placeholder="45000" />
             </Field>
             <Field label="Descuento alumno (%)" error={errors.studentDiscountPct}>
-              <input type="number" min="0" step="any" value={state.studentDiscountPct}
+              <input type="number" step="any" value={state.studentDiscountPct}
                 onChange={e => setField('studentDiscountPct', e.target.value)} placeholder="30" />
             </Field>
             <Field label="Costo por unidad (ARS)" error={errors.costPerUnit}>
-              <input type="number" min="0" step="any" value={state.costPerUnit}
+              <input type="number" step="any" value={state.costPerUnit}
                 onChange={e => setField('costPerUnit', e.target.value)} />
             </Field>
-            <Field label="Stock" error={errors.stockQuantity}>
-              <input type="number" min="0" value={state.stockQuantity}
-                onChange={e => setField('stockQuantity', e.target.value)} placeholder="0" />
-            </Field>
+            {isCreate && (
+              <Field label="Stock inicial" error={errors.stockQuantity}>
+                <input type="number" value={state.stockQuantity}
+                  onChange={e => setField('stockQuantity', e.target.value)} placeholder="0" />
+              </Field>
+            )}
           </div>
 
           <p className="form__note">
             Los <strong>autores y su royalty%</strong> se gestionan desde el detalle del libro
             (botón “Ver detalle” → sección Autores), después de crearlo.
+            {!isCreate && <> El <strong>stock</strong> se ajusta desde el detalle (no se modifica acá para no pisar las ventas).</>}
           </p>
 
           {submitError && <div className="form__error">{submitError}</div>}

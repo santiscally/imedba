@@ -23,7 +23,7 @@ export default function InstallmentEditForm({ installment, onClose, onSaved }: P
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault()
     const n = Number(amount)
-    if (Number.isNaN(n) || n < 0) { setError('El monto debe ser ≥ 0'); return }
+    if (Number.isNaN(n)) { setError('El monto debe ser un número'); return }
     if (!dueDate) { setError('El vencimiento es obligatorio'); return }
     setSaving(true); setError(null)
     try {
@@ -56,7 +56,7 @@ export default function InstallmentEditForm({ installment, onClose, onSaved }: P
           <div className="form__grid">
             <div className="field">
               <label className="field__label">Monto (ARS)<span className="field__required">*</span></label>
-              <input type="number" min="0" step="1000" value={amount} autoFocus
+              <input type="number" step="1000" value={amount} autoFocus
                 onChange={e => setAmount(e.target.value)} />
             </div>
             <div className="field">

@@ -50,7 +50,8 @@ export interface BookCreateRequest {
   authors?:            BookAuthorRequest[]
 }
 
-// Refleja BookUpdateRequest (sin authors — se gestionan por endpoints aparte)
+// Refleja BookUpdateRequest (sin authors — se gestionan por endpoints aparte;
+// sin stockQuantity — se ajusta por PUT /books/{id}/stock para no pisar las ventas).
 export interface BookUpdateRequest {
   name?:               string
   code?:               string | null
@@ -61,7 +62,12 @@ export interface BookUpdateRequest {
   salePrice?:          number
   studentDiscountPct?: number | null
   costPerUnit?:        number | null
-  stockQuantity?:      number | null
   branch?:             string | null
   active?:             boolean
+}
+
+// Refleja BookStockUpdateRequest — ajuste manual del stock con motivo opcional.
+export interface BookStockUpdateRequest {
+  stockQuantity: number
+  reason?:       string | null
 }

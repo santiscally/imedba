@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   X, Pencil, Book as BookIcon, Tag, Layers, Hash, Calendar,
-  CircleDollarSign, Boxes, Percent, Users, Plus, Trash2,
+  CircleDollarSign, Boxes, Percent, Users, Plus, Trash2, Save,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Book } from '../types/book'
@@ -30,6 +30,10 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
   const [creating, setCreating] = useState(false)
   const [newFirst, setNewFirst] = useState('')
   const [newLast,  setNewLast]  = useState('')
+  // Ajuste manual de stock (PUT /books/{id}/stock).
+  const [adjustingStock, setAdjustingStock] = useState(false)
+  const [newStock,       setNewStock]       = useState('')
+  const [stockReason,    setStockReason]    = useState('')
 
   useEffect(() => {
     authorsApi.list({ active: true, size: 500, sort: 'lastName,asc' })
@@ -44,8 +48,8 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
   async function handleAdd() {
     const royalty = Number(addRoyalty)
     if (!addAuthorId) { alertError('Elegí un autor'); return }
-    if (!addRoyalty || Number.isNaN(royalty) || royalty < 0) {
-      alertError('Royalty inválido', 'Debe ser un número ≥ 0.'); return
+    if (!addRoyalty || Number.isNaN(royalty)) {
+      alertError('Royalty inválido', 'Debe ser un número.'); return
     }
     setBusy(true)
     try {
@@ -71,6 +75,25 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
       toastSuccess('Autora creada — asignale el royalty y agregala')
     } catch (err) {
       alertError('No se pudo crear la autora', err instanceof Error ? err.message : undefined)
+    } finally { setBusy(false) }
+  }
+
+  async function handleAdjustStock() {
+    const n = Number(newStock)
+    if (newStock === '' || Number.isNaN(n)) {
+      alertError('Stock inválido', 'Debe ser un número.'); return
+    }
+    setBusy(true)
+    try {
+      const updated = await booksApi.updateStock(current.id, {
+        stockQuantity: n,
+        reason: stockReason.trim() || null,
+      })
+      setCurrent(updated); onChanged(updated)
+      setAdjustingStock(false); setNewStock(''); setStockReason('')
+      toastSuccess('Stock actualizado')
+    } catch (err) {
+      alertError('No se pudo ajustar el stock', err instanceof Error ? err.message : undefined)
     } finally { setBusy(false) }
   }
 
@@ -127,6 +150,27 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
               <Row icon={CircleDollarSign} label="Costo unidad"     value={formatPrice(current.costPerUnit)} />
               <Row icon={Boxes}            label="Stock"            value={current.stockQuantity != null ? String(current.stockQuantity) : null} />
             </dl>
+
+            {canWrite && (adjustingStock ? (
+              <div className="book-authors__add">
+                <input type="number" placeholder="Nuevo stock" value={newStock}
+                  onChange={e => setNewStock(e.target.value)} disabled={busy} autoFocus />
+                <input type="text" placeholder="Motivo (opcional)" value={stockReason}
+                  onChange={e => setStockReason(e.target.value)} disabled={busy} maxLength={200} />
+                <button type="button" className="btn-primary" disabled={busy} onClick={handleAdjustStock}>
+                  <Save size={15} /> Guardar
+                </button>
+                <button type="button" className="btn-ghost" disabled={busy}
+                  onClick={() => { setAdjustingStock(false); setNewStock(''); setStockReason('') }}>
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="btn-ghost btn-ghost--sm" disabled={busy}
+                onClick={() => { setAdjustingStock(true); setNewStock(String(current.stockQuantity ?? 0)) }}>
+                <Boxes size={13} /> Ajustar stock
+              </button>
+            ))}
           </section>
 
           <section className="detail__section">
@@ -162,7 +206,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
                   <option value="">Agregar autor…</option>
                   {available.map(a => <option key={a.id} value={a.id}>{a.lastName}, {a.firstName}</option>)}
                 </select>
-                <input type="number" min="0" step="any" placeholder="royalty %"
+                <input type="number" step="any" placeholder="royalty %"
                   value={addRoyalty} onChange={e => setAddRoyalty(e.target.value)} disabled={busy} />
                 <button type="button" className="btn-primary" disabled={busy || !addAuthorId} onClick={handleAdd}>
                   <Plus size={15} /> Agregar

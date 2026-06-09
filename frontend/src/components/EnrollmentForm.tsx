@@ -158,19 +158,14 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
     if (isCreate && !state.studentId) e.studentId = 'Obligatorio'
     if (isCreate && !state.courseId)  e.courseId  = 'Obligatorio'
 
-    if (state.discountValue) {
-      const n = Number(state.discountValue)
-      if (Number.isNaN(n) || n < 0) e.discountValue = 'Debe ser ≥ 0'
+    if (state.discountValue && Number.isNaN(Number(state.discountValue))) {
+      e.discountValue = 'No es un número válido'
     }
     for (const k of ['listPrice','bookPrice','enrollmentFee'] as const) {
-      if (state[k]) {
-        const n = Number(state[k])
-        if (Number.isNaN(n) || n < 0) e[k] = 'Debe ser ≥ 0'
-      }
+      if (state[k] && Number.isNaN(Number(state[k]))) e[k] = 'No es un número válido'
     }
-    if (state.numInstallments) {
-      const n = Number(state.numInstallments)
-      if (!Number.isInteger(n) || n < 1) e.numInstallments = 'Entero ≥ 1'
+    if (state.numInstallments && Number.isNaN(Number(state.numInstallments))) {
+      e.numInstallments = 'No es un número válido'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -289,7 +284,6 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
             <Field label="Precio de lista (ARS)" error={errors.listPrice}>
               <input
                 type="number"
-                min="0"
                 step="1000"
                 value={state.listPrice}
                 onChange={e => setField('listPrice', e.target.value)}
@@ -309,8 +303,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                 </select>
                 <input
                   type="number"
-                  min="0"
-                  step="0.01"
+                    step="0.01"
                   value={state.discountValue}
                   onChange={e => setField('discountValue', e.target.value)}
                   placeholder="0"
@@ -380,7 +373,6 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
             <Field label="Matrícula (ARS)" error={errors.enrollmentFee}>
               <input
                 type="number"
-                min="0"
                 step="1000"
                 value={state.enrollmentFee}
                 onChange={e => setField('enrollmentFee', e.target.value)}
@@ -391,7 +383,6 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
             <Field label="Cantidad de cuotas" error={errors.numInstallments}>
               <input
                 type="number"
-                min="1"
                 step="1"
                 value={state.numInstallments}
                 onChange={e => setField('numInstallments', e.target.value)}

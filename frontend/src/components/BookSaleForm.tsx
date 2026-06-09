@@ -55,8 +55,8 @@ export default function BookSaleForm({ onClose, onSaved, onSubmit }: Props) {
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
     if (!state.bookId) e.bookId = 'Elegí un libro'
-    const n = Number(state.quantity)
-    if (!state.quantity || Number.isNaN(n) || n < 1) e.quantity = 'Cantidad ≥ 1'
+    if (!state.quantity) e.quantity = 'Obligatorio'
+    else if (Number.isNaN(Number(state.quantity))) e.quantity = 'No es un número válido'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -106,7 +106,7 @@ export default function BookSaleForm({ onClose, onSaved, onSubmit }: Props) {
 
           <div className="form__grid">
             <Field label="Cantidad" required error={errors.quantity}>
-              <input type="number" min="1" value={state.quantity}
+              <input type="number" value={state.quantity}
                 onChange={e => setField('quantity', e.target.value)} />
             </Field>
             <Field label="Alumno (opcional)">

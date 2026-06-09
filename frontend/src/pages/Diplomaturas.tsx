@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState'
 import DiplomaForm from '../components/DiplomaForm'
 import DiplomaDetail from '../components/DiplomaDetail'
 import { canWrite } from '../lib/access'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import './Diplomaturas.scss'
 
 type SortDir   = 'asc' | 'desc'
@@ -80,12 +81,20 @@ export default function Diplomaturas() {
   }
 
   async function handleDelete(d: Diploma) {
-    if (!window.confirm(`¿Eliminar la diplomatura "${d.name}"?`)) return
+    const ok = await confirmAction({
+      title:       '¿Eliminar la diplomatura?',
+      text:        `"${d.name}" dejará de figurar en el listado.`,
+      icon:        'warning',
+      danger:      true,
+      confirmText: 'Sí, eliminar',
+    })
+    if (!ok) return
     try {
       await diplomasApi.deactivate(d.id)
+      toastSuccess('Diplomatura eliminada')
       setReload(r => r + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar')
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
     }
   }
 
