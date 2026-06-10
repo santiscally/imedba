@@ -14,6 +14,8 @@
 
 **Fase actual:** Fase 9.a parcial cerrada en backend (segmentación Cursos). **Reunión IMEDBA 2026-05-22 reorientó prioridades** (ver `08-requerimientos-reunion-20260522.md`): el cliente quiere lo presentado pulido al 100% antes de avanzar. Fase 9.b-e (PENDING_APPROVAL, comisiones, abonos, unaccent) baja a P3. Lo que sube a P0: pulir Alumnos/Inscripciones/Cuotas + refactor Diplomaturas↔Liquidaciones + módulo nuevo Seguimiento Académico (Excel Moodle). Próxima reunión: **viernes 12 de junio, 11:00**.
 
+**🔥 NUEVO 2026-06-10 — aviso a Fran (dashboard) + descarte Seguimiento Académico.** (1) Fran rehizo el Dashboard componiendo data client-side creyendo que `GET /dashboard/summary`, `/dashboard/activity` y `GET /installments/overdue` no existían en el back — **sí existen** desde `1b33658` (05-24); le dejé en DIARIO 06-10 los paths/shapes/authorities y la oferta de extender `DashboardSummaryResponse` con sus métricas nuevas (alumnos nuevos del mes, inscripciones del mes, libro top, delta ingresos) para que todo quede en 2-3 requests sin caps de `size=`. Esperando su respuesta. (2) **Seguimiento Académico (Excel de Meli) descartado de raíz** — no se implementa, no se espera el sample. Backlog backend restante: Moodle (token de David), proveedor de email (doc 12), service account `manage-users` para prod, P3 post-12-jun.
+
 **🔥 NUEVO 2026-06-09 (noche 3) — TESTEO INTEGRAL DE VINCULACIÓN ENTRE MÓDULOS + 8 fixes backend.** Sweep E2E completo contra el stack real (cadenas editorial, académica, diplomaturas + propagación de bajas). Lo que ya andaba bien: venta/colección descuenta stock, 30% alumno, royalties, asientos automáticos en Presupuesto, cuotas auto-generadas, curso espejo + sync + liquidación + 7 egresos. **Bugs corregidos**: (1) cuotas vencidas nunca pasaban a OVERDUE — el cron de 06:00 no corre si la app está apagada a esa hora → **catch-up al startup** (al deployar aplicó 5% a 16 cuotas reales y marcó 6 suspensiones Moodle); (2) `PUT /books` pisaba el stock con el valor stale del form → stock fuera del update general, ajuste por **`PUT /books/{id}/stock`** nuevo; (3) borrar alumno/curso con inscripciones rompía con 500 los listados de Inscripciones/Deudores → **guards 409**; (4) cancelar inscripción dejaba las cuotas como deuda → **V027 + estado `CANCELLED`** en cascada; (5) borrar inscripción con pagos → 409, sin pagos → cancela cuotas y notifs QUEUED; (6) handler global: 405/param faltante/enum inválido/body roto ya no son 500, y referencia a fila soft-deleted da 409 `DELETED_REFERENCE`. Tests 51/51 unit verde, data QA borrada, listados smoke-tested. **Pendings para Fran en DIARIO 06-09 (testeo integral)**.
 
 **🔥 NUEVO 2026-06-09 (noche 2) — la diplomatura ES un curso + liquidación automática + egresos en Presupuesto.** Modelo cerrado (corregido por el usuario: sin vínculo manual): al crear la diplomatura se **genera automáticamente su curso espejo en FS** (V026; nombre/precios/activo sincronizados al editar) → los alumnos se inscriben a ese curso con cuotas normales; la liquidación **suma sola los pagos del período** si no se carga total (Recomputar refresca); al marcar **Pagada** se asientan los **egresos** en Presupuesto (impuestos/secretaría/publicidad/admin/universidad/directoras; la porción IMEDBA no). El ingreso ya estaba (cada pago genera INCOME automático). **Verificado e2e completo** contra stack real (reparto y 7 egresos chequeados por SQL; data QA borrada). `DiplomaEnrollment` queda legacy. Doc `13` actualizada (preguntas 2 y 4 → resueltas, validar mapeo con Nico).
@@ -77,10 +79,7 @@
   - `GET /api/v1/installments/overdue` (cuotas OVERDUE con diasVencidos>10, ordenado desc). Auth `installments:read`.
   - Shapes espejados 1:1 del mock — Fran puede flipear `VITE_USE_MOCK=false` y todo sigue andando.
 
-  **P2 — Módulo nuevo: Seguimiento Académico (Excel Moodle)** — esperar sample de Meli antes de empezar:
-  14. Tabla nueva `academic_records` (`student_id`, `subject`, `score`, `period`, `source`, `imported_at`).
-  15. Endpoint `POST /api/v1/academic-records/import` (multipart con Excel). Parsear con Apache POI. Idempotente: matchear por `student.email + subject + period` y upsertear.
-  16. Endpoint `GET /api/v1/students/{id}/academic-records` para alimentar el detalle del alumno.
+  **❌ P2 — Seguimiento Académico (Excel Moodle) — DESCARTADO 2026-06-10.** Decisión: se corta de raíz, no se implementa ni se espera el sample de Meli. Items 14-16 (tabla `academic_records`, import multipart, endpoint por alumno) fuera del backlog. Si el cliente lo vuelve a pedir, re-discutir desde cero.
 
   **P3 — Fase 9 backend (post 12-jun):**
   17. PENDING_APPROVAL workflow + authority `enrollments:approve`.
@@ -95,7 +94,7 @@
 **Próximo paso:**
 - **Arrancar P0**: V016 (campos Alumno) → validación inscripción simultánea → V017 (FK discount_campaign) → V018 (late_fee_amount) → modo suma total → DELETE payments → filtro courseId → extender SegmentationFilter. Apuntar a tener todo cerrado para el 12-jun.
 - Coordinar P1 con Fran: refactor Diploma↔Settlement requiere cambios de schema + DTOs + forms del SPA en sintonía.
-- **Esperar sample de Meli** del Excel de Moodle (P2). Sin eso, no se arranca seguimiento académico.
+- ~~Esperar sample de Meli del Excel de Moodle (P2)~~ — **DESCARTADO 2026-06-10**, no se hace seguimiento académico.
 - Fase 9 backend (P3) **después** del 12-jun.
 - Fase 7 (Moodle API): seguir esperando a David. **Reorientado**: el sample Excel de Meli es el camino primario; la API de Moodle pasa a ser fase 2 del seguimiento académico, no fase 1.
 - Deploy a Don Web cuando el cliente lo apruebe (todavía no hay fecha, recién se le va a mostrar el sistema pulido el 12-jun).
@@ -130,10 +129,7 @@
   - Renombrar todas las etiquetas UI "Socias" → "Directoras". El column name en DB lo dejo igual para no romper migraciones, pero el campo en TS pasa a `directors`.
   - **Esperar a que cierre la migración V019 antes de tocar los forms**.
 
-  **P2 — Módulo nuevo: Seguimiento Académico (esperar a Meli):**
-  - Sección "Rendimiento académico" nueva en `StudentDetail` con tabla de notas (subject, score, period).
-  - Página `/academico/import` con file upload (Excel) → `POST /api/v1/academic-records/import`.
-  - **No empezar hasta que Meli pase el sample del Excel del Moodle** (tiene deadline duro: examen residencia ~12-jun).
+  **❌ P2 — Seguimiento Académico — DESCARTADO 2026-06-10.** No hacer la sección "Rendimiento académico" ni la página de import. Se cortó de raíz (ver DIARIO 06-10).
 
   **DESCARTADOS / FUERA DE ALCANCE** (no implementar aunque alguien lo pida en la próxima reunión sin discutirlo conmigo):
   - Facturación con/sin IVA (Gustavo lo levantó, Nico lo descartó: lo maneja él aparte en Excel).
