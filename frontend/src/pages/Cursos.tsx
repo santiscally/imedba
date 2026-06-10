@@ -3,7 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   BookOpen, ArrowUp, ArrowDown, ArrowUpDown,
   CalendarDays, Tag, GraduationCap, CircleDollarSign,
-  Eye, Pencil, Users,
+  Eye, Pencil, Users, Download,
 } from 'lucide-react'
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
@@ -15,6 +15,8 @@ import CourseForm from '../components/CourseForm'
 import CourseDetail from '../components/CourseDetail'
 import CourseStudents from '../components/CourseStudents'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import './Cursos.scss'
 
 const PAGE_SIZE = 10
@@ -45,7 +47,8 @@ export default function Cursos() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   const { unidad } = useUnidad()
   const unidadBu = unidadBusinessUnit(unidad)
@@ -92,6 +95,31 @@ export default function Cursos() {
     setReload(r => r + 1)
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await coursesApi.list({
+        q:            debounced || undefined,
+        businessUnit: effectiveBu,
+        year,
+        size:         2000,
+        sort:         sort ? `${sort.field},${sort.dir}` : 'name,asc',
+      })
+      exportToCsv(`cursos-${dateStamp()}`, res.content, [
+        { label: 'Nombre',         value: c => c.name },
+        { label: 'Código',         value: c => c.code ?? '' },
+        { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
+        { label: 'Modalidad',      value: c => c.modality ?? '' },
+        { label: 'Ciclo lectivo',  value: c => c.academicYear ?? 'Libre' },
+        { label: 'Precio matrícula', value: c => c.enrollmentPrice ?? '' },
+        { label: 'Precio curso',     value: c => c.coursePrice ?? '' },
+        { label: 'Fecha examen',   value: c => c.examDate ?? '' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   const buOptions = useMemo<BUFilter[]>(() => ['TODAS', ...BUSINESS_UNITS], [])
   // Ciclos lectivos para el filtro: rango razonable alrededor del año actual.
   const yearOptions = useMemo<number[]>(() => {
@@ -115,15 +143,20 @@ export default function Cursos() {
               : 'Catálogo de cursos del instituto'}
           </p>
         </div>
-        {canWrite('/cursos') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nuevo curso
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/cursos') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nuevo curso
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="cursos__toolbar">

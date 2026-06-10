@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Search, Plus, Library, Pencil, Trash2, ShoppingCart, BookCopy, X,
+  Search, Plus, Library, Pencil, Trash2, ShoppingCart, BookCopy, X, Download,
 } from 'lucide-react'
 import { collectionsApi } from '../api/collections'
 import { studentsApi } from '../api/students'
@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState'
 import CollectionForm from '../components/CollectionForm'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { hasAuthority } from '../lib/auth'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Editorial.scss'
 
 type Panel =
@@ -43,6 +44,17 @@ export default function Colecciones() {
     })
   }, [items, query])
 
+  function handleExport() {
+    if (!filtered.length) return
+    exportToCsv(`colecciones-${dateStamp()}`, filtered, [
+      { label: 'Nombre',           value: c => c.name },
+      { label: 'Variante',         value: c => COLLECTION_VARIANT_LABELS[c.variant] },
+      { label: 'Precio',           value: c => c.price },
+      { label: 'Descuento alumno %', value: c => c.studentDiscountPct ?? '' },
+      { label: 'Libros incluidos', value: c => c.books?.map(b => b.name).join(' | ') ?? '' },
+    ])
+  }
+
   async function handleDelete(c: Collection) {
     const ok = await confirmAction({
       title: '¿Eliminar colección?', text: `"${c.name}" dejará de estar disponible para vender.`,
@@ -72,11 +84,16 @@ export default function Colecciones() {
               : 'Colecciones de libros (anillada / tradicional)'}
           </p>
         </div>
-        {hasAuthority('books:write') && (
-          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-            <Plus size={16} strokeWidth={2.2} /> Nueva colección
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={!filtered.length}>
+            <Download size={16} strokeWidth={2} /> Exportar
           </button>
-        )}
+          {hasAuthority('books:write') && (
+            <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+              <Plus size={16} strokeWidth={2.2} /> Nueva colección
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="editorial__toolbar">

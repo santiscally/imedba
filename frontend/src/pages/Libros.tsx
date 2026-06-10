@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   Book as BookIcon, ArrowUp, ArrowDown, ArrowUpDown,
-  Tag, CircleDollarSign, Boxes, Eye, Pencil, Trash2,
+  Tag, CircleDollarSign, Boxes, Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { booksApi } from '../api/books'
 import type { PageResponse } from '../types/common'
@@ -12,6 +12,7 @@ import BookForm from '../components/BookForm'
 import BookDetail from '../components/BookDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
@@ -36,7 +37,8 @@ export default function Libros() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
@@ -71,6 +73,34 @@ export default function Libros() {
 
   function handleSaved() { setPanel({ kind: 'closed' }); setReload(r => r + 1) }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await booksApi.list({
+        q:      debounced || undefined,
+        active: true,
+        size:   2000,
+        sort:   sort ? `${sort.field},${sort.dir}` : 'name,asc',
+      })
+      exportToCsv(`libros-${dateStamp()}`, res.content, [
+        { label: 'Nombre',           value: b => b.name },
+        { label: 'Código',           value: b => b.code ?? '' },
+        { label: 'Especialidad',     value: b => b.specialty ?? '' },
+        { label: 'Formato',          value: b => b.format ?? '' },
+        { label: 'Edición',          value: b => b.edition ?? '' },
+        { label: 'Páginas',          value: b => b.pages ?? '' },
+        { label: 'Precio venta',     value: b => b.salePrice },
+        { label: 'Descuento alumno %', value: b => b.studentDiscountPct ?? '' },
+        { label: 'Costo unidad',     value: b => b.costPerUnit ?? '' },
+        { label: 'Stock',            value: b => b.stockQuantity ?? '' },
+        { label: 'Sucursal',         value: b => b.branch ?? '' },
+        { label: 'Autores',          value: b => b.authors.map(a => `${a.lastName} ${a.firstName} (${a.royaltyPercentage}%)`).join(' | ') },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   async function handleDeactivate(b: Book) {
     const ok = await confirmAction({
       title: '¿Eliminar libro?', text: `"${b.name}" dejará de figurar en el catálogo.`,
@@ -98,11 +128,16 @@ export default function Libros() {
             {total > 0 ? `${total} ${total === 1 ? 'libro' : 'libros'} en catálogo` : 'Catálogo editorial'}
           </p>
         </div>
-        {canWrite('/libros') && (
-          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-            <Plus size={16} strokeWidth={2.2} /> Nuevo libro
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/libros') && (
+            <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+              <Plus size={16} strokeWidth={2.2} /> Nuevo libro
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="editorial__toolbar">

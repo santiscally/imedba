@@ -3,7 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   TicketPercent, ArrowUp, ArrowDown, ArrowUpDown,
   CalendarDays, CalendarClock, Percent, CircleDollarSign,
-  Eye, Pencil,
+  Eye, Pencil, Download,
 } from 'lucide-react'
 import { discountCampaignsApi } from '../api/discount-campaigns'
 import type { PageResponse } from '../types/common'
@@ -13,6 +13,8 @@ import EmptyState from '../components/EmptyState'
 import DiscountCampaignForm from '../components/DiscountCampaignForm'
 import DiscountCampaignDetail from '../components/DiscountCampaignDetail'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import './Descuentos.scss'
 
 const PAGE_SIZE = 10
@@ -38,7 +40,8 @@ export default function Descuentos() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
@@ -76,6 +79,28 @@ export default function Descuentos() {
     setReload(r => r + 1)
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await discountCampaignsApi.list({
+        q:      debounced || undefined,
+        active: true,
+        size:   2000,
+        sort:   sort ? `${sort.field},${sort.dir}` : 'name,asc',
+      })
+      exportToCsv(`descuentos-${dateStamp()}`, res.content, [
+        { label: 'Nombre',         value: c => c.name },
+        { label: 'Tipo',           value: c => DISCOUNT_TYPE_LABELS[c.discountType] },
+        { label: 'Valor',          value: c => c.discountValue },
+        { label: 'Vigencia desde', value: c => c.startDate ?? '' },
+        { label: 'Vigencia hasta', value: c => c.endDate   ?? '' },
+        { label: 'Descripción',    value: c => c.description ?? '' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   return (
     <div className="descuentos">
       <header className="descuentos__header">
@@ -90,15 +115,20 @@ export default function Descuentos() {
               : 'Campañas de descuento aplicables a inscripciones'}
           </p>
         </div>
-        {canWrite('/descuentos') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nueva campaña
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/descuentos') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nueva campaña
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="descuentos__toolbar">

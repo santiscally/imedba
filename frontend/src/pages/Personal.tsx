@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  Users, Plus, ShieldCheck, KeyRound, Power, Trash2, X, Mail, UserCircle2, UserPlus,
+  Users, Plus, ShieldCheck, KeyRound, Power, Trash2, X, Mail, UserCircle2, UserPlus, Download,
 } from 'lucide-react'
 import { usersApi } from '../api/users'
 import type { AppUser, CreateUserRequest } from '../types/user'
 import { roleLabel } from '../types/user'
 import EmptyState from '../components/EmptyState'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Editorial.scss'
 import '../components/StudentForm.scss'
 
@@ -62,6 +63,18 @@ export default function Personal() {
     }
   }
 
+  function handleExport() {
+    if (!users.length) return
+    exportToCsv(`personal-${dateStamp()}`, users, [
+      { label: 'Usuario',  value: u => u.username },
+      { label: 'Nombre',   value: u => u.firstName ?? '' },
+      { label: 'Apellido', value: u => u.lastName ?? '' },
+      { label: 'Email',    value: u => u.email ?? '' },
+      { label: 'Roles',    value: u => u.roles.map(roleLabel).join(' | ') },
+      { label: 'Activo',   value: u => u.enabled ? 'Sí' : 'No' },
+    ])
+  }
+
   async function handleDelete(u: AppUser) {
     const ok = await confirmAction({
       title: '¿Eliminar usuario?',
@@ -92,9 +105,14 @@ export default function Personal() {
               : 'Usuarios del sistema (acceso, contraseñas y roles)'}
           </p>
         </div>
-        <button className="btn-primary" type="button" onClick={() => setCreating(true)}>
-          <Plus size={16} strokeWidth={2.2} /> Nuevo usuario
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={!users.length}>
+            <Download size={16} strokeWidth={2} /> Exportar
+          </button>
+          <button className="btn-primary" type="button" onClick={() => setCreating(true)}>
+            <Plus size={16} strokeWidth={2.2} /> Nuevo usuario
+          </button>
+        </div>
       </header>
 
       <div className="editorial__table-wrap">

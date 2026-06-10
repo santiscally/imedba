@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   PenTool, ArrowUp, ArrowDown, ArrowUpDown,
-  UserCircle2, Mail, Eye, Pencil, Trash2,
+  UserCircle2, Mail, Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { authorsApi } from '../api/authors'
 import type { PageResponse } from '../types/common'
@@ -12,6 +12,7 @@ import AuthorForm from '../components/AuthorForm'
 import AuthorDetail from '../components/AuthorDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
@@ -36,7 +37,8 @@ export default function Autores() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
@@ -71,6 +73,26 @@ export default function Autores() {
 
   function handleSaved() { setPanel({ kind: 'closed' }); setReload(r => r + 1) }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await authorsApi.list({
+        q:      debounced || undefined,
+        active: true,
+        size:   2000,
+        sort:   sort ? `${sort.field},${sort.dir}` : 'lastName,asc',
+      })
+      exportToCsv(`autores-${dateStamp()}`, res.content, [
+        { label: 'Apellido', value: a => a.lastName },
+        { label: 'Nombre',   value: a => a.firstName },
+        { label: 'Email',    value: a => a.email ?? '' },
+        { label: 'Teléfono', value: a => a.phone ?? '' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   async function handleDeactivate(a: Author) {
     const ok = await confirmAction({
       title: '¿Eliminar autor?',
@@ -99,11 +121,16 @@ export default function Autores() {
             {total > 0 ? `${total} ${total === 1 ? 'autor' : 'autores'}` : 'Autores de los libros del catálogo'}
           </p>
         </div>
-        {canWrite('/autores') && (
-          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-            <Plus size={16} strokeWidth={2.2} /> Nuevo autor
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/autores') && (
+            <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+              <Plus size={16} strokeWidth={2.2} /> Nuevo autor
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="editorial__toolbar">

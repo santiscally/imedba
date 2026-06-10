@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   FileText, ArrowUp, ArrowDown, ArrowUpDown,
-  UserCircle2, GraduationCap, Eye, Pencil, Tag,
+  UserCircle2, GraduationCap, Eye, Pencil, Tag, Download,
 } from 'lucide-react'
 import { enrollmentsApi } from '../api/enrollments'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
@@ -17,6 +17,8 @@ import EmptyState from '../components/EmptyState'
 import EnrollmentForm from '../components/EnrollmentForm'
 import EnrollmentDetail from '../components/EnrollmentDetail'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import './Inscripciones.scss'
 
 const PAGE_SIZE = 10
@@ -50,7 +52,8 @@ export default function Inscripciones() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   const { unidad } = useUnidad()
   const unidadBu = unidadBusinessUnit(unidad)
@@ -130,6 +133,34 @@ export default function Inscripciones() {
     [],
   )
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await enrollmentsApi.list({
+        status:       status === 'TODAS' ? undefined : status,
+        businessUnit: unidadBu,
+        size:         2000,
+        sort:         sort ? `${sort.field},${sort.dir}` : 'enrollmentDate,desc',
+      })
+      exportToCsv(`inscripciones-${dateStamp()}`, res.content, [
+        { label: 'Alumno',        value: e => `${e.student.lastName}, ${e.student.firstName}` },
+        { label: 'Curso',         value: e => e.course.name },
+        { label: 'Fecha',         value: e => e.enrollmentDate?.slice(0, 10) ?? '' },
+        { label: 'Precio lista',  value: e => e.listPrice ?? '' },
+        { label: 'Descuento %',   value: e => e.discountPercentage ?? '' },
+        { label: 'Precio final',  value: e => e.finalPrice ?? '' },
+        { label: 'Matrícula',     value: e => e.enrollmentFee ?? '' },
+        { label: 'Libros',        value: e => e.bookPrice ?? '' },
+        { label: 'Total',         value: e => e.totalPrice ?? '' },
+        { label: 'Nº cuotas',     value: e => e.numInstallments ?? '' },
+        { label: 'Grupo de pago', value: e => e.paymentGroup ?? '' },
+        { label: 'Estado',        value: e => ENROLLMENT_STATUS_LABELS[e.status] },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   return (
     <div className="inscripciones">
       <header className="inscripciones__header">
@@ -144,15 +175,20 @@ export default function Inscripciones() {
               : 'Gestioná las inscripciones a los cursos'}
           </p>
         </div>
-        {canWrite('/inscripciones') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nueva inscripción
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/inscripciones') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nueva inscripción
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="inscripciones__toolbar">

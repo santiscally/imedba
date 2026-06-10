@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, FileSpreadsheet, GraduationCap, ArrowUp, ArrowDown, ArrowUpDown,
   Calendar, CircleDollarSign, Users,
-  Eye, RefreshCw, BadgeCheck,
+  Eye, RefreshCw, BadgeCheck, Download,
 } from 'lucide-react'
 import { diplomasApi } from '../api/diplomas'
 import { diplomaSettlementsApi } from '../api/diploma-settlements'
@@ -14,6 +14,7 @@ import SettlementForm from '../components/SettlementForm'
 import SettlementDetail from '../components/SettlementDetail'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Liquidaciones.scss'
 
 type SortDir   = 'asc' | 'desc'
@@ -92,6 +93,23 @@ export default function Liquidaciones() {
     setReload(r => r + 1)
   }
 
+  function handleExport() {
+    if (!visible.length || !selectedDiploma) return
+    const slug = selectedDiploma.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
+    exportToCsv(`liquidaciones-${slug}-${dateStamp()}`, visible, [
+      { label: 'Período',          value: s => `${MONTHS[s.periodMonth - 1]} ${s.periodYear}` },
+      { label: 'Total cobrado',    value: s => s.totalCollected ?? '' },
+      { label: 'Comisión impuestos', value: s => s.taxCommissionAmount ?? '' },
+      { label: 'Sueldo secretaria',  value: s => s.secretaryAmount ?? '' },
+      { label: 'Publicidad',         value: s => s.advertisingAmount ?? '' },
+      { label: 'Administración',     value: s => s.adminAmount ?? '' },
+      { label: 'Universidad',        value: s => s.universityAmount ?? '' },
+      { label: 'IMEDBA',             value: s => s.imedbaAmount ?? '' },
+      { label: 'Directoras (total)', value: s => s.partnersTotal ?? '' },
+      { label: 'Estado',             value: s => SETTLEMENT_STATUS_LABELS[s.status] },
+    ])
+  }
+
   async function handleAction(s: DiplomaSettlement, action: 'recompute' | 'approve' | 'mark-paid') {
     const meta = {
       'recompute': { verb: 'recomputar el reparto de',  done: 'Reparto recomputado',  icon: 'question' as const, danger: false },
@@ -140,17 +158,23 @@ export default function Liquidaciones() {
               : 'Liquidaciones mensuales por diplomatura — reparto entre directoras, universidad e IMEDBA'}
           </p>
         </div>
-        {canWrite('/liquidaciones') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-            disabled={!selectedDiploma}
-            title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport}
+            disabled={!visible.length || !selectedDiploma}>
+            <Download size={16} strokeWidth={2} /> Exportar
           </button>
-        )}
+          {canWrite('/liquidaciones') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+              disabled={!selectedDiploma}
+              title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="liquidaciones__toolbar">

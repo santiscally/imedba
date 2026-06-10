@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   UserCircle2, Users, ArrowUp, ArrowDown, ArrowUpDown,
-  Eye, Pencil,
+  Eye, Pencil, Download,
 } from 'lucide-react'
 import { studentsApi } from '../api/students'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
@@ -12,6 +12,8 @@ import EmptyState from '../components/EmptyState'
 import StudentForm from '../components/StudentForm'
 import StudentDetail from '../components/StudentDetail'
 import { canWrite } from '../lib/access'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import './Alumnos.scss'
 
 const PAGE_SIZE = 10
@@ -37,7 +39,8 @@ export default function Alumnos() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
-  const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
+  const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
+  const [exporting, setExporting] = useState(false)
 
   const { unidad } = useUnidad()
   const unidadBu = unidadBusinessUnit(unidad)
@@ -81,6 +84,30 @@ export default function Alumnos() {
     setReload(r => r + 1)
   }
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const res = await studentsApi.list({
+        q:            debounced || undefined,
+        businessUnit: unidadBu,
+        size:         2000,
+        sort:         sort ? `${sort.field},${sort.dir}` : 'lastName,asc',
+      })
+      exportToCsv(`alumnos-${dateStamp()}`, res.content, [
+        { label: 'Apellido',     value: s => s.lastName },
+        { label: 'Nombre',       value: s => s.firstName },
+        { label: 'DNI',          value: s => s.dni ?? '' },
+        { label: 'Email',        value: s => s.email },
+        { label: 'Teléfono',     value: s => s.phone ?? '' },
+        { label: 'Nacionalidad', value: s => s.nationality ?? '' },
+        { label: 'Universidad',  value: s => s.university ?? '' },
+        { label: 'Localidad',    value: s => s.locality ?? '' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExporting(false) }
+  }
+
   return (
     <div className="alumnos">
       <header className="alumnos__header">
@@ -95,15 +122,20 @@ export default function Alumnos() {
               : 'Gestioná los alumnos del instituto'}
           </p>
         </div>
-        {canWrite('/alumnos') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nuevo alumno
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
+            <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
-        )}
+          {canWrite('/alumnos') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nuevo alumno
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="alumnos__toolbar">

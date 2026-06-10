@@ -13,6 +13,7 @@ import BookSaleForm from '../components/BookSaleForm'
 import BookSaleDetail from '../components/BookSaleDetail'
 import { canWrite } from '../lib/access'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
+import { alertError } from '../lib/confirm'
 import './Editorial.scss'
 
 const PAGE_SIZE = 10
@@ -72,6 +73,8 @@ export default function Ventas() {
   const [rError,         setRError]         = useState<string | null>(null)
   const [authorSearch,   setAuthorSearch]   = useState('')
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
+
+  const [exportingSales, setExportingSales] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
@@ -193,6 +196,27 @@ export default function Ventas() {
     }
   }
 
+  async function handleExportSales() {
+    setExportingSales(true)
+    try {
+      const res = await bookSalesApi.list({
+        q: debounced || undefined,
+        size: 2000,
+        sort: sort ? `${sort.field},${sort.dir}` : 'saleDate,desc',
+      })
+      exportToCsv(`ventas-${dateStamp()}`, res.content, [
+        { label: 'Libro',        value: s => s.bookName ?? '' },
+        { label: 'Cantidad',     value: s => s.quantity },
+        { label: 'Precio unit.', value: s => s.unitPrice },
+        { label: 'Total',        value: s => s.totalAmount },
+        { label: 'Fecha',        value: s => formatInstantDate(s.saleDate) },
+        { label: 'Tipo',         value: s => s.studentSale ? 'Alumno' : 'Lista' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExportingSales(false) }
+  }
+
   function handleExportRoyalties() {
     const rows: Array<{ author: string; book: string; pct: number; sales: number; royalty: number }> = []
     for (const g of authorsGrouped) {
@@ -234,10 +258,17 @@ export default function Ventas() {
               : `Royalties — ${periodTitle()}`}
           </p>
         </div>
-        {tab === 'ventas' && canWrite('/ventas') && (
-          <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
-            <Plus size={16} strokeWidth={2.2} /> Registrar venta
-          </button>
+        {tab === 'ventas' && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn-ghost" type="button" onClick={handleExportSales} disabled={exportingSales}>
+              <Download size={16} strokeWidth={2} /> {exportingSales ? 'Exportando…' : 'Exportar'}
+            </button>
+            {canWrite('/ventas') && (
+              <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'create' })}>
+                <Plus size={16} strokeWidth={2.2} /> Registrar venta
+              </button>
+            )}
+          </div>
         )}
       </header>
 

@@ -35,6 +35,26 @@
 **Impacto para el otro:** `activity` y `overdue` reemplazan 1:1 tu merge de payments+enrollments+sales y tu filtro de deudores — podés migrar esos dos ya. El `summary` actual NO cubre tus métricas nuevas de refuerzo positivo (alumnos nuevos del mes, inscripciones del mes, libro top, delta vs mes anterior) — si querés, lo extiendo con esos campos y el dashboard entero queda en 2-3 requests sin caps; avisame por acá y lo hago. Mientras tanto, lo client-side que tenés sigue funcionando. Lo del Excel de Meli: si tenías algo en mente para "Rendimiento académico" en StudentDetail, no lo arranques — descartado.
 **Refs:** `modules/dashboard/controller/DashboardController.java`, `modules/dashboard/dto/{DashboardSummaryResponse,ActivityItemResponse,OverdueInstallmentResponse}.java`, `InstallmentController.java:81`, commit `1b33658`.
 
+## 2026-06-10 — Fran — frontend (botón Exportar en todas las grillas)
+**Qué:** Agregué el botón "Exportar" a las 11 grillas que faltaban (Cuotas/Presupuesto/Ventas-Royalties ya lo tenían). Cada uno baja un CSV con BOM UTF-8 + separador `;` (abre directo en Excel es-AR) usando `lib/exportCsv.ts` y archivo `<entidad>-YYYY-MM-DD.csv` con `dateStamp()`. Cubiertos:
+- **Alumnos** (apellido/nombre/DNI/email/teléfono/nacionalidad/universidad/localidad)
+- **Cursos** (nombre/código/unidad/modalidad/ciclo lectivo/precio matrícula/precio curso/examen)
+- **Inscripciones** (alumno/curso/fecha/precios/cuotas/grupo de pago/estado)
+- **Descuentos** (nombre/tipo/valor/vigencia/descripción)
+- **Diplomaturas** (nombre/universidad/curso vinculado/precios/cantidad directoras/descripción)
+- **Liquidaciones** (período/total/comisión/sueldos/publicidad/admin/univ/IMEDBA/directoras/estado; nombre del archivo incluye slug del diploma seleccionado)
+- **Autores** (apellido/nombre/email/teléfono)
+- **Libros** (nombre/código/especialidad/formato/edición/páginas/precios/stock/sucursal + lista de autores con %)
+- **Colecciones** (nombre/variante/precio/descuento alumno %/libros incluidos)
+- **Personal** (usuario/nombre/apellido/email/roles/activo)
+- **Ventas — tab Ventas** (libro/cantidad/precio unit/total/fecha/tipo)
+
+Todos los handlers respetan los filtros activos (búsqueda, sort, unidad, status, etc.) y fetchean con `size: 2000` para traer todo el resultset (no solo la página visible). En errores → `alertError` con el mensaje del backend. En grillas que ya tienen toda la data client-side (Diplomaturas, Liquidaciones, Colecciones, Personal) no hay fetch extra — exportan `visible`/`filtered`/`users` directo. Estructura: `<header>` ahora envuelve "Nuevo X" + "Exportar" en un `<div style="display:flex; gap:.5rem">` para no tener que tocar SCSS página por página.
+**Por qué:** Pedido del usuario — "todas las grillas deben tener botón Exportar".
+**Problemas:** Ninguno; build `tsc -b && vite build` limpio. Un par de fixes menores al volar: en Liquidaciones el field es `taxCommissionAmount` (no `taxAmount`), en Personal es `roles: string[]` (no `role`).
+**Impacto para el otro:** Cero — todo frontend usando endpoints existentes.
+**Refs:** `lib/exportCsv.ts` (sin cambios — el wrapper ya estaba), `pages/{Alumnos,Cursos,Inscripciones,Descuentos,Diplomaturas,Liquidaciones,Autores,Libros,Colecciones,Personal,Ventas}.tsx`.
+
 ## 2026-06-09 — Fran — frontend (PENDINGS de Santi + validaciones numéricas solo "es un número")
 **Qué:** Cinco tareas en una tanda. (1) **BookForm sin Stock en edit + acción "Ajustar stock" en BookDetail** → `PUT /books/{id}/stock` (`BookStockUpdateRequest{stockQuantity, reason}`). El form de creación sigue pidiendo stock inicial; el de edición no lo muestra y avisa que se gestiona desde el detalle (evita pisar las ventas — bug del DIARIO de Santi). (2) **`InstallmentStatus +CANCELLED`** en types/installment.ts (labels: "Anulada") + badge gris (`badge--cancelada`, $fondo-hover + $gris-texto) en `Cuotas.scss`. En `Cuotas.tsx` reemplacé los `i.status !== 'PAID'` por `isPayable = status === 'PENDING' || status === 'OVERDUE'` → las CANCELLED no son seleccionables, no muestran acciones (pagar / editar / condonar) y caen en el badge gris. (3) **`window.confirm` → SweetAlert**: `Diplomaturas.tsx::handleDelete` y `Cuotas.tsx::handleWaiveSurcharge` ahora usan `confirmAction` + `alertError` + `toastSuccess` — quedan en línea con todo el resto del SPA y muestran el mensaje del backend (los 409 del fix de Santi llegan legibles). (4) **Vencidas client-side**: nada que sacar — no había lógica de "PENDING vencida" client-side; el dashboard filtra por `nextDueDate < hoy` pero es display, no status. (5) **Validaciones numéricas reducidas a "es un número"** en TODOS los forms (BookForm/BookDetail/CourseForm/BudgetEntryForm/DiplomaForm/DiscountCampaignForm/CollectionForm/EnrollmentForm/InstallmentEditForm/PaymentForm/SettlementForm/BookSaleForm): sacadas las cotas `≥ 0`, `> 0`, `Máx N` y `entre X y Y` tanto en JS (`Number.isNaN(n) || n < 0`, `n > max`, etc.) como en HTML (`min=` y `max=` atributos). Mensaje único cuando aplica: "No es un número válido". También saqué el bloqueo de submit por suma de % de directoras > 100 en DiplomaForm (el hint visual en el header sigue mostrándose).
 **Por qué:** Pedidos del usuario: (a) cerrar los 4 PENDINGS que Santi dejó en su entrada y (b) eliminar todos los rangos numéricos arbitrarios — "que valide que sea un número y listo, solo eso".

@@ -3,7 +3,7 @@ import {
   Search, Plus,
   GraduationCap, ArrowUp, ArrowDown, ArrowUpDown,
   University, CircleDollarSign, Percent, Users,
-  Eye, Pencil, Trash2,
+  Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { diplomasApi } from '../api/diplomas'
 import type { Diploma, DiplomaCreateRequest } from '../types/diploma'
@@ -12,6 +12,7 @@ import DiplomaForm from '../components/DiplomaForm'
 import DiplomaDetail from '../components/DiplomaDetail'
 import { canWrite } from '../lib/access'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Diplomaturas.scss'
 
 type SortDir   = 'asc' | 'desc'
@@ -80,6 +81,19 @@ export default function Diplomaturas() {
     setReload(r => r + 1)
   }
 
+  function handleExport() {
+    if (!visible.length) return
+    exportToCsv(`diplomaturas-${dateStamp()}`, visible, [
+      { label: 'Nombre',          value: d => d.name },
+      { label: 'Universidad',     value: d => d.universityName ?? '' },
+      { label: 'Curso vinculado', value: d => d.courseName ?? '' },
+      { label: 'Precio matrícula', value: d => d.enrollmentPrice ?? '' },
+      { label: 'Precio curso',     value: d => d.coursePrice ?? '' },
+      { label: 'Directoras',      value: d => d.partnersConfig?.length ?? 0 },
+      { label: 'Descripción',     value: d => d.description ?? '' },
+    ])
+  }
+
   async function handleDelete(d: Diploma) {
     const ok = await confirmAction({
       title:       '¿Eliminar la diplomatura?',
@@ -114,15 +128,20 @@ export default function Diplomaturas() {
               : 'Programas de formación superior con reparto de directoras'}
           </p>
         </div>
-        {canWrite('/diplomaturas') && (
-          <button
-            className="btn-primary"
-            type="button"
-            onClick={() => setPanel({ kind: 'create' })}
-          >
-            <Plus size={16} strokeWidth={2.2} /> Nueva diplomatura
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-ghost" type="button" onClick={handleExport} disabled={!visible.length}>
+            <Download size={16} strokeWidth={2} /> Exportar
           </button>
-        )}
+          {canWrite('/diplomaturas') && (
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={() => setPanel({ kind: 'create' })}
+            >
+              <Plus size={16} strokeWidth={2.2} /> Nueva diplomatura
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="diplomaturas__toolbar">
