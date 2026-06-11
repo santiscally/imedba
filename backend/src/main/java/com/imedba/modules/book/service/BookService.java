@@ -57,6 +57,9 @@ public class BookService {
         if (b.getStockQuantity() == null) {
             b.setStockQuantity(0);
         }
+        if (b.getRoyaltyPoolPct() == null) {
+            b.setRoyaltyPoolPct(new BigDecimal("10.00"));
+        }
         b.setActive(Boolean.TRUE);
         Book saved = bookRepository.save(b);
 

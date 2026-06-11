@@ -141,7 +141,9 @@ public class BookSaleService {
     /**
      * Calcula royalties por período (mes calendario en TZ Argentina).
      * Por cada venta en el período, para cada BookAuthor del libro vendido:
-     *   royaltyAmount += sale.total_amount * (royaltyPct / 100).
+     *   royaltyAmount += sale.total_amount * (poolPct / 100) * (royaltyPct / 100),
+     * donde poolPct es el % de la venta destinado a autorías (books.royalty_pool_pct,
+     * default 10) y royaltyPct el reparto de ese pool entre autoras.
      * Una línea por (author, book).
      */
     @Transactional(readOnly = true)
@@ -165,8 +167,10 @@ public class BookSaleService {
             for (BookAuthor ba : authors) {
                 BigDecimal pct = ba.getRoyaltyPercentage() == null
                         ? BigDecimal.ZERO : ba.getRoyaltyPercentage();
-                BigDecimal royalty = bookTotal.multiply(pct)
-                        .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                BigDecimal poolPct = ba.getBook().getRoyaltyPoolPct() == null
+                        ? new BigDecimal("10.00") : ba.getBook().getRoyaltyPoolPct();
+                BigDecimal royalty = bookTotal.multiply(poolPct).multiply(pct)
+                        .divide(new BigDecimal("10000"), 2, RoundingMode.HALF_UP);
                 String key = ba.getAuthor().getId() + ":" + bookId;
                 lines.put(key, new RoyaltyLineResponse(
                         ba.getAuthor().getId(),
@@ -175,6 +179,7 @@ public class BookSaleService {
                         bookId,
                         ba.getBook().getName(),
                         pct,
+                        poolPct,
                         bookTotal,
                         royalty
                 ));

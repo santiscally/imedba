@@ -56,6 +56,14 @@ public class Book extends BaseEntity {
     @Column(name = "student_discount_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal studentDiscountPct = new BigDecimal("30.00");
 
+    /**
+     * % del precio de venta que va a la torta de autorías; los
+     * royalty_percentage de book_authors reparten este pool (doc 09 §3.4).
+     */
+    @Default
+    @Column(name = "royalty_pool_pct", nullable = false, precision = 5, scale = 2)
+    private BigDecimal royaltyPoolPct = new BigDecimal("10.00");
+
     @Column(name = "cost_per_unit", precision = 12, scale = 2)
     private BigDecimal costPerUnit;
 

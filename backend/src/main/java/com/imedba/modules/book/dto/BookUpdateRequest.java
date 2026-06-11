@@ -1,5 +1,6 @@
 package com.imedba.modules.book.dto;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -19,6 +20,8 @@ public record BookUpdateRequest(
         @Min(0) Integer pages,
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal salePrice,
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal studentDiscountPct,
+        @DecimalMin(value = "0.00", inclusive = true)
+        @DecimalMax(value = "100.00") BigDecimal royaltyPoolPct,
         @DecimalMin(value = "0.00", inclusive = true) BigDecimal costPerUnit,
         @Size(max = 50) String branch,
         Boolean active

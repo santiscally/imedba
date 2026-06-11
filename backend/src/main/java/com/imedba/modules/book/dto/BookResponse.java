@@ -15,6 +15,7 @@ public record BookResponse(
         Integer pages,
         BigDecimal salePrice,
         BigDecimal studentDiscountPct,
+        BigDecimal royaltyPoolPct,
         BigDecimal costPerUnit,
         Integer stockQuantity,
         String branch,

@@ -33,6 +33,7 @@ public interface BookMapper {
                 b.getPages(),
                 b.getSalePrice(),
                 b.getStudentDiscountPct(),
+                b.getRoyaltyPoolPct(),
                 b.getCostPerUnit(),
                 b.getStockQuantity(),
                 b.getBranch(),

@@ -87,7 +87,8 @@ class BookServiceTests {
 
         var req = new com.imedba.modules.book.dto.BookCreateRequest(
                 "Test", "C1", "spec", "fmt", "1ed", 100,
-                new BigDecimal("100.00"), new BigDecimal("30.00"), new BigDecimal("50.00"),
+                new BigDecimal("100.00"), new BigDecimal("30.00"),
+                new BigDecimal("10.00"), new BigDecimal("50.00"),
                 10, "Central",
                 List.of(
                         new com.imedba.modules.book.dto.BookAuthorRequest(

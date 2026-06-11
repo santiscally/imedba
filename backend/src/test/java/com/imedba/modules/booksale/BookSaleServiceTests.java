@@ -107,7 +107,7 @@ class BookSaleServiceTests {
     }
 
     @Test
-    @DisplayName("royaltiesByPeriod suma total_amount por libro y reparte según porcentaje")
+    @DisplayName("royaltiesByPeriod aplica el pool del libro (default 10%) y reparte según porcentaje")
     void royalties_on_the_fly() {
         UUID bookA = UUID.randomUUID();
         UUID authorA = UUID.randomUUID();
@@ -136,8 +136,60 @@ class BookSaleServiceTests {
 
         assertThat(lines).hasSize(1);
         assertThat(lines.get(0).totalSales()).isEqualByComparingTo("150.00");
-        // 150 * 20% = 30
-        assertThat(lines.get(0).royaltyAmount()).isEqualByComparingTo("30.00");
+        // 150 * 10% (pool default) * 20% = 3
+        assertThat(lines.get(0).royaltyPoolPct()).isEqualByComparingTo("10.00");
+        assertThat(lines.get(0).royaltyAmount()).isEqualByComparingTo("3.00");
         assertThat(lines.get(0).authorId()).isEqualTo(authorA);
+    }
+
+    @Test
+    @DisplayName("royaltiesByPeriod con varias autoras reparte el pool según % (caso Med. Interna Vol. I)")
+    void royalties_multi_author_split() {
+        UUID bookId = UUID.randomUUID();
+        Book book = Book.builder().build();
+        book.setId(bookId);
+        book.setName("Medicina Interna Vol. I");
+
+        BookSale sale = BookSale.builder()
+                .book(book).totalAmount(new BigDecimal("1000.00"))
+                .saleDate(Instant.now()).build();
+
+        List<BookAuthor> links = List.of(
+                link(book, "Marcela", "Heres", "19.00"),
+                link(book, "Agustina", "Granada", "29.00"),
+                link(book, "Jaquelina", "Cataldi", "26.00"),
+                link(book, "Melina", "Porporato", "26.00"));
+
+        when(repository.findInPeriod(any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(sale));
+        when(bookAuthorRepository.findByBookId(bookId)).thenReturn(links);
+
+        List<RoyaltyLineResponse> lines = service.royaltiesByPeriod(2026, 6);
+
+        assertThat(lines).hasSize(4);
+        // pool = 1000 * 10% = 100; cada autora cobra su % del pool
+        BigDecimal total = lines.stream()
+                .map(RoyaltyLineResponse::royaltyAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(total).isEqualByComparingTo("100.00");
+        assertThat(byLastName(lines, "Heres").royaltyAmount()).isEqualByComparingTo("19.00");
+        assertThat(byLastName(lines, "Granada").royaltyAmount()).isEqualByComparingTo("29.00");
+        assertThat(byLastName(lines, "Cataldi").royaltyAmount()).isEqualByComparingTo("26.00");
+        assertThat(byLastName(lines, "Porporato").royaltyAmount()).isEqualByComparingTo("26.00");
+    }
+
+    private static BookAuthor link(Book book, String firstName, String lastName, String pct) {
+        Author a = Author.builder().firstName(firstName).lastName(lastName).build();
+        a.setId(UUID.randomUUID());
+        return BookAuthor.builder()
+                .book(book).author(a)
+                .royaltyPercentage(new BigDecimal(pct)).build();
+    }
+
+    private static RoyaltyLineResponse byLastName(List<RoyaltyLineResponse> lines, String lastName) {
+        return lines.stream()
+                .filter(l -> lastName.equals(l.lastName()))
+                .findFirst()
+                .orElseThrow();
     }
 }
