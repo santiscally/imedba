@@ -11,13 +11,15 @@ import { studentsApi } from '../api/students'
 import { enrollmentsApi } from '../api/enrollments'
 import { bookSalesApi } from '../api/book-sales'
 import { installmentsApi } from '../api/installments'
-import { paymentsApi } from '../api/payments'
+import { dashboardApi } from '../api/dashboard'
 import { currentUser, hasAuthority } from '../lib/auth'
 import './Dashboard.scss'
 
-// Dashboard derivado de los endpoints reales — refuerzo positivo arriba,
-// operativo abajo (reunión 22-05 §2.9). No depende de endpoints de "dashboard/*"
-// (que no existen en el backend); todo se compone client-side.
+// Dashboard — refuerzo positivo arriba, operativo abajo (reunión 22-05 §2.9).
+// Las 4 cards de refuerzo (ingresos del mes + delta, alumnos nuevos del mes,
+// inscripciones del mes, libro top del mes) se componen client-side porque
+// `/dashboard/summary` solo expone totales del sistema. Actividad y vencidas
+// usan los endpoints reales (`/dashboard/activity`, `/installments/overdue`).
 
 // ─── Tipos de UI ─────────────────────────────────────────────────────────────
 type Stat<T> =
@@ -28,8 +30,8 @@ type Stat<T> =
 
 interface IncomeData    { current: number; previous: number }
 interface TopBookData   { name: string; quantity: number }
-interface OverdueRow    { id: string; alumno: string; curso: string; totalOwed: number; dueDate: string; pending: number }
-interface ActivityItem  { id: string; type: 'payment' | 'enrollment' | 'sale'; title: string; detail: string; amount: number | null; date: string }
+interface OverdueRow    { id: string; alumno: string; curso: string; cuotaNumero: number; cuotaTotal: number; diasVencidos: number; monto: number }
+interface ActivityRow   { id: string; type: string; title: string; detail: string; amount: number | null; date: string }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -70,13 +72,6 @@ function fmtShortInstant(iso: string): string {
   return `${dt.getDate()} ${MONTHS_ES_SHORT[dt.getMonth()]}`
 }
 
-function daysOverdue(localDate: string): number {
-  const [y, m, d] = localDate.split('-').map(Number)
-  if (!y) return 0
-  const due = new Date(y, m - 1, d).getTime()
-  const now = Date.now()
-  return Math.max(0, Math.floor((now - due) / 86_400_000))
-}
 
 // ─── Quick actions ───────────────────────────────────────────────────────────
 const QUICK_ACTIONS: Array<{ icon: LucideIcon; label: string; desc: string; to: string; need: string }> = [
@@ -100,7 +95,7 @@ export default function Dashboard() {
   const [newEnrollments, setNewEnrollments] = useState<Stat<number>>({ status: 'loading' })
   const [topBook,        setTopBook]        = useState<Stat<TopBookData>>({ status: 'loading' })
   const [overdue,        setOverdue]        = useState<Stat<OverdueRow[]>>({ status: 'loading' })
-  const [activity,       setActivity]       = useState<Stat<ActivityItem[]>>({ status: 'loading' })
+  const [activity,       setActivity]       = useState<Stat<ActivityRow[]>>({ status: 'loading' })
 
   // ─── Carga en paralelo ───────────────────────────────────────────────────
   useEffect(() => {
@@ -160,84 +155,34 @@ export default function Dashboard() {
         .catch(() => setTopBook({ status: 'error' }))
     }
 
-    // Cuotas vencidas — top 10 deudores cuyo próximo vencimiento ya pasó
+    // Cuotas vencidas — GET /installments/overdue (status=OVERDUE && diasVencidos > 10)
     if (!hasAuthority('installments:read')) {
       setOverdue({ status: 'hidden' })
     } else {
-      const todayStr = new Date().toISOString().slice(0, 10)
-      installmentsApi.debtors({ size: 30 })
-        .then(r => {
-          const rows: OverdueRow[] = r.content
-            .filter(d => d.nextDueDate < todayStr)
-            .slice(0, 10)
-            .map(d => ({
-              id:        d.enrollmentId,
-              alumno:    d.studentName,
-              curso:     d.courseName,
-              totalOwed: d.totalOwed,
-              dueDate:   d.nextDueDate,
-              pending:   d.pendingCount,
-            }))
-          setOverdue({ status: 'ok', data: rows })
+      installmentsApi.overdue()
+        .then(rows => {
+          const data: OverdueRow[] = rows.slice(0, 10).map(r => ({
+            id:           r.id,
+            alumno:       r.alumno,
+            curso:        r.curso,
+            cuotaNumero:  r.cuotaNumero,
+            cuotaTotal:   r.cuotaTotal,
+            diasVencidos: r.diasVencidos,
+            monto:        r.monto,
+          }))
+          setOverdue({ status: 'ok', data })
         })
         .catch(() => setOverdue({ status: 'error' }))
     }
 
-    // Actividad reciente — merge de pagos, inscripciones y ventas
-    const canPayments    = hasAuthority('payments:read')
-    const canEnrollments = hasAuthority('enrollments:read')
-    const canSales       = hasAuthority('book_sales:read')
-
-    if (!canPayments && !canEnrollments && !canSales) {
+    // Actividad reciente — GET /dashboard/activity (merge top-8 server-side).
+    // Auth: students:read (es info agregada, sin datos sensibles).
+    if (!hasAuthority('students:read')) {
       setActivity({ status: 'hidden' })
     } else {
-      Promise.allSettled([
-        canPayments    ? paymentsApi.list({ size: 5, sort: 'paymentDate,desc' })            : Promise.resolve(null),
-        canEnrollments ? enrollmentsApi.list({ size: 5, sort: 'enrollmentDate,desc' })       : Promise.resolve(null),
-        canSales       ? bookSalesApi.list({ size: 5, sort: 'saleDate,desc' })               : Promise.resolve(null),
-      ]).then(([payRes, enrRes, saleRes]) => {
-        const items: ActivityItem[] = []
-
-        if (payRes.status === 'fulfilled' && payRes.value) {
-          for (const p of payRes.value.content) {
-            items.push({
-              id:     `pay-${p.id}`,
-              type:   'payment',
-              title:  'Pago registrado',
-              detail: p.receiptNumber ?? '—',
-              amount: p.amount,
-              date:   p.paymentDate,
-            })
-          }
-        }
-        if (enrRes.status === 'fulfilled' && enrRes.value) {
-          for (const e of enrRes.value.content) {
-            items.push({
-              id:     `enr-${e.id}`,
-              type:   'enrollment',
-              title:  'Nueva inscripción',
-              detail: `${e.student.lastName}, ${e.student.firstName} · ${e.course.name}`,
-              amount: null,
-              date:   e.enrollmentDate,
-            })
-          }
-        }
-        if (saleRes.status === 'fulfilled' && saleRes.value) {
-          for (const s of saleRes.value.content) {
-            items.push({
-              id:     `sale-${s.id}`,
-              type:   'sale',
-              title:  'Venta de libro',
-              detail: s.bookName ?? '—',
-              amount: s.totalAmount,
-              date:   s.saleDate,
-            })
-          }
-        }
-
-        items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-        setActivity({ status: 'ok', data: items.slice(0, 8) })
-      }).catch(() => setActivity({ status: 'error' }))
+      dashboardApi.activity()
+        .then(items => setActivity({ status: 'ok', data: items }))
+        .catch(() => setActivity({ status: 'error' }))
     }
   }, [cur.year, cur.month, prev.year, prev.month])
 
@@ -339,7 +284,7 @@ export default function Dashboard() {
           <div className="section__header">
             <h2 className="section__title">
               <AlertCircle size={16} className="section__title-icon" />
-              Cuotas vencidas — top deudores
+              Cuotas vencidas (más de 10 días)
             </h2>
             {overdue.status === 'ok' && overdue.data.length > 0 && (
               <button className="section__action" onClick={() => navigate('/cuotas')}>Ver todas</button>
@@ -352,22 +297,27 @@ export default function Dashboard() {
             <div className="dashboard__empty">No hay cuotas vencidas. 🎉</div>
           ) : overdue.status === 'ok' ? (
             <div className="alerts-card">
-              {overdue.data.map(r => (
-                <div className="alert-row" key={r.id}>
-                  <div className="alert-row__main">
-                    <div className="alert-row__alumno">{r.alumno}</div>
-                    <div className="alert-row__meta">
-                      {r.curso} · {r.pending} {r.pending === 1 ? 'cuota impaga' : 'cuotas impagas'}
+              {overdue.data.map(r => {
+                const cuotaLabel = r.cuotaNumero === 0
+                  ? 'Matrícula'
+                  : `Cuota ${r.cuotaNumero}/${r.cuotaTotal}`
+                return (
+                  <div className="alert-row" key={r.id}>
+                    <div className="alert-row__main">
+                      <div className="alert-row__alumno">{r.alumno}</div>
+                      <div className="alert-row__meta">
+                        {r.curso} · {cuotaLabel}
+                      </div>
                     </div>
+                    <div className="alert-row__monto">{fmtCurrency(r.monto)}</div>
+                    <div className="alert-row__dias">
+                      <Clock size={12} />
+                      {r.diasVencidos} días
+                    </div>
+                    <button className="alert-row__btn" onClick={() => navigate('/cuotas')}>Gestionar</button>
                   </div>
-                  <div className="alert-row__monto">{fmtCurrency(r.totalOwed)}</div>
-                  <div className="alert-row__dias">
-                    <Clock size={12} />
-                    {daysOverdue(r.dueDate)} días
-                  </div>
-                  <button className="alert-row__btn" onClick={() => navigate('/cuotas')}>Gestionar</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : null}
         </section>

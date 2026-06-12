@@ -1,5 +1,5 @@
 import type { PageResponse } from '../types/common'
-import type { Debtor, Installment, InstallmentStatus, InstallmentUpdateRequest } from '../types/installment'
+import type { Debtor, Installment, InstallmentStatus, InstallmentUpdateRequest, OverdueInstallment } from '../types/installment'
 import { apiGet, apiPut } from './client'
 
 // Servicio de cuotas — refleja InstallmentController (/api/v1/installments).
@@ -64,6 +64,10 @@ export const installmentsApi = {
   // Deudores agrupados por alumno/inscripción (cuotas impagas juntas).
   debtors(params: ListDebtorsParams = {}): Promise<PageResponse<Debtor>> {
     return apiGet<PageResponse<Debtor>>(`/installments/debtors${buildDebtorsQuery(params)}`)
+  },
+  // Cuotas vencidas para el Dashboard (status=OVERDUE && diasVencidos > 10), ordenadas desc.
+  overdue(): Promise<OverdueInstallment[]> {
+    return apiGet<OverdueInstallment[]>('/installments/overdue')
   },
   get(id: string): Promise<Installment> {
     return apiGet<Installment>(`/installments/${id}`)

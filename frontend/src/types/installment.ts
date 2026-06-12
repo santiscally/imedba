@@ -58,6 +58,18 @@ export interface InstallmentUpdateRequest {
   notes?:   string | null
 }
 
+// Refleja com.imedba.modules.dashboard.dto.OverdueInstallmentResponse
+// Fila del panel "Cuotas vencidas" del Dashboard: status=OVERDUE && diasVencidos > 10.
+export interface OverdueInstallment {
+  id:            UUID                 // id de la cuota
+  alumno:        string               // "Apellido, Nombre"
+  curso:         string
+  cuotaNumero:   number               // 0 = matrícula
+  cuotaTotal:    number               // cantidad total de cuotas de la inscripción
+  diasVencidos:  number
+  monto:         number               // totalDue (amount + recargo)
+}
+
 // Refleja com.imedba.modules.installment.dto.DebtorResponse
 // Deudor agrupado por inscripción: un alumno (en un curso) con todas sus cuotas
 // impagas juntas. Alimenta la vista "agrupar pendientes por alumno" de Cuotas.
