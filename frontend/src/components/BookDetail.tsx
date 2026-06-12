@@ -180,6 +180,9 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
                 {assignedTotal}% asignado
               </span>
             </h4>
+            <p className="detail__notes" style={{ marginTop: '-0.25rem' }}>
+              <strong>{current.royaltyPoolPct ?? 10}%</strong> de cada venta va al pool de autorías; los % de abajo reparten ese pool.
+            </p>
 
             {current.authors.length === 0
               ? <p className="detail__notes">Sin autores asignados.</p>

@@ -30,6 +30,8 @@ export interface BookSaleCreateRequest {
 
 // Refleja com.imedba.modules.booksale.dto.RoyaltyLineResponse
 // Línea de royalties calculada on-the-fly por (libro, autor) en un período.
+// royaltyAmount = totalSales × (royaltyPoolPct/100) × (royaltyPercentage/100).
+// El pool del libro (default 10% de la venta) se reparte entre autoras según %.
 export interface RoyaltyLine {
   authorId:          UUID
   firstName:         string
@@ -37,6 +39,7 @@ export interface RoyaltyLine {
   bookId:            UUID
   bookName:          string | null
   royaltyPercentage: number
-  totalSales:        number   // suma de total_amount de las ventas del libro en el período
-  royaltyAmount:     number   // total_amount * royalty_percentage
+  royaltyPoolPct:    number
+  totalSales:        number
+  royaltyAmount:     number
 }

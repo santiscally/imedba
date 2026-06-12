@@ -19,6 +19,7 @@ export interface Book {
   pages:              number | null
   salePrice:          number          // requerido, ≥ 0
   studentDiscountPct: number | null   // % off alumnos
+  royaltyPoolPct:     number          // % de la venta destinado al pool de autorías (default 10)
   costPerUnit:        number | null
   stockQuantity:      number | null
   branch:             string | null
@@ -44,6 +45,7 @@ export interface BookCreateRequest {
   pages?:              number | null          // ≥ 0
   salePrice:           number                 // required, ≥ 0
   studentDiscountPct?: number | null          // ≥ 0
+  royaltyPoolPct?:     number | null          // 0–100, default 10
   costPerUnit?:        number | null          // ≥ 0
   stockQuantity?:      number | null          // ≥ 0
   branch?:             string | null          // max 50
@@ -61,6 +63,7 @@ export interface BookUpdateRequest {
   pages?:              number | null
   salePrice?:          number
   studentDiscountPct?: number | null
+  royaltyPoolPct?:     number | null   // 0–100
   costPerUnit?:        number | null
   branch?:             string | null
   active?:             boolean

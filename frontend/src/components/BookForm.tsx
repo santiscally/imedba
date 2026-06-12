@@ -15,8 +15,8 @@ interface Props {
 
 interface FormState {
   name: string; code: string; specialty: string; format: string; edition: string
-  pages: string; salePrice: string; studentDiscountPct: string; costPerUnit: string
-  stockQuantity: string; branch: string
+  pages: string; salePrice: string; studentDiscountPct: string; royaltyPoolPct: string
+  costPerUnit: string; stockQuantity: string; branch: string
 }
 
 function initialState(b?: Book): FormState {
@@ -29,6 +29,7 @@ function initialState(b?: Book): FormState {
     pages:              b?.pages != null ? String(b.pages) : '',
     salePrice:          b?.salePrice != null ? String(b.salePrice) : '',
     studentDiscountPct: b?.studentDiscountPct != null ? String(b.studentDiscountPct) : '',
+    royaltyPoolPct:     b?.royaltyPoolPct != null ? String(b.royaltyPoolPct) : '',
     costPerUnit:        b?.costPerUnit != null ? String(b.costPerUnit) : '',
     stockQuantity:      b?.stockQuantity != null ? String(b.stockQuantity) : '',
     branch:             b?.branch ?? '',
@@ -61,6 +62,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
     if (!state.salePrice)        e.salePrice = 'Obligatorio'
     numOnly(state.salePrice, 'salePrice', e)
     numOnly(state.studentDiscountPct, 'studentDiscountPct', e)
+    numOnly(state.royaltyPoolPct, 'royaltyPoolPct', e)
     numOnly(state.costPerUnit, 'costPerUnit', e)
     numOnly(state.pages, 'pages', e)
     if (isCreate) numOnly(state.stockQuantity, 'stockQuantity', e)
@@ -83,6 +85,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
       pages:              numOrNull(state.pages),
       salePrice:          Number(state.salePrice),
       studentDiscountPct: numOrNull(state.studentDiscountPct),
+      royaltyPoolPct:     numOrNull(state.royaltyPoolPct),
       costPerUnit:        numOrNull(state.costPerUnit),
       branch:             state.branch.trim() || null,
     }
@@ -151,6 +154,10 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
             <Field label="Descuento alumno (%)" error={errors.studentDiscountPct}>
               <input type="number" step="any" value={state.studentDiscountPct}
                 onChange={e => setField('studentDiscountPct', e.target.value)} placeholder="30" />
+            </Field>
+            <Field label="% venta a autorías (pool)" error={errors.royaltyPoolPct}>
+              <input type="number" step="any" value={state.royaltyPoolPct}
+                onChange={e => setField('royaltyPoolPct', e.target.value)} placeholder="10" />
             </Field>
             <Field label="Costo por unidad (ARS)" error={errors.costPerUnit}>
               <input type="number" step="any" value={state.costPerUnit}
