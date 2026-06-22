@@ -90,6 +90,7 @@ Reglas duras:
 - `instrucciones_claude/11-modulo-personal-usuarios.md` — módulo Personal (gestión de usuarios Keycloak, solo admin)
 - `instrucciones_claude/12-notificaciones-mail-whatsapp.md` — mail (provider-agnostic, proveedor pendiente) + WhatsApp (SIEMPRE manual)
 - `instrucciones_claude/13-preguntas-reunion-20260612.md` — preguntas abiertas para la demo del 12-jun
+- `instrucciones_claude/14-requerimientos-reunion-20260612.md` — cambios/decisiones de la reunión 12-jun (demo completa) + reprioridad para cerrar; transcripción cruda en `transcripcion-reunion-20260612.pdf`
 
 ## Comandos comunes
 
