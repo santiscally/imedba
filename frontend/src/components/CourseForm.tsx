@@ -6,7 +6,7 @@ import type {
   CourseUpdateRequest,
   BusinessUnit,
 } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, MODALITIES_SUGERIDAS } from '../types/course'
+import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, modalitiesFor } from '../types/course'
 import { COUNTRIES, COUNTRY_LABELS } from '../types/country'
 import './StudentForm.scss'
 
@@ -29,8 +29,8 @@ interface FormState {
   country:         string
   enrollmentPrice: string
   coursePrice:     string
-  examDate:        string
   academicYear:    string
+  commission:      string
 }
 
 function initialState(c?: Course): FormState {
@@ -43,8 +43,8 @@ function initialState(c?: Course): FormState {
     country:         c?.country         ?? 'AR',
     enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
     coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
-    examDate:        c?.examDate        ?? '',
     academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
+    commission:      c?.commission      != null ? String(c.commission)      : '',
   }
 }
 
@@ -58,6 +58,10 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
+
+  // Modalidad en cascada según unidad (reunión 12-jun); comisión sólo para Formación Superior.
+  const modalityOptions = modalitiesFor(state.businessUnit)
+  const showCommission  = state.businessUnit === 'FORMACION_SUPERIOR'
 
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
@@ -73,11 +77,13 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (state.coursePrice && Number.isNaN(Number(state.coursePrice))) {
       e.coursePrice = 'No es un número válido'
     }
-    if (state.examDate && !/^\d{4}-\d{2}-\d{2}$/.test(state.examDate)) {
-      e.examDate = 'Formato YYYY-MM-DD'
-    }
     if (state.academicYear && Number.isNaN(Number(state.academicYear))) {
       e.academicYear = 'No es un número válido'
+    }
+    if (state.commission && Number.isNaN(Number(state.commission))) {
+      e.commission = 'No es un número válido'
+    } else if (state.commission && Number(state.commission) <= 0) {
+      e.commission = 'Debe ser un número positivo'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -97,8 +103,8 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       country:         state.country            || null,
       enrollmentPrice: state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
       coursePrice:     state.coursePrice        ? Number(state.coursePrice)     : null,
-      examDate:        state.examDate           || null,
       academicYear:    state.academicYear       ? Number(state.academicYear)    : null,
+      commission:      showCommission && state.commission ? Number(state.commission) : null,
     }
 
     try {
@@ -159,7 +165,16 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
             <Field label="Unidad de negocio" required error={errors.businessUnit}>
               <select
                 value={state.businessUnit}
-                onChange={e => setField('businessUnit', e.target.value as BusinessUnit)}
+                onChange={e => {
+                  const bu = e.target.value as BusinessUnit
+                  setState(prev => ({
+                    ...prev,
+                    businessUnit: bu,
+                    // si la modalidad actual no aplica a la nueva unidad, resetear
+                    modality:   modalitiesFor(bu).includes(prev.modality) ? prev.modality : '',
+                    commission: bu === 'FORMACION_SUPERIOR' ? prev.commission : '',
+                  }))
+                }}
               >
                 {BUSINESS_UNITS.map(bu => (
                   <option key={bu} value={bu}>{BUSINESS_UNIT_LABELS[bu]}</option>
@@ -168,17 +183,16 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
             </Field>
 
             <Field label="Modalidad" error={errors.modality}>
-              <input
-                type="text"
+              <select
                 value={state.modality}
                 onChange={e => setField('modality', e.target.value)}
-                maxLength={50}
-                list="modalidades-sugeridas"
-                placeholder="INTENSIVO, LIBRE, VIVO, …"
-              />
-              <datalist id="modalidades-sugeridas">
-                {MODALITIES_SUGERIDAS.map(m => <option key={m} value={m} />)}
-              </datalist>
+              >
+                <option value="">— Elegir —</option>
+                {state.modality && !modalityOptions.includes(state.modality) && (
+                  <option value={state.modality}>{state.modality}</option>
+                )}
+                {modalityOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </Field>
 
             <Field label="País">
@@ -192,15 +206,19 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               </select>
             </Field>
 
-            <Field label="Fecha de examen" error={errors.examDate}>
-              <input
-                type="date"
-                value={state.examDate}
-                onChange={e => setField('examDate', e.target.value)}
-              />
-            </Field>
+            {showCommission && (
+              <Field label="Comisión" error={errors.commission}>
+                <input
+                  type="number"
+                  step="1"
+                  value={state.commission}
+                  onChange={e => setField('commission', e.target.value)}
+                  placeholder="10 — comisión actual"
+                />
+              </Field>
+            )}
 
-            <Field label="Ciclo lectivo (año)" error={errors.academicYear}>
+            <Field label={showCommission ? 'Año' : 'Ciclo lectivo (año)'} error={errors.academicYear}>
               <input
                 type="number"
                 step="1"

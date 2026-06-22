@@ -44,6 +44,21 @@ export const MODALITIES_SUGERIDAS = [
   'SUPER_INTENSIVO',
 ] as const
 
+// Modalidades de Formación Superior (reunión 12-jun, lista de Jaque).
+export const MODALITIES_FORMACION_SUPERIOR = [
+  'Diplomatura Prematuros',
+  'Diplomatura Neurodesarrollo',
+  'Curso PAF',
+] as const
+
+// Modalidad en cascada según unidad de negocio (reunión 12-jun): FS usa las
+// diplomaturas; el resto, las sugeridas de Residencias.
+export function modalitiesFor(bu: BusinessUnit): readonly string[] {
+  return bu === 'FORMACION_SUPERIOR'
+    ? MODALITIES_FORMACION_SUPERIOR
+    : MODALITIES_SUGERIDAS
+}
+
 // Refleja com.imedba.modules.course.dto.CourseResponse
 export interface Course {
   id:                   UUID
@@ -55,8 +70,8 @@ export interface Course {
   country:              string | null   // ISO-2 (AR/UY); default 'AR' en backend
   enrollmentPrice:      number | null   // BigDecimal en backend → number en JS
   coursePrice:          number | null
-  examDate:             string | null   // LocalDate ISO (YYYY-MM-DD)
-  academicYear:         number | null   // ciclo lectivo (ej. 2026); null = curso "libre"
+  academicYear:         number | null   // ciclo lectivo / año (ej. 2026); null = curso "libre"
+  commission:           number | null   // nro de comisión (solo Formación Superior)
   contractTemplatePath: string | null
   moodleCourseId:       number | null
   active:               boolean | null
@@ -74,8 +89,8 @@ export interface CourseCreateRequest {
   country?:              string | null            // ISO-2 (AR/UY), default AR
   enrollmentPrice?:      number | null            // ≥ 0
   coursePrice?:          number | null            // ≥ 0
-  examDate?:             string | null            // YYYY-MM-DD
-  academicYear?:         number | null            // ciclo lectivo (ej. 2026)
+  academicYear?:         number | null            // ciclo lectivo / año (ej. 2026)
+  commission?:           number | null            // nro de comisión (solo Formación Superior)
   contractTemplatePath?: string | null            // max 500
   moodleCourseId?:       number | null
   active?:               boolean

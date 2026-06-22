@@ -65,6 +65,14 @@ public class Course extends BaseEntity {
     @Column(name = "academic_year")
     private Integer academicYear;
 
+    /**
+     * Nro de comisión, sólo para Formación Superior (reunión 2026-06-12). Las comisiones
+     * son secuenciales cada 6 meses (la 10 es la actual, la 11 arranca ago-2026); el año
+     * va en {@link #academicYear}. Para Residencias queda null.
+     */
+    @Column(name = "commission")
+    private Integer commission;
+
     @Column(name = "contract_template_path", length = 500)
     private String contractTemplatePath;
 

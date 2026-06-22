@@ -4,6 +4,7 @@ import com.imedba.modules.course.entity.BusinessUnit;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ public record CourseCreateRequest(
         @PositiveOrZero  BigDecimal coursePrice,
         LocalDate examDate,
         Integer academicYear,
+        @Positive Integer commission,
         @Size(max = 500) String contractTemplatePath,
         Integer moodleCourseId,
         Boolean active

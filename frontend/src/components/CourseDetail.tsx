@@ -55,8 +55,14 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               <Row icon={Layers}      label="Modalidad"         value={course.modality} />
               <Row icon={Building2}   label="Unidad de negocio" value={BUSINESS_UNIT_LABELS[course.businessUnit]} />
               <Row icon={Globe}       label="País"              value={countryLabel(course.country)} />
-              <Row icon={CalendarDays} label="Ciclo lectivo"    value={course.academicYear != null ? String(course.academicYear) : 'Libre'} />
-              <Row icon={CalendarDays} label="Fecha de examen"  value={formatLocalDate(course.examDate)} />
+              {course.businessUnit === 'FORMACION_SUPERIOR' && (
+                <Row icon={CalendarDays} label="Comisión" value={course.commission != null ? `N° ${course.commission}` : '—'} />
+              )}
+              <Row
+                icon={CalendarDays}
+                label={course.businessUnit === 'FORMACION_SUPERIOR' ? 'Año' : 'Ciclo lectivo'}
+                value={course.academicYear != null ? String(course.academicYear) : 'Libre'}
+              />
             </dl>
           </section>
 
@@ -135,13 +141,6 @@ function formatPrice(n: number | null | undefined): string | null {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(n)
-}
-
-function formatLocalDate(iso: string | null): string | null {
-  if (!iso) return null
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
-  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function formatInstant(iso: string): string {

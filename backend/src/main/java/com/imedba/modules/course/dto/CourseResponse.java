@@ -18,6 +18,7 @@ public record CourseResponse(
         BigDecimal coursePrice,
         LocalDate examDate,
         Integer academicYear,
+        Integer commission,
         String contractTemplatePath,
         Integer moodleCourseId,
         Boolean active,

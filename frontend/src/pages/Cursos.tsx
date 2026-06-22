@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   BookOpen, ArrowUp, ArrowDown, ArrowUpDown,
-  CalendarDays, Tag, GraduationCap, CircleDollarSign,
+  Tag, GraduationCap, CircleDollarSign,
   Eye, Pencil, Users, Download,
 } from 'lucide-react'
 import { coursesApi } from '../api/courses'
@@ -110,10 +110,12 @@ export default function Cursos() {
         { label: 'Código',         value: c => c.code ?? '' },
         { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
         { label: 'Modalidad',      value: c => c.modality ?? '' },
-        { label: 'Ciclo lectivo',  value: c => c.academicYear ?? 'Libre' },
+        { label: 'Ciclo / Comisión', value: c =>
+            c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
+              ? `Com ${c.commission}${c.academicYear != null ? '/' + c.academicYear : ''}`
+              : (c.academicYear ?? 'Libre') },
         { label: 'Precio matrícula', value: c => c.enrollmentPrice ?? '' },
         { label: 'Precio curso',     value: c => c.coursePrice ?? '' },
-        { label: 'Fecha examen',   value: c => c.examDate ?? '' },
       ])
     } catch (err) {
       alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
@@ -238,8 +240,7 @@ export default function Cursos() {
                   onClick={() => toggleSort('modality')}
                 />
                 <th>Unidad</th>
-                <th>Ciclo</th>
-                <th>Examen</th>
+                <th>Ciclo / Comisión</th>
                 <SortableTh
                   label="Precio curso"
                   field="coursePrice"
@@ -279,14 +280,11 @@ export default function Cursos() {
                     </span>
                   </td>
                   <td>
-                    {c.academicYear != null
-                      ? <span className="pill">{c.academicYear}</span>
-                      : <span className="muted">Libre</span>}
-                  </td>
-                  <td className="td-date">
-                    {c.examDate
-                      ? <><CalendarDays size={13} strokeWidth={1.8} /> {formatDate(c.examDate)}</>
-                      : <span className="muted">—</span>}
+                    {c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
+                      ? <span className="pill">Com. {c.commission}{c.academicYear != null ? ` · ${c.academicYear}` : ''}</span>
+                      : c.academicYear != null
+                        ? <span className="pill">{c.academicYear}</span>
+                        : <span className="muted">Libre</span>}
                   </td>
                   <td className="col-precio">
                     {c.coursePrice != null
@@ -488,9 +486,3 @@ function formatPrice(n: number): string {
   }).format(n)
 }
 
-function formatDate(iso: string): string {
-  // iso viene como YYYY-MM-DD (LocalDate). Se parsea a mano para que no corra TZ.
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
-  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
