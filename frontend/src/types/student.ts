@@ -30,6 +30,7 @@ export interface StudentCreateRequest {
   locality?:   string | null   // max 200
   active?:     boolean
   notes?:      string | null
+  moodleUserId?: number | null // lo setea el botón "Validar con Moodle" del alta (opcional)
 }
 
 // Refleja com.imedba.modules.student.dto.StudentUpdateRequest (idéntico a Create)

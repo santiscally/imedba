@@ -5,6 +5,7 @@ import {
   Eye, Pencil, Download,
 } from 'lucide-react'
 import { studentsApi } from '../api/students'
+import { moodleApi } from '../api/moodle'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import type { PageResponse } from '../types/common'
 import type { Student, StudentCreateRequest } from '../types/student'
@@ -12,6 +13,7 @@ import EmptyState from '../components/EmptyState'
 import StudentForm from '../components/StudentForm'
 import StudentDetail from '../components/StudentDetail'
 import { canWrite } from '../lib/access'
+import { hasAuthority } from '../lib/auth'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import { alertError } from '../lib/confirm'
 import './Alumnos.scss'
@@ -19,7 +21,7 @@ import './Alumnos.scss'
 const PAGE_SIZE = 10
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'lastName' | 'university' | 'active'
+type SortField = 'lastName' | 'university'
 type SortState = { field: SortField; dir: SortDir } | null
 
 type PanelState =
@@ -41,6 +43,8 @@ export default function Alumnos() {
 
   const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
   const [exporting, setExporting] = useState(false)
+  const [exportingUnlinked, setExportingUnlinked] = useState(false)
+  const canMoodleRead = hasAuthority('students:read')
 
   const { unidad } = useUnidad()
   const unidadBu = unidadBusinessUnit(unidad)
@@ -108,6 +112,25 @@ export default function Alumnos() {
     } finally { setExporting(false) }
   }
 
+  // Export de alumnos SIN vincular con Moodle + los cursos a los que están inscriptos.
+  // Insumo para que David los cree/alinee en Moodle y luego se corra link-all.
+  async function handleExportUnlinked() {
+    setExportingUnlinked(true)
+    try {
+      const rows = await moodleApi.unlinkedStudents()
+      exportToCsv(`alumnos-no-vinculados-moodle-${dateStamp()}`, rows, [
+        { label: 'Apellido',          value: r => r.lastName },
+        { label: 'Nombre',            value: r => r.firstName },
+        { label: 'DNI',               value: r => r.dni ?? '' },
+        { label: 'Email',             value: r => r.email },
+        { label: 'Teléfono',          value: r => r.phone ?? '' },
+        { label: 'Cursos inscriptos', value: r => r.courses.length ? r.courses.join(', ') : 'Sin inscripciones' },
+      ])
+    } catch (err) {
+      alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
+    } finally { setExportingUnlinked(false) }
+  }
+
   return (
     <div className="alumnos">
       <header className="alumnos__header">
@@ -126,6 +149,17 @@ export default function Alumnos() {
           <button className="btn-ghost" type="button" onClick={handleExport} disabled={exporting}>
             <Download size={16} strokeWidth={2} /> {exporting ? 'Exportando…' : 'Exportar'}
           </button>
+          {canMoodleRead && (
+            <button
+              className="btn-ghost"
+              type="button"
+              onClick={handleExportUnlinked}
+              disabled={exportingUnlinked}
+              title="Exportar alumnos sin vincular con Moodle + sus cursos"
+            >
+              <Download size={16} strokeWidth={2} /> {exportingUnlinked ? 'Exportando…' : 'No vinculados (Moodle)'}
+            </button>
+          )}
           {canWrite('/alumnos') && (
             <button
               className="btn-primary"
@@ -189,13 +223,7 @@ export default function Alumnos() {
                   onClick={() => toggleSort('university')}
                 />
                 <th>Localidad</th>
-                <SortableTh
-                  label="Estado"
-                  field="active"
-                  sort={sort}
-                  onClick={() => toggleSort('active')}
-                  className="col-estado"
-                />
+                <th className="col-estado">Moodle</th>
                 <th className="col-acciones" />
               </tr>
             </thead>
@@ -222,11 +250,9 @@ export default function Alumnos() {
                   <td>{s.university ?? '—'}</td>
                   <td>{s.locality ?? '—'}</td>
                   <td>
-                    <span
-                      className={`badge ${s.active ? 'badge--activo' : 'badge--inactivo'}`}
-                    >
-                      {s.active ? 'Activo' : 'Inactivo'}
-                    </span>
+                    {s.moodleUserId != null
+                      ? <span className="badge badge--activo">En Moodle</span>
+                      : <span className="badge badge--inactivo">Falta dar de alta</span>}
                   </td>
                   <td className="col-acciones">
                     <div className="row-actions">

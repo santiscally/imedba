@@ -1,12 +1,20 @@
-import { useState, type FormEvent } from 'react'
-import { X, Save, UserPlus } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { X, Save, UserPlus, Link2 } from 'lucide-react'
 import type {
   Student,
   StudentCreateRequest,
   StudentUpdateRequest,
 } from '../types/student'
 import { toTitleCase } from '../lib/text'
+import { moodleApi } from '../api/moodle'
+import { hasAuthority } from '../lib/auth'
 import './StudentForm.scss'
+
+// Estado del chequeo "Validar con Moodle" (alta). idle → checking → found/notfound/error.
+type MoodleCheck = {
+  status:  'idle' | 'checking' | 'found' | 'notfound' | 'error'
+  message: string
+}
 
 type Payload = StudentCreateRequest | StudentUpdateRequest
 
@@ -30,7 +38,6 @@ interface FormState {
   university:  string
   locality:    string
   notes:       string
-  active:      boolean
 }
 
 function initialState(s?: Student): FormState {
@@ -44,19 +51,72 @@ function initialState(s?: Student): FormState {
     university:  s?.university  ?? '',
     locality:    s?.locality    ?? '',
     notes:       s?.notes       ?? '',
-    active:      s?.active ?? true,
   }
 }
 
 export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
+  const isCreate = mode === 'create'
+  const Icon     = isCreate ? UserPlus : Save
+
   const [state,  setState]  = useState<FormState>(initialState(initial))
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  // Vínculo con Moodle al dar de alta. El botón "Validar con Moodle" valida el email
+  // (sólo lectura): si existe, guarda el moodleUserId y se manda al crear; si no, avisa
+  // pero deja crear igual (primero acá, después en Moodle).
+  const canMoodle = hasAuthority('students:write')
+  const [moodleEnabled, setMoodleEnabled] = useState(false)
+  const [moodleUserId,  setMoodleUserId]  = useState<number | null>(initial?.moodleUserId ?? null)
+  const [moodleCheck,   setMoodleCheck]   = useState<MoodleCheck>({ status: 'idle', message: '' })
+
+  useEffect(() => {
+    if (!isCreate || !canMoodle) return
+    let alive = true
+    moodleApi.status()
+      .then(s => { if (alive) setMoodleEnabled(s.enabled) })
+      .catch(() => { if (alive) setMoodleEnabled(false) })
+    return () => { alive = false }
+  }, [isCreate, canMoodle])
+
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
+  }
+
+  // Al cambiar el email se invalida el chequeo previo (el moodleUserId ya no corresponde).
+  function setEmail(value: string) {
+    setField('email', value)
+    if (moodleCheck.status !== 'idle' || moodleUserId != null) {
+      setMoodleCheck({ status: 'idle', message: '' })
+      setMoodleUserId(null)
+    }
+  }
+
+  async function handleValidateMoodle() {
+    const email = state.email.trim()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrors(prev => ({ ...prev, email: 'Ingresá un email válido para validar' }))
+      return
+    }
+    setMoodleCheck({ status: 'checking', message: '' })
+    try {
+      const r = await moodleApi.lookup(email)
+      if (r.found && r.moodleUserId != null) {
+        setMoodleUserId(r.moodleUserId)
+        setMoodleCheck({ status: 'found', message: r.message })
+      } else {
+        setMoodleUserId(null)
+        setMoodleCheck({ status: 'notfound', message: r.message })
+      }
+    } catch (e) {
+      setMoodleUserId(null)
+      setMoodleCheck({
+        status: 'error',
+        message: e instanceof Error ? e.message : 'No se pudo validar con Moodle',
+      })
+    }
   }
 
   function validate(): boolean {
@@ -97,7 +157,8 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
       university:  state.university.trim()  || null,
       locality:    state.locality.trim()    || null,
       notes:       state.notes.trim()       || null,
-      active:      state.active,
+      // Sólo al crear: si se validó contra Moodle y existe, persiste el vínculo de una.
+      ...(isCreate && moodleUserId != null ? { moodleUserId } : {}),
     }
 
     try {
@@ -108,9 +169,6 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
       setSaving(false)
     }
   }
-
-  const isCreate = mode === 'create'
-  const Icon     = isCreate ? UserPlus : Save
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -157,9 +215,40 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
               <input
                 type="email"
                 value={state.email}
-                onChange={e => setField('email', e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 maxLength={255}
               />
+              {isCreate && canMoodle && moodleEnabled && (
+                <div className="moodle-validate" style={{ marginTop: '0.4rem' }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}
+                    onClick={handleValidateMoodle}
+                    disabled={moodleCheck.status === 'checking'}
+                  >
+                    <Link2 size={14} />{' '}
+                    {moodleCheck.status === 'checking' ? 'Validando…' : 'Validar con Moodle'}
+                  </button>
+                  {moodleCheck.message && (
+                    <div
+                      style={{
+                        marginTop: '0.3rem',
+                        fontSize: '0.8rem',
+                        color:
+                          moodleCheck.status === 'found' ? '#15803d'
+                          : moodleCheck.status === 'error' ? '#b91c1c'
+                          : '#b45309',
+                      }}
+                    >
+                      {moodleCheck.status === 'found' ? '✓ '
+                        : moodleCheck.status === 'notfound' ? '⚠ '
+                        : ''}
+                      {moodleCheck.message}
+                    </div>
+                  )}
+                </div>
+              )}
             </Field>
 
             <Field label="Celular / WhatsApp" error={errors.phone}>
@@ -213,26 +302,6 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
               />
             </Field>
 
-            <Field label="Estado">
-              <div className="toggle">
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={state.active}
-                    onChange={() => setField('active', true)}
-                  />
-                  <span>Activo</span>
-                </label>
-                <label className="toggle__option">
-                  <input
-                    type="radio"
-                    checked={!state.active}
-                    onChange={() => setField('active', false)}
-                  />
-                  <span>Inactivo</span>
-                </label>
-              </div>
-            </Field>
           </div>
 
           <Field label="Observaciones" fullWidth>

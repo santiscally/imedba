@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
   X, Pencil, UserCircle2, Mail, Phone, IdCard, Flag,
-  GraduationCap, MapPin, Hash, Calendar, FileText, Link2,
+  GraduationCap, MapPin, Hash, Calendar, FileText, Link2, Lock, Unlock,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Student } from '../types/student'
-import { moodleApi } from '../api/moodle'
+import { moodleApi, type MoodleAccount } from '../api/moodle'
 import { hasAuthority } from '../lib/auth'
+import { toastSuccess, alertError } from '../lib/confirm'
 import './StudentDetail.scss'
 
 interface Props {
@@ -22,33 +23,66 @@ export default function StudentDetail({ student, onClose, onEdit, onLinked }: Pr
 
   // Vínculo con Moodle por email. El botón sólo aparece si la integración está
   // habilitada (MOODLE_ENABLED=true) y el alumno todavía no está vinculado.
-  const canLink = hasAuthority('moodle:write')
+  const canLink = hasAuthority('students:write')
   const [moodleEnabled, setMoodleEnabled] = useState(false)
   const [linking, setLinking] = useState(false)
+  // Estado vivo de la cuenta en Moodle (para Suspender vs Reactivar manual).
+  const [account, setAccount] = useState<MoodleAccount | null>(null)
+  const [moodleBusy, setMoodleBusy] = useState(false)
 
   useEffect(() => {
     if (!canLink) return
     let alive = true
     moodleApi.status()
-      .then(s => { if (alive) setMoodleEnabled(s.enabled) })
+      .then(async s => {
+        if (!alive) return
+        setMoodleEnabled(s.enabled)
+        if (s.enabled && student.moodleUserId != null) {
+          try {
+            const acc = await moodleApi.account(student.id)
+            if (alive) setAccount(acc)
+          } catch { /* estado no crítico: si falla, ocultamos el toggle */ }
+        }
+      })
       .catch(() => { if (alive) setMoodleEnabled(false) })
     return () => { alive = false }
-  }, [canLink])
+  }, [canLink, student.id, student.moodleUserId])
 
   async function handleLink() {
     setLinking(true)
     try {
       const r = await moodleApi.linkStudent(student.id)
-      window.alert(r.message)
-      if (r.linked) onLinked?.()
+      if (r.linked) {
+        toastSuccess(r.message)
+        onLinked?.()
+      } else {
+        alertError('No se pudo vincular con Moodle', r.message)
+      }
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo vincular con Moodle')
+      alertError('No se pudo vincular con Moodle', e instanceof Error ? e.message : undefined)
     } finally {
       setLinking(false)
     }
   }
 
+  async function handleSetSuspended(suspend: boolean) {
+    setMoodleBusy(true)
+    try {
+      if (suspend) await moodleApi.suspend(student.id)
+      else         await moodleApi.activate(student.id)
+      const acc = await moodleApi.account(student.id)
+      setAccount(acc)
+      toastSuccess(suspend ? 'Cuenta de Moodle suspendida' : 'Cuenta de Moodle reactivada')
+    } catch (e) {
+      alertError('No se pudo actualizar el estado en Moodle', e instanceof Error ? e.message : undefined)
+    } finally {
+      setMoodleBusy(false)
+    }
+  }
+
   const showLinkButton = canLink && moodleEnabled && student.moodleUserId == null
+  const showToggle = canLink && moodleEnabled && student.moodleUserId != null && account != null
+  const isSuspended = account?.suspended === 1
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -66,12 +100,14 @@ export default function StudentDetail({ student, onClose, onEdit, onLinked }: Pr
             <div>
               <div className="detail__name">{fullName}</div>
               <div className="detail__meta">
-                <span className={`badge ${student.active ? 'badge--activo' : 'badge--inactivo'}`}>
-                  {student.active ? 'Activo' : 'Inactivo'}
-                </span>
-                {student.moodleUserId != null && (
-                  <span className="detail__moodle">
-                    Moodle ID {student.moodleUserId}
+                {student.moodleUserId != null ? (
+                  <span className="detail__moodle">Moodle ID {student.moodleUserId}</span>
+                ) : (
+                  <span className="badge badge--inactivo">Falta dar de alta en Moodle</span>
+                )}
+                {showToggle && (
+                  <span className={`badge ${isSuspended ? 'badge--inactivo' : 'badge--activo'}`}>
+                    {isSuspended ? 'Moodle suspendido' : 'Moodle activo'}
                   </span>
                 )}
               </div>
@@ -128,6 +164,17 @@ export default function StudentDetail({ student, onClose, onEdit, onLinked }: Pr
             <button type="button" className="btn-ghost" onClick={handleLink} disabled={linking}>
               <Link2 size={15} /> {linking ? 'Vinculando…' : 'Vincular con Moodle'}
             </button>
+          )}
+          {showToggle && (
+            isSuspended ? (
+              <button type="button" className="btn-ghost" onClick={() => handleSetSuspended(false)} disabled={moodleBusy}>
+                <Unlock size={15} /> {moodleBusy ? 'Aplicando…' : 'Reactivar en Moodle'}
+              </button>
+            ) : (
+              <button type="button" className="btn-ghost" onClick={() => handleSetSuspended(true)} disabled={moodleBusy}>
+                <Lock size={15} /> {moodleBusy ? 'Aplicando…' : 'Suspender en Moodle'}
+              </button>
+            )
           )}
           {canWrite && (
             <button type="button" className="btn-primary" onClick={onEdit}>
