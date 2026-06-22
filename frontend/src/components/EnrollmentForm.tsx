@@ -19,6 +19,8 @@ import { studentsApi } from '../api/students'
 import { coursesApi } from '../api/courses'
 import { collectionsApi } from '../api/collections'
 import { booksApi } from '../api/books'
+import { discountCampaignsApi } from '../api/discount-campaigns'
+import type { DiscountCampaign } from '../types/discount-campaign'
 import './StudentForm.scss'
 
 type CreatePayload = EnrollmentCreateRequest
@@ -77,6 +79,10 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
   const [collectionId, setCollectionId] = useState('')
   const [bookIds,     setBookIds]       = useState<string[]>([])
   const [addBookId,   setAddBookId]     = useState('')
+  // Promos/campañas activas (reunión 12-jun §2.2): elegir una precarga el descuento;
+  // el %/$ manual sigue como override.
+  const [campaigns,  setCampaigns]  = useState<DiscountCampaign[]>([])
+  const [campaignId, setCampaignId] = useState('')
 
   const isCreate = mode === 'create'
 
@@ -88,11 +94,13 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
       coursesApi.list({ size: 200, sort: 'name,asc' }),
       collectionsApi.list(true),
       booksApi.list({ active: true, size: 500, sort: 'name,asc' }),
-    ]).then(([studentsRes, coursesRes, colls, booksRes]) => {
+      discountCampaignsApi.list({ active: true, size: 200, sort: 'name,asc' }),
+    ]).then(([studentsRes, coursesRes, colls, booksRes, campaignsRes]) => {
       setStudents(studentsRes.content)
       setCourses(coursesRes.content)
       setCollections(colls)
       setBooks(booksRes.content)
+      setCampaigns(campaignsRes.content)
     }).catch(() => { /* el form funciona igual aun si falla — los selects quedan vacíos */ })
   }, [isCreate])
 
@@ -154,6 +162,25 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
+  // Elegir una promo precarga modo + valor del descuento desde la campaña.
+  function pickCampaign(id: string) {
+    setCampaignId(id)
+    const c = campaigns.find(x => x.id === id)
+    if (c) {
+      setState(prev => ({
+        ...prev,
+        discountMode:  c.discountType === 'FIXED' ? 'AMOUNT' : 'PCT',
+        discountValue: String(c.discountValue),
+      }))
+    }
+  }
+
+  // Editar el descuento a mano = override → se despega de la campaña.
+  function setDiscountField<K extends 'discountMode' | 'discountValue'>(key: K, value: FormState[K]) {
+    setField(key, value)
+    if (campaignId) setCampaignId('')
+  }
+
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
     if (isCreate && !state.studentId) e.studentId = 'Obligatorio'
@@ -185,6 +212,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
           studentId:          state.studentId,
           courseId:           state.courseId,
           listPrice:          num(state.listPrice),
+          discountCampaignId: campaignId || null,
           discountPercentage: discountPct || null,
           bookPrice:          librosPrice || null,
           enrollmentFee:      num(state.enrollmentFee),
@@ -292,11 +320,24 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
               />
             </Field>
 
+            {isCreate && campaigns.length > 0 && (
+              <Field label="Promo / Campaña">
+                <select value={campaignId} onChange={e => pickCampaign(e.target.value)}>
+                  <option value="">— Sin promo —</option>
+                  {campaigns.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.discountType === 'FIXED' ? `$${c.discountValue}` : `${c.discountValue}%`})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
             <Field label="Descuento" error={errors.discountValue}>
               <div className="discount-input">
                 <select
                   value={state.discountMode}
-                  onChange={e => setField('discountMode', e.target.value as 'PCT' | 'AMOUNT')}
+                  onChange={e => setDiscountField('discountMode', e.target.value as 'PCT' | 'AMOUNT')}
                   aria-label="Tipo de descuento"
                 >
                   <option value="PCT">%</option>
@@ -306,7 +347,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                   type="number"
                     step="0.01"
                   value={state.discountValue}
-                  onChange={e => setField('discountValue', e.target.value)}
+                  onChange={e => setDiscountField('discountValue', e.target.value)}
                   placeholder="0"
                 />
               </div>
