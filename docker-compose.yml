@@ -52,6 +52,28 @@ services:
       - "127.0.0.1:${KEYCLOAK_PORT:-8081}:8080"
     networks: [imedba-net]
 
+  # Aplica roles + permisos al realm en cada `up` (idempotente; NO toca el resto del
+  # realm: usuarios, clients, login). Necesario porque `--import-realm` no re-importa
+  # un realm ya existente. Ver keycloak/sync-roles.sh. Corre, aplica y sale.
+  keycloak-config:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: imedba-keycloak-config
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      KC_SERVER: http://keycloak:8080
+      KC_REALM: ${VITE_KEYCLOAK_REALM:-imedba}
+      KC_CLIENT: imedba-backend
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    volumes:
+      - ./keycloak/sync-roles.sh:/sync-roles.sh:ro
+    entrypoint: ["/bin/bash", "/sync-roles.sh"]
+    networks: [imedba-net]
+
   backend:
     build:
       context: ./backend
@@ -79,6 +101,9 @@ services:
       MOODLE_URL: ${MOODLE_URL:-}
       MOODLE_TOKEN: ${MOODLE_TOKEN:-}
       MOODLE_DEFAULT_STUDENT_ROLE_ID: ${MOODLE_DEFAULT_STUDENT_ROLE_ID:-5}
+      # Suspensión automática por mora. Separado de MOODLE_ENABLED: prendé la integración
+      # primero (lookup/vincular/suspender-manual) y recién flipeá esto cuando esté validado.
+      MOODLE_AUTO_SUSPEND_ENABLED: ${MOODLE_AUTO_SUSPEND_ENABLED:-false}
       # Módulo Personal: gestión de usuarios vía Keycloak Admin API (red interna).
       # En dev usa el admin del realm master (admin/admin). Prod: service account dedicado.
       KEYCLOAK_ADMIN_BASE_URL: ${KEYCLOAK_ADMIN_BASE_URL:-http://keycloak:8080}

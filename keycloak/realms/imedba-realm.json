@@ -68,6 +68,8 @@
               "payments:read", "payments:write",
               "installments:read", "installments:write",
               "discount_campaigns:read",
+              "books:read", "books:write",
+              "book_sales:read", "book_sales:write",
               "residencias:read", "residencias:write",
               "formacion_superior:read", "formacion_superior:write",
               "notifications:manage",
@@ -92,6 +94,26 @@
               "formacion_superior:read", "formacion_superior:write",
               "notifications:manage",
               "diplomas:read", "diplomas:write",
+              "notifications:read", "notifications:write",
+              "contacts:read"
+            ]
+          }
+        }
+      },
+      {
+        "name": "SECRETARIA_RM",
+        "description": "Secretaría de Residencias Médicas (Argentina y Uruguay)",
+        "composite": true,
+        "composites": {
+          "client": {
+            "imedba-backend": [
+              "students:read",
+              "courses:read",
+              "enrollments:read",
+              "installments:read",
+              "teaching:read",
+              "residencias:read", "residencias:write",
+              "notifications:manage",
               "notifications:read", "notifications:write",
               "contacts:read"
             ]

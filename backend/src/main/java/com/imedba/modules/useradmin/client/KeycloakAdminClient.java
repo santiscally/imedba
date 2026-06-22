@@ -31,7 +31,7 @@ public class KeycloakAdminClient {
 
     /** Roles de realm que son "de la app" (se filtran los internos de Keycloak). */
     public static final Set<String> APP_ROLES = Set.of(
-            "ADMIN", "VENDEDORA", "SECRETARIA_FS", "EDITORIAL", "CONTABLE", "VIEWER");
+            "ADMIN", "VENDEDORA", "SECRETARIA_FS", "SECRETARIA_RM", "EDITORIAL", "CONTABLE", "VIEWER");
 
     private final KeycloakAdminProperties props;
     private final RestClient http;
