@@ -110,7 +110,15 @@ export default function BookSaleForm({ onClose, onSaved, onSubmit }: Props) {
                 onChange={e => setField('quantity', e.target.value)} />
             </Field>
             <Field label="Alumno (opcional)">
-              <select value={state.studentId} onChange={e => setField('studentId', e.target.value)}>
+              <select
+                value={state.studentId}
+                onChange={e => {
+                  const id = e.target.value
+                  // Auto-descuento (reunión 12-jun §3.3): con alumno se aplica el descuento;
+                  // sin alumno se quita. El checkbox de abajo sigue como override manual.
+                  setState(prev => ({ ...prev, studentId: id, applyStudentDiscount: !!id }))
+                }}
+              >
                 <option value="">— Sin alumno —</option>
                 {students.map(s => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName}</option>)}
               </select>
