@@ -366,6 +366,12 @@
   }
 }
 
+// Mora >= 45 días (~1.5 meses): el pill de días pasa a rojo intenso (reunión 12-jun §7).
+.alert-row--severe .alert-row__dias {
+  background: $rojo-bg;
+  color: $rojo;
+}
+
 @media (max-width: 700px) {
   .alert-row {
     grid-template-columns: 1fr auto;

@@ -302,7 +302,7 @@ export default function Dashboard() {
                   ? 'Matrícula'
                   : `Cuota ${r.cuotaNumero}/${r.cuotaTotal}`
                 return (
-                  <div className="alert-row" key={r.id}>
+                  <div className={`alert-row${r.diasVencidos >= 45 ? ' alert-row--severe' : ''}`} key={r.id}>
                     <div className="alert-row__main">
                       <div className="alert-row__alumno">{r.alumno}</div>
                       <div className="alert-row__meta">
