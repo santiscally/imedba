@@ -71,6 +71,10 @@ moodle:
   base-url: ${MOODLE_URL:}
   token: ${MOODLE_TOKEN:}
   default-student-role-id: ${MOODLE_DEFAULT_STUDENT_ROLE_ID:5}
+  # Suspensión automática por mora (scheduler 06:10 + catch-up). Separado de `enabled`:
+  # se puede prender la integración para lookup/vincular/suspender-manual SIN suspender
+  # morosos reales en masa. Flip a true recién cuando esté validado en prod.
+  auto-suspend-enabled: ${MOODLE_AUTO_SUSPEND_ENABLED:false}
   connect-timeout-ms: ${MOODLE_CONNECT_TIMEOUT_MS:5000}
   read-timeout-ms: ${MOODLE_READ_TIMEOUT_MS:10000}
 

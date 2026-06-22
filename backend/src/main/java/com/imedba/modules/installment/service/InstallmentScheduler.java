@@ -112,6 +112,11 @@ public class InstallmentScheduler {
     @Scheduled(cron = "0 10 6 * * *", zone = "America/Argentina/Buenos_Aires")
     @Transactional
     public void flagMoodleSuspensionsJob() {
+        if (!moodleService.isAutoSuspendEnabled()) {
+            log.debug("Moodle suspension job: auto-suspend deshabilitado "
+                    + "(MOODLE_AUTO_SUSPEND_ENABLED=false o integración off) — se omite");
+            return;
+        }
         LocalDate today = LocalDate.now(ZONE);
         LocalDate suspendOnOrBefore = today.minusDays(MOODLE_SUSPEND_DAYS);
         List<Installment> toSuspend = installmentRepository.findOverdueBetween(
@@ -138,7 +143,14 @@ public class InstallmentScheduler {
         try {
             moodleService.suspendStudent(s);
         } catch (Exception ex) {
-            log.warn("No se pudo suspender en Moodle (enrollment={}): {}", e.getId(), ex.getMessage());
+            // Resiliencia por-alumno: un fallo (cuenta inexistente en Moodle, red caída, id
+            // inválido) se loguea con contexto + stack trace y NO corta el batch ni revierte
+            // el flag en DB. El resto de los alumnos se sigue procesando.
+            log.warn("No se pudo suspender en Moodle (enrollment={}, student={}, moodleUserId={}): {}",
+                    e.getId(),
+                    s != null ? s.getId() : null,
+                    s != null ? s.getMoodleUserId() : null,
+                    ex.getMessage(), ex);
         }
 
         if (s == null) {

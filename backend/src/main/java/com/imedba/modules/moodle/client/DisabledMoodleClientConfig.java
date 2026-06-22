@@ -38,6 +38,12 @@ class DisabledMoodleClientConfig {
             }
 
             @Override
+            public Optional<MoodleUser> findUserById(int moodleUserId) {
+                log.info("[moodle-disabled] findUserById(userId={}) → empty", moodleUserId);
+                return Optional.empty();
+            }
+
+            @Override
             public void setUserSuspended(int moodleUserId, boolean suspended) {
                 log.info("[moodle-disabled] setUserSuspended(userId={}, suspended={}) ignorado", moodleUserId, suspended);
             }

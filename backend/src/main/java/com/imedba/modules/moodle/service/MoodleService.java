@@ -2,15 +2,20 @@ package com.imedba.modules.moodle.service;
 
 import com.imedba.common.error.ConflictException;
 import com.imedba.modules.course.entity.Course;
+import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.moodle.client.MoodleClient;
+import com.imedba.modules.moodle.config.MoodleProperties;
 import com.imedba.modules.moodle.dto.MoodleGradeItem;
 import com.imedba.modules.moodle.dto.MoodleLinkResult;
 import com.imedba.modules.moodle.dto.MoodleLinkSummary;
+import com.imedba.modules.moodle.dto.MoodleLookupResult;
 import com.imedba.modules.moodle.dto.MoodleUser;
+import com.imedba.modules.moodle.dto.UnlinkedStudentRow;
 import com.imedba.modules.student.entity.Student;
 import com.imedba.modules.student.repository.StudentRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,10 +36,82 @@ import org.springframework.transaction.annotation.Transactional;
 public class MoodleService {
 
     private final MoodleClient client;
+    private final MoodleProperties props;
     private final StudentRepository studentRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     public boolean isEnabled() {
         return client.isEnabled();
+    }
+
+    /**
+     * true si el scheduler puede suspender morosos en masa. Requiere la integración
+     * prendida ({@code moodle.enabled=true}) Y el flag específico {@code auto-suspend-enabled}.
+     * Mientras sea false, la suspensión por mora es manual desde la UI.
+     */
+    public boolean isAutoSuspendEnabled() {
+        return client.isEnabled() && props.isAutoSuspendEnabled();
+    }
+
+    /**
+     * Valida un email contra Moodle SIN persistir (botón "Validar con Moodle" del alta de
+     * alumno). Operación de sólo lectura: no escribe en la DB ni suspende nada en Moodle.
+     */
+    @Transactional(readOnly = true)
+    public MoodleLookupResult lookupByEmail(String email) {
+        if (!client.isEnabled()) {
+            return MoodleLookupResult.disabled();
+        }
+        String e = email == null ? "" : email.trim();
+        if (e.isBlank()) {
+            return MoodleLookupResult.notFound(e);
+        }
+        Optional<MoodleUser> match = client.findUserByEmail(e);
+        if (match.isEmpty() || match.get().id() == null) {
+            return MoodleLookupResult.notFound(e);
+        }
+        MoodleUser u = match.get();
+        return MoodleLookupResult.found(u.id(), u.fullname(), suspendedToBool(u.suspended()));
+    }
+
+    /**
+     * Estado vivo de la cuenta Moodle del alumno vinculado (para decidir en la UI si se
+     * muestra "Suspender" o "Reactivar"). Devuelve null si el alumno no tiene
+     * {@code moodleUserId} o si la integración está deshabilitada.
+     */
+    @Transactional(readOnly = true)
+    public MoodleUser accountFor(Student student) {
+        Integer uid = student != null ? student.getMoodleUserId() : null;
+        if (!client.isEnabled() || uid == null) {
+            return null;
+        }
+        return client.findUserById(uid).orElse(null);
+    }
+
+    /**
+     * Alumnos sin {@code moodle_user_id} junto con los cursos a los que están inscriptos.
+     * Insumo del export para que David los cree/alinee en Moodle. No depende de que la
+     * integración esté prendida: es data de nuestra propia DB.
+     */
+    @Transactional(readOnly = true)
+    public List<UnlinkedStudentRow> listUnlinkedStudents() {
+        List<Student> unlinked = studentRepository.findByMoodleUserIdIsNull();
+        List<UnlinkedStudentRow> rows = new ArrayList<>(unlinked.size());
+        for (Student s : unlinked) {
+            List<String> courses = enrollmentRepository.findByStudentIdFetchCourse(s.getId()).stream()
+                    .map(en -> en.getCourse() != null ? en.getCourse().getName() : null)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            rows.add(new UnlinkedStudentRow(
+                    s.getId(), s.getFirstName(), s.getLastName(),
+                    s.getEmail(), s.getDni(), s.getPhone(), courses));
+        }
+        return rows;
+    }
+
+    private static Boolean suspendedToBool(Integer suspended) {
+        return suspended == null ? null : suspended != 0;
     }
 
     /**

@@ -25,6 +25,13 @@ public interface MoodleClient {
     Optional<MoodleUser> findUserByEmail(String email) throws MoodleException;
 
     /**
+     * Busca el usuario de Moodle por su id ({@code core_user_get_users_by_field} con
+     * {@code field=id}). Se usa para leer el estado actual ({@code suspended}) de una
+     * cuenta ya vinculada y decidir si la UI muestra "Suspender" o "Reactivar".
+     */
+    Optional<MoodleUser> findUserById(int moodleUserId) throws MoodleException;
+
+    /**
      * Suspende o reactiva la CUENTA de usuario en Moodle (no desmatricula del curso).
      * Decisión de David (reunión 2026-05-29): la suspensión por mora se hace a nivel
      * de cuenta vía {@code core_user_update_users} con {@code suspended} 0/1.

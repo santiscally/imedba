@@ -73,15 +73,19 @@ public class HttpMoodleClient implements MoodleClient {
         if (root == null || !root.isArray() || root.isEmpty()) {
             return Optional.empty();
         }
-        JsonNode u = root.get(0); // email es único en Moodle → a lo sumo un match
-        return Optional.of(new MoodleUser(
-                intOrNull(u, "id"),
-                text(u, "username"),
-                text(u, "firstname"),
-                text(u, "lastname"),
-                text(u, "fullname"),
-                text(u, "email"),
-                intOrNull(u, "suspended")));
+        return Optional.of(toMoodleUser(root.get(0))); // email es único en Moodle → a lo sumo un match
+    }
+
+    @Override
+    public Optional<MoodleUser> findUserById(int moodleUserId) {
+        MultiValueMap<String, String> form = baseForm("core_user_get_users_by_field");
+        form.add("field", "id");
+        form.add("values[0]", String.valueOf(moodleUserId));
+        JsonNode root = call(form);
+        if (root == null || !root.isArray() || root.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(toMoodleUser(root.get(0)));
     }
 
     @Override
@@ -101,14 +105,7 @@ public class HttpMoodleClient implements MoodleClient {
         List<MoodleUser> out = new ArrayList<>();
         if (root != null && root.isArray()) {
             for (JsonNode u : root) {
-                out.add(new MoodleUser(
-                        intOrNull(u, "id"),
-                        text(u, "username"),
-                        text(u, "firstname"),
-                        text(u, "lastname"),
-                        text(u, "fullname"),
-                        text(u, "email"),
-                        intOrNull(u, "suspended")));
+                out.add(toMoodleUser(u));
             }
         }
         return out;
@@ -180,6 +177,17 @@ public class HttpMoodleClient implements MoodleClient {
         } catch (Exception e) {
             throw new MoodleException("Fallo llamando a Moodle " + wsfunction, e);
         }
+    }
+
+    private static MoodleUser toMoodleUser(JsonNode u) {
+        return new MoodleUser(
+                intOrNull(u, "id"),
+                text(u, "username"),
+                text(u, "firstname"),
+                text(u, "lastname"),
+                text(u, "fullname"),
+                text(u, "email"),
+                intOrNull(u, "suspended"));
     }
 
     private static String text(JsonNode n, String field) {

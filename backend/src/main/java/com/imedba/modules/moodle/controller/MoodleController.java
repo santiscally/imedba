@@ -7,8 +7,10 @@ import com.imedba.modules.moodle.config.MoodleProperties;
 import com.imedba.modules.moodle.dto.MoodleGradeItem;
 import com.imedba.modules.moodle.dto.MoodleLinkResult;
 import com.imedba.modules.moodle.dto.MoodleLinkSummary;
+import com.imedba.modules.moodle.dto.MoodleLookupResult;
 import com.imedba.modules.moodle.dto.MoodleStatusResponse;
 import com.imedba.modules.moodle.dto.MoodleUser;
+import com.imedba.modules.moodle.dto.UnlinkedStudentRow;
 import com.imedba.modules.moodle.service.MoodleService;
 import com.imedba.modules.student.entity.Student;
 import com.imedba.modules.student.repository.StudentRepository;
@@ -17,11 +19,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,50 +47,74 @@ public class MoodleController {
     private final CourseRepository courseRepository;
 
     @GetMapping("/status")
-    @PreAuthorize("hasAuthority('moodle:read')")
+    @PreAuthorize("hasAuthority('students:read')")
     @Operation(summary = "Estado de la integración (enabled/configured)")
     public MoodleStatusResponse status() {
         return new MoodleStatusResponse(props.isEnabled(), props.isConfigured());
     }
 
+    @GetMapping("/lookup")
+    @PreAuthorize("hasAuthority('students:read')")
+    @Operation(summary = "Valida un email contra Moodle sin persistir (alta de alumno). Sólo lectura.")
+    public MoodleLookupResult lookup(@RequestParam String email) {
+        return moodleService.lookupByEmail(email);
+    }
+
+    @GetMapping("/students/{studentId}/account")
+    @PreAuthorize("hasAuthority('students:read')")
+    @Operation(summary = "Estado vivo de la cuenta Moodle del alumno (suspended). 204 si no aplica.")
+    public ResponseEntity<MoodleUser> account(@PathVariable UUID studentId) {
+        MoodleUser u = moodleService.accountFor(student(studentId));
+        return u == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(u);
+    }
+
+    @GetMapping("/unlinked-students")
+    @PreAuthorize("hasAuthority('students:read')")
+    @Operation(summary = "Alumnos sin moodle_user_id + sus cursos (insumo para alinear con Moodle)")
+    public List<UnlinkedStudentRow> unlinkedStudents() {
+        return moodleService.listUnlinkedStudents();
+    }
+
     @GetMapping("/courses/{courseId}/students")
-    @PreAuthorize("hasAuthority('moodle:read')")
+    @PreAuthorize("hasAuthority('students:read')")
     @Operation(summary = "Usuarios matriculados en el curso (Moodle)")
     public List<MoodleUser> enrolledStudents(@PathVariable UUID courseId) {
         return moodleService.listCourseStudents(course(courseId));
     }
 
     @GetMapping("/courses/{courseId}/students/{studentId}/grades")
-    @PreAuthorize("hasAuthority('moodle:read')")
+    @PreAuthorize("hasAuthority('students:read')")
     @Operation(summary = "Notas del alumno en el curso (Moodle)")
     public List<MoodleGradeItem> grades(@PathVariable UUID courseId, @PathVariable UUID studentId) {
         return moodleService.studentGrades(course(courseId), student(studentId));
     }
 
     @PostMapping("/students/{studentId}/link")
-    @PreAuthorize("hasAuthority('moodle:write')")
+    @PreAuthorize("hasAuthority('students:write')")
     @Operation(summary = "Vincula el alumno con su cuenta Moodle buscando por email")
     public MoodleLinkResult link(@PathVariable UUID studentId) {
         return moodleService.linkStudentByEmail(student(studentId));
     }
 
     @PostMapping("/link-all")
-    @PreAuthorize("hasAuthority('moodle:write')")
+    @PreAuthorize("hasAuthority('students:write')")
     @Operation(summary = "Vincula por email todos los alumnos aún sin moodle_user_id")
     public MoodleLinkSummary linkAll() {
         return moodleService.linkAllUnlinked();
     }
 
     @PostMapping("/students/{studentId}/suspend")
-    @PreAuthorize("hasAuthority('moodle:write')")
-    @Operation(summary = "Suspende la cuenta Moodle del alumno")
+    @PreAuthorize("hasAuthority('students:write')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Suspende la cuenta Moodle del alumno (manual)")
     public void suspend(@PathVariable UUID studentId) {
         moodleService.suspendStudent(student(studentId));
     }
 
     @PostMapping("/students/{studentId}/activate")
-    @PreAuthorize("hasAuthority('moodle:write')")
-    @Operation(summary = "Reactiva la cuenta Moodle del alumno")
+    @PreAuthorize("hasAuthority('students:write')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Reactiva la cuenta Moodle del alumno (manual)")
     public void activate(@PathVariable UUID studentId) {
         moodleService.activateStudent(student(studentId));
     }

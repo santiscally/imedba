@@ -1,5 +1,6 @@
 package com.imedba.common.error;
 
+import com.imedba.modules.moodle.client.MoodleException;
 import com.imedba.modules.useradmin.client.KeycloakAdminException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -73,6 +74,13 @@ public class GlobalExceptionHandler {
         log.warn("Keycloak admin error en {}: {}", req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_GATEWAY, "KEYCLOAK_ADMIN_ERROR",
                 "Error gestionando usuarios en Keycloak: " + ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(MoodleException.class)
+    public ResponseEntity<ApiError> handleMoodle(MoodleException ex, HttpServletRequest req) {
+        log.warn("Error de Moodle en {}: {}", req.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_GATEWAY, "MOODLE_ERROR",
+                "Error comunicándose con Moodle: " + ex.getMessage(), req);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

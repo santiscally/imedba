@@ -2,6 +2,7 @@ package com.imedba.modules.student.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record StudentCreateRequest(
@@ -18,5 +19,9 @@ public record StudentCreateRequest(
         @Size(max = 300) String targetCompetition,
         Boolean iarPfoCompleted,
         Boolean active,
-        String notes
+        String notes,
+        // Opcional: lo setea el front cuando el botón "Validar con Moodle" del alta
+        // encuentra una cuenta de Moodle con este email. Si es null, el alumno queda
+        // sin vincular y se puede vincular después (StudentDetail / link-all).
+        @Positive Integer moodleUserId
 ) {}

@@ -31,6 +31,15 @@ public class MoodleProperties {
     /** roleid del rol "Student" en Moodle (5 en instalaciones estándar). */
     private int defaultStudentRoleId = 5;
 
+    /**
+     * Permiso para que el scheduler suspenda morosos en MASA automáticamente. Es un flag
+     * separado de {@code enabled} a propósito: permite prender la integración (lookup,
+     * vincular, suspender/reactivar MANUAL) sin que el job de las 06:10 + el catch-up al
+     * arranque suspendan alumnos reales. Recién se pone en {@code true} cuando la
+     * integración está validada en producción (ver rollout en doc 05-moodle-integration-spec).
+     */
+    private boolean autoSuspendEnabled = false;
+
     private int connectTimeoutMs = 5000;
     private int readTimeoutMs = 10000;
 
