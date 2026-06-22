@@ -1,0 +1,59 @@
+@use '../styles/variables' as *;
+
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.625rem 1.75rem;
+  border-top: 1px solid $gris-borde;
+  background: $blanco;
+  font-size: 0.6875rem;
+  color: $gris-texto;
+}
+
+.app-footer__copy {
+  color: $gris-texto-sutil;
+}
+
+// Crédito Simple Apps — píldora con la paleta del footer; sólo el logo lleva el navy de marca.
+.powered-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  background: $fondo-app;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-xl;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: normal;
+  transition: background $transicion, border-color $transicion, transform $transicion;
+
+  &:hover {
+    background: $fondo-hover;
+    border-color: $verde-petroleo-light;
+    transform: translateY(-2px);
+  }
+}
+
+.powered-text {
+  color: $gris-texto;
+  font-size: 0.6875rem;
+}
+
+.powered-logo {
+  font-family: 'General Sans', sans-serif; // CDN en index.html; fallback sans-serif si no carga
+  font-weight: 700;
+  color: #092f70; // navy de Simple Apps (footer claro)
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .app-footer {
+    padding: 0.625rem 1rem;
+  }
+}

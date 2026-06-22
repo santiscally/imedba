@@ -3,6 +3,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Topbar  from './Topbar'
+import Footer  from './Footer'
 import { canAccess, firstAccessiblePath } from '../lib/access'
 import './Layout.scss'
 
@@ -29,6 +30,7 @@ export default function Layout() {
         <main className="layout__content">
           {allowed ? <Outlet /> : <NoAccess />}
         </main>
+        <Footer />
       </div>
     </div>
   )
