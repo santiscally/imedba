@@ -231,12 +231,12 @@ export default function Ventas() {
       }
     }
     if (rows.length === 0) return
-    exportToCsv(`royalties-${periodSlug()}-${dateStamp()}`, rows, [
+    exportToCsv(`autorias-${periodSlug()}-${dateStamp()}`, rows, [
       { label: 'Autora',             value: r => r.author },
       { label: 'Libro',              value: r => r.book },
-      { label: 'Royalty %',          value: r => `${r.pct}%` },
+      { label: 'Autoría %',          value: r => `${r.pct}%` },
       { label: 'Ventas del período', value: r => r.sales },
-      { label: 'Royalty',            value: r => r.royalty },
+      { label: 'Autoría',            value: r => r.royalty },
     ])
   }
 
@@ -255,7 +255,7 @@ export default function Ventas() {
           <p className="editorial__subtitle">
             {tab === 'ventas'
               ? (total > 0 ? `${total} ${total === 1 ? 'venta registrada' : 'ventas registradas'}` : 'Ventas de libros')
-              : `Royalties — ${periodTitle()}`}
+              : `Autorías — ${periodTitle()}`}
           </p>
         </div>
         {tab === 'ventas' && (
@@ -279,7 +279,7 @@ export default function Ventas() {
         </button>
         <button type="button" className={`editorial__tab ${tab === 'royalties' ? 'editorial__tab--active' : ''}`}
           onClick={() => setTab('royalties')} role="tab" aria-selected={tab === 'royalties'}>
-          <Coins size={15} /> Royalties
+          <Coins size={15} /> Autorías
         </button>
       </div>
 
@@ -452,9 +452,9 @@ export default function Ventas() {
                           <thead>
                             <tr>
                               <th>Libro</th>
-                              <th className="col-num">Royalty %</th>
+                              <th className="col-num">Autoría %</th>
                               <th className="col-precio">Ventas</th>
-                              <th className="col-precio">Royalty</th>
+                              <th className="col-precio">Autoría</th>
                             </tr>
                           </thead>
                           <tbody>
