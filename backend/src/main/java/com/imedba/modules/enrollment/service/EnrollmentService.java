@@ -14,6 +14,7 @@ import com.imedba.modules.enrollment.dto.EnrollmentResponse;
 import com.imedba.modules.enrollment.dto.EnrollmentUpdateRequest;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.enrollment.entity.EnrollmentStatus;
+import com.imedba.modules.enrollment.entity.InstallmentDistribution;
 import com.imedba.modules.enrollment.entity.PaymentGroup;
 import com.imedba.modules.enrollment.mapper.EnrollmentMapper;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
@@ -146,8 +147,9 @@ public class EnrollmentService {
                 .build();
 
         Enrollment saved = repository.save(e);
-        boolean useTotal = Boolean.TRUE.equals(req.useTotalDistribution());
-        List<Installment> schedule = InstallmentGenerator.generate(saved, useTotal);
+        InstallmentDistribution mode = req.distributionMode() != null
+                ? req.distributionMode() : InstallmentDistribution.SEPARATE;
+        List<Installment> schedule = InstallmentGenerator.generate(saved, mode);
         if (!schedule.isEmpty()) {
             installmentRepository.saveAll(schedule);
         }

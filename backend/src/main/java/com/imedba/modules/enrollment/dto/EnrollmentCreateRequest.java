@@ -1,5 +1,6 @@
 package com.imedba.modules.enrollment.dto;
 
+import com.imedba.modules.enrollment.entity.InstallmentDistribution;
 import com.imedba.modules.enrollment.entity.PaymentGroup;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -16,10 +17,10 @@ import java.util.UUID;
  * Si {@code listPrice} viene null se toma del curso (enrollmentPrice + coursePrice según política).
  * {@code finalPrice} y {@code totalPrice} los calcula el servicio.
  *
- * <p>{@code useTotalDistribution} (reunión 2026-05-22 §2.3, Nico 28:45):
- *   - {@code false} (default): comportamiento histórico — cuota 0 con la matrícula + N cuotas iguales por el curso.
- *   - {@code true}: suma {@code finalPrice + bookPrice} (incluyendo matrícula y libros) y la divide en N cuotas
- *     iguales, sin cuota de matrícula separada.
+ * <p>{@code distributionMode} (reunión 2026-06-12, 3 opciones de Nico):
+ *   - {@code SEPARATE} (default): cuota 0 con la matrícula + N cuotas por el curso; libros aparte.
+ *   - {@code TOTAL}: suma curso + matrícula + libros en N cuotas iguales.
+ *   - {@code COURSE_AND_FEE}: suma curso + matrícula en N cuotas iguales; libros aparte.
  */
 public record EnrollmentCreateRequest(
         @NotNull UUID studentId,
@@ -33,7 +34,7 @@ public record EnrollmentCreateRequest(
 
         @Digits(integer = 10, fraction = 2) BigDecimal enrollmentFee,
         @Min(1) Integer numInstallments,
-        Boolean useTotalDistribution,
+        InstallmentDistribution distributionMode,
         PaymentGroup paymentGroup,
 
         @Size(max = 500) String contractFilePath,

@@ -10,6 +10,11 @@ export const ENROLLMENT_STATUSES: EnrollmentStatus[] = [
   'CANCELLED',
 ]
 
+// Refleja com.imedba.modules.enrollment.entity.InstallmentDistribution (reunión 12-jun):
+// SEPARATE = matrícula cuota 0 + curso en cuotas, libros aparte;
+// TOTAL = curso+matrícula+libros en cuotas; COURSE_AND_FEE = curso+matrícula en cuotas, libros aparte.
+export type InstallmentDistribution = 'SEPARATE' | 'TOTAL' | 'COURSE_AND_FEE'
+
 export const ENROLLMENT_STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ACTIVE:    'Activa',
   SUSPENDED: 'Suspendida',
@@ -127,7 +132,7 @@ export interface EnrollmentCreateRequest {
   enrollmentFee?:      number | null
   numInstallments?:    number | null   // ≥ 1
   paymentGroup?:       PaymentGroup    // default GROUP_1 en el backend
-  useTotalDistribution?: boolean       // true = agrupar (curso+matrícula+libros / N); false = matrícula aparte
+  distributionMode?:   InstallmentDistribution  // cómo se arman las cuotas (default SEPARATE)
 
   contractFilePath?:   string | null   // max 500
   notes?:              string | null

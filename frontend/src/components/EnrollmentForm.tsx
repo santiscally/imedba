@@ -5,6 +5,7 @@ import type {
   EnrollmentCreateRequest,
   EnrollmentUpdateRequest,
   PaymentGroup,
+  InstallmentDistribution,
 } from '../types/enrollment'
 import {
   PAYMENT_GROUPS, PAYMENT_GROUP_LABELS,
@@ -41,7 +42,7 @@ interface FormState {
   enrollmentFee:      string
   numInstallments:    string
   paymentGroup:       PaymentGroup
-  useTotalDistribution: boolean
+  distributionMode:   InstallmentDistribution
   notes:              string
 }
 
@@ -56,7 +57,7 @@ function initialState(e?: Enrollment): FormState {
     enrollmentFee:      e?.enrollmentFee      != null ? String(e.enrollmentFee)      : '',
     numInstallments:    e?.numInstallments    != null ? String(e.numInstallments)    : '',
     paymentGroup:       e?.paymentGroup       ?? 'GROUP_1',
-    useTotalDistribution: false,
+    distributionMode:   'SEPARATE',
     notes:              e?.notes              ?? '',
   }
 }
@@ -189,7 +190,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
           enrollmentFee:      num(state.enrollmentFee),
           numInstallments:    num(state.numInstallments),
           paymentGroup:       state.paymentGroup,
-          useTotalDistribution: state.useTotalDistribution,
+          distributionMode:   state.distributionMode,
           notes:              state.notes.trim() || null,
         }
         const saved = await onSubmit(payload)
@@ -419,18 +420,21 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
 
           {isCreate && (
             <div className="field field--full">
-              <label className="field__check">
-                <input
-                  type="checkbox"
-                  checked={state.useTotalDistribution}
-                  onChange={e => setField('useTotalDistribution', e.target.checked)}
-                />
-                <span>Agrupar todo en las cuotas (suma total)</span>
-              </label>
+              <label className="field__label">Distribución de las cuotas</label>
+              <select
+                value={state.distributionMode}
+                onChange={e => setField('distributionMode', e.target.value as InstallmentDistribution)}
+              >
+                <option value="SEPARATE">Matrícula aparte (cuota 0) + curso en cuotas · libros aparte</option>
+                <option value="COURSE_AND_FEE">Curso + matrícula en cuotas · libros aparte</option>
+                <option value="TOTAL">Todo junto (curso + matrícula + libros) en cuotas</option>
+              </select>
               <span className="field__hint">
-                {state.useTotalDistribution
-                  ? 'Se suma curso + matrícula + libros y se divide en N cuotas iguales (sin matrícula como cuota aparte).'
-                  : 'La matrícula se cobra como cuota 0 y el curso se divide en N cuotas. Los libros se cobran aparte.'}
+                {state.distributionMode === 'TOTAL'
+                  ? 'Se suma curso + matrícula + libros y se divide en N cuotas iguales.'
+                  : state.distributionMode === 'COURSE_AND_FEE'
+                    ? 'Se suman curso + matrícula en N cuotas iguales. Los libros se cobran aparte.'
+                    : 'La matrícula se cobra como cuota 0 y el curso se divide en N cuotas. Los libros se cobran aparte.'}
               </span>
             </div>
           )}
