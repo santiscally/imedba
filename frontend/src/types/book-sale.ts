@@ -24,7 +24,8 @@ export interface BookSaleCreateRequest {
   studentId?:           UUID | null
   enrollmentId?:        UUID | null
   quantity:             number          // ≥ 1
-  applyStudentDiscount?: boolean | null // aplica el descuento al precio base
+  applyStudentDiscount?: boolean | null // aplica el descuento de alumno al precio base
+  discountPercentage?:  number | null   // % explícito (promo/manual); >0 pisa el de alumno
   notes?:               string | null
 }
 
