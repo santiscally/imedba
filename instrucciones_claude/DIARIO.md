@@ -29,6 +29,16 @@
 
 ## Entradas
 
+## 2026-06-22 (f) — Santi — backend+frontend (P1 reunión 12-jun: cerrado TODO lo sin bloqueo)
+**Qué:** Cerré los P1 desbloqueados de la reunión 12-jun (doc 14). Ya commiteados antes: §2.2 selector de promo en inscripción (`59ce929`), §3.3 auto-descuento por alumno en venta (`4c95b7d`), §3.4 Royalties→Autorías (`3a3942d`), §7 dashboard rojo intenso +45 días (`79f49a8`). Nuevos en esta tanda:
+- **§3.1 — descuento explícito % en la venta de libros.** Back: `BookSaleCreateRequest` suma `discountPercentage` (opcional, 0-100); `BookSaleService.create` calcula el descuento efectivo dando **prioridad al % explícito (promo/manual) sobre el de alumno**. SIN migración (el `unitPrice` ya captura el descuento). Front: `BookSaleForm` con dropdown de promo (campaña activa) + % manual.
+- **§3.2 — venta de varios libros en una operación.** `BookSaleForm` reescrito a **multi-fila** (lista {libro, cantidad} con agregar/quitar + total en vivo); el submit hace **loop de `onSubmit` (create) por fila** → no tocó backend/api/Ventas. **OJO: no es atómico** (si falla una fila por stock, las previas ya quedaron registradas — append-only, recuperable). Si en el futuro se quiere atómico, hay que un endpoint batch.
+**Por qué:** pedido del usuario de cerrar todo lo que no depende de terceros.
+**Problemas:** ninguno. Fix de aridad en `BookSaleServiceTests` (2 `new BookSaleCreateRequest` por el campo nuevo). Build rc=0, backend limpio, `tsc -b` verde.
+**Impacto para el otro (Fran):** `BookSaleForm.tsx` ahora es **multi-fila + descuento promo/manual** (cambió bastante); `types/book-sale.ts` suma `discountPercentage`. (EnrollmentForm ya tenía el selector de promo de §2.2.)
+**Estado del backlog 12-jun:** **P1 sin bloqueo = CERRADO.** Falta solo: bloqueado por Nico (liquidación %/$ + fórmula, WhatsApp textos, medios de pago), email (lo hace un tercero), y futuro (Moodle notas, presupuesto 5 plazos, banco). Deploy al server de prueba: pospuesto por decisión del usuario.
+**Refs:** `booksale/dto/BookSaleCreateRequest`, `booksale/service/BookSaleService`, `BookSaleServiceTests`, front `BookSaleForm`/`types/book-sale`. **Pendiente commit+push.**
+
 ## 2026-06-22 (e) — Santi — backend (seeder dev-only de data de prueba)
 **Qué:** Nuevo `com.imedba.config.DevDataSeeder` (`@Profile("dev")`, `ApplicationRunner`). Al levantar en dev, si **no hay cursos**, siembra: 2 cursos (Residencias libre + Diplomatura Neurodesarrollo con comisión 10), 3 alumnos de prueba (emails ficticios → sirven para la rama "no existe en Moodle"), 2 inscripciones (1 al día, 1 con cuotas vencidas vía `enrollmentDate` 70 días atrás + status OVERDUE). Además, si existe `Acceso.Prueba3@gmail.com` (alumno vinculado a Moodle 4108) y no tiene inscripción, le crea una con cuota vencida → escenario listo para el test #2 de auto-suspend. Idempotente (guarda por `count()` de cursos y `existsByStudentId`). Usa `InstallmentGenerator` para las cuotas reales.
 **Por qué:** el usuario entró a la plataforma local y no había cursos/inscripciones → trababa el testeo. Pidió "levantar con la info".
