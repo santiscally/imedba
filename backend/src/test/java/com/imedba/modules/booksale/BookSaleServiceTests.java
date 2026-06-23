@@ -75,7 +75,7 @@ class BookSaleServiceTests {
         b.setName("Anatomía");
         when(bookService.reserveStock(bookId, 1)).thenReturn(b);
 
-        var req = new BookSaleCreateRequest(bookId, null, null, 1, Boolean.TRUE, null);
+        var req = new BookSaleCreateRequest(bookId, null, null, 1, Boolean.TRUE, null, null);
 
         BookSaleResponse out = service.create(req);
 
@@ -97,7 +97,7 @@ class BookSaleServiceTests {
         b.setName("Fisio");
         when(bookService.reserveStock(bookId, 3)).thenReturn(b);
 
-        var req = new BookSaleCreateRequest(bookId, null, null, 3, Boolean.FALSE, null);
+        var req = new BookSaleCreateRequest(bookId, null, null, 3, Boolean.FALSE, null, null);
 
         BookSaleResponse out = service.create(req);
 

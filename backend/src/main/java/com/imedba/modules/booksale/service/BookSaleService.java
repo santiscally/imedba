@@ -58,12 +58,19 @@ public class BookSaleService {
                 || req.studentId() != null
                 || req.enrollmentId() != null;
 
-        BigDecimal unitPrice = book.getSalePrice();
-        if (isStudentSale && Boolean.TRUE.equals(req.applyStudentDiscount())) {
-            BigDecimal pct = book.getStudentDiscountPct() == null
+        // Descuento efectivo (reunión 12-jun §3.1): el explícito (promo/campaña o manual)
+        // tiene prioridad sobre el descuento de alumno; si no hay explícito, vale el de alumno.
+        BigDecimal effectivePct = BigDecimal.ZERO;
+        if (req.discountPercentage() != null && req.discountPercentage().signum() > 0) {
+            effectivePct = req.discountPercentage();
+        } else if (Boolean.TRUE.equals(req.applyStudentDiscount())) {
+            effectivePct = book.getStudentDiscountPct() == null
                     ? BigDecimal.ZERO : book.getStudentDiscountPct();
+        }
+        BigDecimal unitPrice = book.getSalePrice();
+        if (effectivePct.signum() > 0) {
             BigDecimal factor = BigDecimal.ONE.subtract(
-                    pct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP));
+                    effectivePct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP));
             unitPrice = unitPrice.multiply(factor).setScale(2, RoundingMode.HALF_UP);
         }
 
