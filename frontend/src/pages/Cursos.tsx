@@ -110,7 +110,7 @@ export default function Cursos() {
         { label: 'Código',         value: c => c.code ?? '' },
         { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
         { label: 'Modalidad',      value: c => c.modality ?? '' },
-        { label: 'Ciclo / Comisión', value: c =>
+        { label: 'Año / Comisión', value: c =>
             c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
               ? `Com ${c.commission}${c.academicYear != null ? '/' + c.academicYear : ''}`
               : (c.academicYear ?? 'Libre') },
@@ -195,11 +195,11 @@ export default function Cursos() {
           className="cursos__year-select"
           value={year ?? ''}
           onChange={e => { setYear(e.target.value ? Number(e.target.value) : undefined); setPage(0) }}
-          aria-label="Ciclo lectivo"
+          aria-label="Año lectivo"
         >
-          <option value="">Todos los ciclos</option>
+          <option value="">Todos los años</option>
           {yearOptions.map(y => (
-            <option key={y} value={y}>Ciclo {y}</option>
+            <option key={y} value={y}>Año {y}</option>
           ))}
         </select>
       </div>
@@ -240,7 +240,7 @@ export default function Cursos() {
                   onClick={() => toggleSort('modality')}
                 />
                 <th>Unidad</th>
-                <th>Ciclo / Comisión</th>
+                <th>Año / Comisión</th>
                 <SortableTh
                   label="Precio curso"
                   field="coursePrice"

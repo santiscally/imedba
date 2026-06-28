@@ -60,7 +60,7 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               )}
               <Row
                 icon={CalendarDays}
-                label={course.businessUnit === 'FORMACION_SUPERIOR' ? 'Año' : 'Ciclo lectivo'}
+                label={course.businessUnit === 'FORMACION_SUPERIOR' ? 'Año' : 'Año lectivo'}
                 value={course.academicYear != null ? String(course.academicYear) : 'Libre'}
               />
             </dl>

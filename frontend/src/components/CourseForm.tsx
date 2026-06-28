@@ -216,7 +216,7 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               </Field>
             )}
 
-            <Field label={showCommission ? 'Año' : 'Ciclo lectivo (año)'} error={errors.academicYear}>
+            <Field label={showCommission ? 'Año' : 'Año lectivo'} error={errors.academicYear}>
               <input
                 type="number"
                 step="1"
