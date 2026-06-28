@@ -12,6 +12,7 @@ import EmptyState from '../components/EmptyState'
 import BookSaleForm from '../components/BookSaleForm'
 import BookSaleDetail from '../components/BookSaleDetail'
 import { canWrite } from '../lib/access'
+import { hasAuthority } from '../lib/auth'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import { alertError } from '../lib/confirm'
 import './Editorial.scss'
@@ -277,10 +278,14 @@ export default function Ventas() {
           onClick={() => setTab('ventas')} role="tab" aria-selected={tab === 'ventas'}>
           <ShoppingBag size={15} /> Ventas
         </button>
-        <button type="button" className={`editorial__tab ${tab === 'royalties' ? 'editorial__tab--active' : ''}`}
-          onClick={() => setTab('royalties')} role="tab" aria-selected={tab === 'royalties'}>
-          <Coins size={15} /> Autorías
-        </button>
+        {/* Reunión 12-jun §6: vendedora NO ve autorías. Lo gateamos con
+            authors:read — que tienen ADMIN/EDITORIAL/VIEWER pero no vendedora. */}
+        {hasAuthority('authors:read') && (
+          <button type="button" className={`editorial__tab ${tab === 'royalties' ? 'editorial__tab--active' : ''}`}
+            onClick={() => setTab('royalties')} role="tab" aria-selected={tab === 'royalties'}>
+            <Coins size={15} /> Autorías
+          </button>
+        )}
       </div>
 
       {tab === 'ventas' ? (
@@ -416,12 +421,12 @@ export default function Ventas() {
 
           <div className="editorial__table-wrap">
             {rLoading && <div className="editorial__loading">Cargando…</div>}
-            {!rLoading && rError && <EmptyState icon={Coins} message="No se pudieron cargar los royalties" hint={rError} />}
+            {!rLoading && rError && <EmptyState icon={Coins} message="No se pudieron cargar las autorías" hint={rError} />}
             {!rLoading && !rError && authorsGrouped.length === 0 && (
-              <EmptyState icon={Coins} message="Sin royalties"
+              <EmptyState icon={Coins} message="Sin autorías"
                 hint={authorSearch
                   ? `Ninguna autora coincide con "${authorSearch}".`
-                  : `No hay ventas con royalties en ${periodTitle()}.`} />
+                  : `No hay ventas con autorías en ${periodTitle()}.`} />
             )}
             {!rLoading && !rError && authorsGrouped.length > 0 && (
               <div className="royalty-list">

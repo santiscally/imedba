@@ -172,7 +172,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
           </div>
 
           <p className="form__note">
-            Los <strong>autores y su royalty%</strong> se gestionan desde el detalle del libro
+            Los <strong>autores y su % de autoría</strong> se gestionan desde el detalle del libro
             (botón “Ver detalle” → sección Autores), después de crearlo.
             {!isCreate && <> El <strong>stock</strong> se ajusta desde el detalle (no se modifica acá para no pisar las ventas).</>}
           </p>

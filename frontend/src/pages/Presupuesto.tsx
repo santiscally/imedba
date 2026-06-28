@@ -412,7 +412,7 @@ export default function Presupuesto() {
             </span>
           )}
           <span className="filtered-total__net">
-            Neto:{' '}
+            <strong>Total Neto:</strong>{' '}
             <strong className={filteredTotals.income - filteredTotals.expense >= 0 ? 'is-positive' : 'is-negative'}>
               {formatPrice(filteredTotals.income - filteredTotals.expense)}
             </strong>

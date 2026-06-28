@@ -49,7 +49,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
     const royalty = Number(addRoyalty)
     if (!addAuthorId) { alertError('Elegí un autor'); return }
     if (!addRoyalty || Number.isNaN(royalty)) {
-      alertError('Royalty inválido', 'Debe ser un número.'); return
+      alertError('% de autoría inválido', 'Debe ser un número.'); return
     }
     setBusy(true)
     try {
@@ -72,7 +72,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
       setAuthorOptions(prev => [...prev, created])
       setAddAuthorId(created.id)
       setCreating(false); setNewFirst(''); setNewLast('')
-      toastSuccess('Autora creada — asignale el royalty y agregala')
+      toastSuccess('Autora creada — asignale el % de autoría y agregala')
     } catch (err) {
       alertError('No se pudo crear la autora', err instanceof Error ? err.message : undefined)
     } finally { setBusy(false) }
@@ -175,7 +175,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
 
           <section className="detail__section">
             <h4 className="detail__section-title">
-              <Users size={14} strokeWidth={1.8} /> Autores y royalties
+              <Users size={14} strokeWidth={1.8} /> Autores y autorías
               <span className={`detail__assigned ${assignedTotal > 100 ? 'detail__assigned--over' : ''}`}>
                 {assignedTotal}% asignado
               </span>
@@ -209,7 +209,7 @@ export default function BookDetail({ book, onClose, onEdit, onChanged }: Props) 
                   <option value="">Agregar autor…</option>
                   {available.map(a => <option key={a.id} value={a.id}>{a.lastName}, {a.firstName}</option>)}
                 </select>
-                <input type="number" step="any" placeholder="royalty %"
+                <input type="number" step="any" placeholder="% autoría"
                   value={addRoyalty} onChange={e => setAddRoyalty(e.target.value)} disabled={busy} />
                 <button type="button" className="btn-primary" disabled={busy || !addAuthorId} onClick={handleAdd}>
                   <Plus size={15} /> Agregar
