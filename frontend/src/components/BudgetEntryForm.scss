@@ -1,0 +1,107 @@
+@use '../styles/variables' as *;
+
+// Form de movimientos del presupuesto. Toggle INGRESO/EGRESO bien visible
+// para que no se confunda con un campo más del formulario.
+
+.budget-form {
+
+  &__header {
+    transition: background-color 200ms ease;
+  }
+
+  // Tinte sutil en el header según el tipo elegido — feedback inmediato.
+  &--income .budget-form__header {
+    background-color: rgba(16, 185, 129, 0.06);
+    border-bottom-color: rgba(16, 185, 129, 0.18);
+  }
+
+  &--expense .budget-form__header {
+    background-color: rgba(220, 38, 38, 0.06);
+    border-bottom-color: rgba(220, 38, 38, 0.18);
+  }
+
+  &__type-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0 0 1.5rem 0;
+  }
+}
+
+// Botones grandes de tipo INGRESO / EGRESO
+.type-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 180ms ease;
+  text-align: left;
+
+  // En desactivado, ícono y texto en gris para que no distraiga
+  color: #9ca3af;
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  &__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  &__sub {
+    font-size: 0.78rem;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 0.15rem;
+  }
+
+  &:hover:not(.type-btn--active) {
+    border-color: #d1d5db;
+    background: #f9fafb;
+  }
+
+  // ── INGRESO activo: verde ──
+  &--income.type-btn--active {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    color: #065f46;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.18);
+  }
+
+  // ── EGRESO activo: rojo ──
+  &--expense.type-btn--active {
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+    color: #991b1b;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.18);
+  }
+}
+
+// El botón "Registrar ..." cambia de color según el tipo
+.btn-primary--income {
+  background: #10b981;
+  border-color: #10b981;
+
+  &:hover:not(:disabled) {
+    background: #059669;
+    border-color: #059669;
+  }
+}
+
+.btn-primary--expense {
+  background: #dc2626;
+  border-color: #dc2626;
+
+  &:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #b91c1c;
+  }
+}

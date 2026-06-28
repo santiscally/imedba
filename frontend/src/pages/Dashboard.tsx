@@ -3,6 +3,7 @@ import {
   Users, BookOpen, Wallet, FileSignature,
   Plus, CreditCard, UserPlus,
   ArrowRight, ArrowUp, ArrowDown, Clock, AlertCircle,
+  Banknote, ShoppingBag,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -65,6 +66,28 @@ function prevMonth(p: { year: number; month: number }) {
 function firstName(name: string | null | undefined): string {
   if (!name) return ''
   return name.split(' ')[0]
+}
+
+function timeOfDayGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  if (h < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+// Iniciales para avatar (Apellido, Nombre → AN)
+function initials(name: string): string {
+  const parts = name.replace(',', '').trim().split(/\s+/)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// Color del badge de días vencidos según severidad
+function overdueSeverity(days: number): 'leve' | 'medio' | 'critico' {
+  if (days <= 20) return 'leve'
+  if (days <= 40) return 'medio'
+  return 'critico'
 }
 
 function fmtShortInstant(iso: string): string {
@@ -208,7 +231,11 @@ export default function Dashboard() {
   function renderNewStudents() {
     if (newStudents.status === 'hidden') return null
     return (
-      <StatCard icon={Users} tone="azul" label="Alumnos nuevos del mes" loading={newStudents.status === 'loading'} error={newStudents.status === 'error'}>
+      <StatCard
+        icon={Users} tone="azul" label="Alumnos nuevos del mes"
+        loading={newStudents.status === 'loading'} error={newStudents.status === 'error'}
+        onClick={() => navigate('/alumnos')}
+      >
         {newStudents.status === 'ok' && <div className="stat-card__value">{fmtNumber(newStudents.data)}</div>}
       </StatCard>
     )
@@ -217,7 +244,11 @@ export default function Dashboard() {
   function renderNewEnrollments() {
     if (newEnrollments.status === 'hidden') return null
     return (
-      <StatCard icon={FileSignature} tone="verde" label="Inscripciones del mes" loading={newEnrollments.status === 'loading'} error={newEnrollments.status === 'error'}>
+      <StatCard
+        icon={FileSignature} tone="verde" label="Inscripciones del mes"
+        loading={newEnrollments.status === 'loading'} error={newEnrollments.status === 'error'}
+        onClick={() => navigate('/inscripciones')}
+      >
         {newEnrollments.status === 'ok' && <div className="stat-card__value">{fmtNumber(newEnrollments.data)}</div>}
       </StatCard>
     )
@@ -226,7 +257,11 @@ export default function Dashboard() {
   function renderTopBook() {
     if (topBook.status === 'hidden') return null
     return (
-      <StatCard icon={BookOpen} tone="primary" label="Libro top del mes" loading={topBook.status === 'loading'} error={topBook.status === 'error'}>
+      <StatCard
+        icon={BookOpen} tone="primary" label="Libro top del mes"
+        loading={topBook.status === 'loading'} error={topBook.status === 'error'}
+        onClick={() => navigate('/libros')}
+      >
         {topBook.status === 'ok' && (
           topBook.data.quantity === 0
             ? <div className="stat-card__value-text muted">Sin ventas</div>
@@ -246,8 +281,20 @@ export default function Dashboard() {
 
       {/* SALUDO */}
       <header className="dashboard__greeting">
-        <h1 className="dashboard__hello">Hola{user?.fullName ? `, ${firstName(user.fullName)}` : ''}.</h1>
-        <p className="dashboard__period">Resumen de <strong>{monthLabel(cur.year, cur.month)}</strong>.</p>
+        <div className="dashboard__greeting-text">
+          <p className="dashboard__hello-sub">{timeOfDayGreeting()},</p>
+          <h1 className="dashboard__hello">
+            {user?.fullName ? firstName(user.fullName) : 'IMEDBA'}
+            <span className="dashboard__wave">👋</span>
+          </h1>
+          <p className="dashboard__period">Resumen de <strong>{monthLabel(cur.year, cur.month)}</strong></p>
+        </div>
+        <div className="dashboard__greeting-pill">
+          <span className="dashboard__greeting-pill-label">Hoy</span>
+          <span className="dashboard__greeting-pill-value">
+            {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long' })}
+          </span>
+        </div>
       </header>
 
       {/* STATS POSITIVAS */}
@@ -301,8 +348,10 @@ export default function Dashboard() {
                 const cuotaLabel = r.cuotaNumero === 0
                   ? 'Matrícula'
                   : `Cuota ${r.cuotaNumero}/${r.cuotaTotal}`
+                const severity = overdueSeverity(r.diasVencidos)
                 return (
                   <div className={`alert-row${r.diasVencidos >= 45 ? ' alert-row--severe' : ''}`} key={r.id}>
+                    <div className="alert-row__avatar">{initials(r.alumno)}</div>
                     <div className="alert-row__main">
                       <div className="alert-row__alumno">{r.alumno}</div>
                       <div className="alert-row__meta">
@@ -310,7 +359,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="alert-row__monto">{fmtCurrency(r.monto)}</div>
-                    <div className="alert-row__dias">
+                    <div className={`alert-row__dias alert-row__dias--${severity}`}>
                       <Clock size={12} />
                       {r.diasVencidos} días
                     </div>
@@ -334,20 +383,28 @@ export default function Dashboard() {
             <div className="dashboard__empty">Sin movimientos recientes.</div>
           ) : activity.status === 'ok' ? (
             <div className="activity-card">
-              {activity.data.map(a => (
-                <div className="activity-row" key={a.id}>
-                  <span className={`activity-row__dot activity-row__dot--${
-                    a.type === 'payment' ? 'verde' : a.type === 'enrollment' ? 'azul' : 'violeta'
-                  }`} />
-                  <div className="activity-row__content">
-                    <div className="activity-row__text">
-                      <strong>{a.title}</strong> — {a.detail}
-                      {a.amount != null && ` · ${fmtCurrency(a.amount)}`}
+              {activity.data.map(a => {
+                const tone = a.type === 'payment' ? 'verde'
+                  : a.type === 'enrollment' ? 'azul'
+                  : 'violeta'
+                const Icon = a.type === 'payment' ? Banknote
+                  : a.type === 'enrollment' ? UserPlus
+                  : ShoppingBag
+                return (
+                  <div className="activity-row" key={a.id}>
+                    <div className={`activity-row__icon activity-row__icon--${tone}`}>
+                      <Icon size={15} strokeWidth={2} />
                     </div>
-                    <div className="activity-row__time">{fmtShortInstant(a.date)}</div>
+                    <div className="activity-row__content">
+                      <div className="activity-row__text">
+                        <strong>{a.title}</strong> — {a.detail}
+                        {a.amount != null && ` · ${fmtCurrency(a.amount)}`}
+                      </div>
+                      <div className="activity-row__time">{fmtShortInstant(a.date)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : null}
         </section>
@@ -364,12 +421,18 @@ interface StatCardProps {
   label: string
   loading: boolean
   error: boolean
+  onClick?: () => void
   children?: React.ReactNode
 }
 
-function StatCard({ icon: Icon, tone, label, loading, error, children }: StatCardProps) {
+function StatCard({ icon: Icon, tone, label, loading, error, onClick, children }: StatCardProps) {
+  const Tag = onClick ? 'button' : 'article'
   return (
-    <article className="stat-card">
+    <Tag
+      className={`stat-card ${onClick ? 'stat-card--clickable' : ''}`}
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+    >
       <div className={`stat-card__icon stat-card__icon--${tone}`}>
         <Icon size={20} strokeWidth={2} />
       </div>
@@ -381,7 +444,7 @@ function StatCard({ icon: Icon, tone, label, loading, error, children }: StatCar
             ? <div className="stat-card__no-data">Sin datos</div>
             : children}
       </div>
-    </article>
+    </Tag>
   )
 }
 

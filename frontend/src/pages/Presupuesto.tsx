@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   Wallet, ArrowUp, ArrowDown, ArrowUpDown,
-  TrendingUp, TrendingDown, Scale, Sparkles,
+  TrendingUp, TrendingDown, Scale,
   CalendarDays, CircleDollarSign, Tag, Eye, RotateCcw, Banknote, Download,
 } from 'lucide-react'
 import { budgetApi } from '../api/budget'
@@ -228,14 +228,6 @@ export default function Presupuesto() {
           variant={summary && summary.balance >= 0 ? 'positive' : 'negative'}
           loading={dashLoading}
         />
-        <KpiCard
-          icon={Sparkles}
-          label="Proyectado (neto)"
-          value={summary ? formatPrice(summary.projectedIncome - summary.projectedExpense) : '—'}
-          variant="projected"
-          subtitle={summary ? `+${formatPrice(summary.projectedIncome)} · −${formatPrice(summary.projectedExpense)}` : undefined}
-          loading={dashLoading}
-        />
       </div>
 
       {/* Gráfico mensual */}
@@ -369,7 +361,6 @@ export default function Presupuesto() {
                     <div className="concept-cell">
                       <div className="concept-cell__name">
                         {e.concept}
-                        {e.projected && <span className="tag-proj" title="Proyectado">PROY</span>}
                         {e.recurring && <RotateCcw size={11} strokeWidth={1.8} className="tag-icon" />}
                         {e.cash      && <Banknote  size={11} strokeWidth={1.8} className="tag-icon" />}
                       </div>

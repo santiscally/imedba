@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  Users, Plus, ShieldCheck, KeyRound, Power, Trash2, X, Mail, UserCircle2, UserPlus, Download,
+  Users, Plus, ShieldCheck, Power, Trash2, X, Mail, UserCircle2, UserPlus, Download,
 } from 'lucide-react'
 import { usersApi } from '../api/users'
 import type { AppUser, CreateUserRequest } from '../types/user'
@@ -48,18 +48,6 @@ export default function Personal() {
       setReload(r => r + 1)
     } catch (err) {
       alertError('No se pudo actualizar', err instanceof Error ? err.message : undefined)
-    }
-  }
-
-  async function handleResetPassword(u: AppUser) {
-    const pwd = window.prompt(`Nueva contraseña para ${fullName(u)} (mín. 6 caracteres):`)
-    if (pwd == null) return
-    if (pwd.length < 6) { alertError('Contraseña muy corta', 'Debe tener al menos 6 caracteres'); return }
-    try {
-      await usersApi.resetPassword(u.id, { password: pwd, temporary: false })
-      toastSuccess('Contraseña actualizada')
-    } catch (err) {
-      alertError('No se pudo blanquear la contraseña', err instanceof Error ? err.message : undefined)
     }
   }
 
@@ -158,8 +146,6 @@ export default function Personal() {
                   </td>
                   <td className="col-acciones">
                     <div className="row-actions">
-                      <button className="row-actions__btn" type="button" title="Blanquear contraseña"
-                        onClick={() => handleResetPassword(u)}><KeyRound size={16} /></button>
                       <button className="row-actions__btn" type="button"
                         title={u.enabled ? 'Desactivar' : 'Reactivar'}
                         onClick={() => handleToggleEnabled(u)}><Power size={16} /></button>

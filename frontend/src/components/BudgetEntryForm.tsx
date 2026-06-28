@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { X, Save, FilePlus2 } from 'lucide-react'
+import { X, Save, TrendingUp, TrendingDown } from 'lucide-react'
 import type {
   BudgetEntry,
   BudgetEntryCreateRequest,
@@ -8,13 +8,13 @@ import type {
   BudgetBusinessUnit,
 } from '../types/budget'
 import {
-  ENTRY_TYPES, ENTRY_TYPE_LABELS,
   BUDGET_CATEGORY_LABELS, INCOME_CATEGORIES, EXPENSE_CATEGORIES,
   BUDGET_BUSINESS_UNITS, BUDGET_BUSINESS_UNIT_LABELS,
 } from '../types/budget'
 import type { PaymentMethod } from '../types/enrollment'
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '../types/enrollment'
 import './StudentForm.scss'
+import './BudgetEntryForm.scss'
 
 interface Props {
   onClose:  () => void
@@ -31,7 +31,6 @@ interface FormState {
   amount:           string
   entryDate:        string
   paymentMethod:    PaymentMethod | ''
-  projected:        boolean
   recurring:        boolean
   cash:             boolean
   referenceNumber:  string
@@ -53,7 +52,6 @@ function initialState(): FormState {
     amount:          '',
     entryDate:       todayLocal(),
     paymentMethod:   '',
-    projected:       false,
     recurring:       false,
     cash:            false,
     referenceNumber: '',
@@ -115,7 +113,6 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
       amount:           Number(state.amount),
       entryDate:        state.entryDate,
       paymentMethod:    state.paymentMethod || null,
-      projected:        state.projected,
       recurring:        state.recurring,
       cash:             state.cash,
       referenceNumber:  state.referenceNumber.trim() || null,
@@ -131,18 +128,24 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
     }
   }
 
+  const isIncome = state.entryType === 'INCOME'
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal"
+        className={`modal budget-form budget-form--${isIncome ? 'income' : 'expense'}`}
         onClick={ev => ev.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <header className="modal__header">
+        <header className="modal__header budget-form__header">
           <div className="modal__title-wrap">
-            <div className="modal__title-icon"><FilePlus2 size={18} /></div>
-            <h3 className="modal__title">Nuevo movimiento</h3>
+            <div className="modal__title-icon">
+              {isIncome ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+            </div>
+            <h3 className="modal__title">
+              {isIncome ? 'Nuevo ingreso' : 'Nuevo egreso'}
+            </h3>
           </div>
           <button type="button" className="modal__close" onClick={onClose} aria-label="Cerrar">
             <X size={18} />
@@ -150,19 +153,38 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
         </header>
 
         <form onSubmit={handleSubmit} className="form">
-          <div className="form__grid">
-            <Field label="Tipo" required>
-              <select
-                value={state.entryType}
-                onChange={e => onEntryTypeChange(e.target.value as EntryType)}
-              >
-                {ENTRY_TYPES.map(t => (
-                  <option key={t} value={t}>{ENTRY_TYPE_LABELS[t]}</option>
-                ))}
-              </select>
-            </Field>
+          {/* Toggle grande INGRESO / EGRESO — primer cosa que ve el usuario. */}
+          <div className="budget-form__type-toggle" role="tablist" aria-label="Tipo de movimiento">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isIncome}
+              className={`type-btn type-btn--income ${isIncome ? 'type-btn--active' : ''}`}
+              onClick={() => onEntryTypeChange('INCOME')}
+            >
+              <TrendingUp size={22} strokeWidth={2} />
+              <div className="type-btn__text">
+                <span className="type-btn__title">INGRESO</span>
+                <span className="type-btn__sub">Entra plata</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isIncome}
+              className={`type-btn type-btn--expense ${!isIncome ? 'type-btn--active' : ''}`}
+              onClick={() => onEntryTypeChange('EXPENSE')}
+            >
+              <TrendingDown size={22} strokeWidth={2} />
+              <div className="type-btn__text">
+                <span className="type-btn__title">EGRESO</span>
+                <span className="type-btn__sub">Sale plata</span>
+              </div>
+            </button>
+          </div>
 
-            <Field label="Categoría" required>
+          <div className="form__grid">
+            <Field label="Categoría" required fullWidth>
               <select
                 value={state.category}
                 onChange={e => setField('category', e.target.value as BudgetCategory)}
@@ -171,6 +193,36 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
                   <option key={c} value={c}>{BUDGET_CATEGORY_LABELS[c]}</option>
                 ))}
               </select>
+            </Field>
+
+            <Field label="Concepto" required error={errors.concept} fullWidth>
+              <input
+                type="text"
+                value={state.concept}
+                onChange={e => setField('concept', e.target.value)}
+                maxLength={300}
+                autoFocus
+                placeholder={isIncome ? 'Donación, curso particular, convenio…' : 'Alquiler oficina junio, sueldo Marcela…'}
+              />
+            </Field>
+
+            <Field label={isIncome ? 'Monto a cobrar (ARS)' : 'Monto a pagar (ARS)'} required error={errors.amount}>
+              <input
+                type="number" step="any"
+                value={state.amount}
+                onChange={e => setField('amount', e.target.value)}
+                placeholder="780000"
+              />
+            </Field>
+
+            <Field label="Subcategoría" error={errors.subcategory}>
+              <input
+                type="text"
+                value={state.subcategory}
+                onChange={e => setField('subcategory', e.target.value)}
+                maxLength={100}
+                placeholder={isIncome ? 'Convenio, donación…' : 'Sueldos, alquiler, impuestos…'}
+              />
             </Field>
 
             <Field label="Unidad de negocio">
@@ -183,36 +235,6 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
                   <option key={bu} value={bu}>{BUDGET_BUSINESS_UNIT_LABELS[bu]}</option>
                 ))}
               </select>
-            </Field>
-
-            <Field label="Subcategoría" error={errors.subcategory}>
-              <input
-                type="text"
-                value={state.subcategory}
-                onChange={e => setField('subcategory', e.target.value)}
-                maxLength={100}
-                placeholder="Servicios públicos, Honorarios, …"
-              />
-            </Field>
-
-            <Field label="Concepto" required error={errors.concept} fullWidth>
-              <input
-                type="text"
-                value={state.concept}
-                onChange={e => setField('concept', e.target.value)}
-                maxLength={300}
-                autoFocus
-                placeholder="Alquiler oficina abril"
-              />
-            </Field>
-
-            <Field label="Monto (ARS)" required error={errors.amount}>
-              <input
-                type="number" step="any"
-                value={state.amount}
-                onChange={e => setField('amount', e.target.value)}
-                placeholder="780000"
-              />
             </Field>
 
             <Field label="Fecha" required error={errors.entryDate}>
@@ -250,14 +272,6 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
                 <label className="checkbox-row__opt">
                   <input
                     type="checkbox"
-                    checked={state.projected}
-                    onChange={e => setField('projected', e.target.checked)}
-                  />
-                  <span>Proyectado (no real)</span>
-                </label>
-                <label className="checkbox-row__opt">
-                  <input
-                    type="checkbox"
                     checked={state.recurring}
                     onChange={e => setField('recurring', e.target.checked)}
                   />
@@ -290,8 +304,12 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
             <button type="button" className="btn-ghost" onClick={onClose} disabled={saving}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Guardando…' : <><Save size={15} /> Registrar movimiento</>}
+            <button type="submit" className={`btn-primary btn-primary--${isIncome ? 'income' : 'expense'}`} disabled={saving}>
+              {saving ? 'Guardando…' : (
+                <>
+                  <Save size={15} /> {isIncome ? 'Registrar ingreso' : 'Registrar egreso'}
+                </>
+              )}
             </button>
           </footer>
         </form>

@@ -1,35 +1,39 @@
-// Export a CSV que abre directo en Excel (UTF-8 con BOM + separador ';' para es-AR).
-// Sin dependencias externas — se arma el CSV y se dispara la descarga vía Blob.
-// Reunión 2026-06-05 §3.9: exportar tablas (Cuotas/Pagos, Presupuesto) para backup/informe.
+// Export a XLSX (Excel nativo) usando SheetJS. Reemplazó al CSV original — abre
+// directo en Excel sin diálogo de import, mantiene tipos numéricos y soporta
+// acentos sin tema de encoding. La API pública (`exportToCsv`/`dateStamp`) se
+// mantiene para no romper los 13 callsites de las grillas.
+//
+// xlsx pesa ~280 KB → import dinámico para no cargarlo en la ruta principal.
+// Solo se descarga cuando el usuario hace click en "Exportar".
 
 export interface CsvColumn<T> {
   label: string
   value: (row: T) => string | number | null | undefined
 }
 
-function escape(v: string | number | null | undefined): string {
-  const s = v == null ? '' : String(v)
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+export async function exportToCsv<T>(filename: string, rows: T[], cols: CsvColumn<T>[]): Promise<void> {
+  const XLSX = await import('xlsx')
+
+  const aoa: Array<Array<string | number>> = [
+    cols.map(c => c.label),
+    ...rows.map(r => cols.map(c => {
+      const v = c.value(r)
+      return v == null ? '' : v
+    })),
+  ]
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+
+  ws['!cols'] = cols.map(c => ({ wch: Math.max(12, c.label.length + 2) }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Datos')
+
+  const stem = filename.replace(/\.(csv|xlsx)$/i, '')
+  XLSX.writeFile(wb, `${stem}.xlsx`)
 }
 
-export function exportToCsv<T>(filename: string, rows: T[], cols: CsvColumn<T>[]): void {
-  const sep = ';'
-  const header = cols.map(c => escape(c.label)).join(sep)
-  const body = rows.map(r => cols.map(c => escape(c.value(r))).join(sep))
-  const csv = '﻿' + [header, ...body].join('\r\n')
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename.endsWith('.csv') ? filename : `${filename}.csv`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-// Helper para timestamp en el nombre del archivo (ej. cuotas-2026-06-08.csv).
+// Helper para timestamp en el nombre del archivo (ej. cuotas-2026-06-12.xlsx).
 export function dateStamp(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

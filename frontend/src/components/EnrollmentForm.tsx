@@ -374,7 +374,9 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                         <select value={addBookId} onChange={e => setAddBookId(e.target.value)}>
                           <option value="">Agregar libro suelto…</option>
                           {books.filter(b => !bookIds.includes(b.id)).map(b => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
+                            <option key={b.id} value={b.id}>
+                              {b.name} — {formatARS(bookNet(b))}
+                            </option>
                           ))}
                         </select>
                         <button type="button" className="btn-ghost btn-ghost--sm" disabled={!addBookId} onClick={addBook}>
