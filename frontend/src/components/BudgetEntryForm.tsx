@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { X, Save, TrendingUp, TrendingDown } from 'lucide-react'
 import type {
   BudgetEntry,
@@ -13,6 +13,7 @@ import {
 } from '../types/budget'
 import type { PaymentMethod } from '../types/enrollment'
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '../types/enrollment'
+import { budgetApi } from '../api/budget'
 import './StudentForm.scss'
 import './BudgetEntryForm.scss'
 
@@ -65,6 +66,12 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving,      setSaving]      = useState(false)
 
+  // Autocomplete del campo "Concepto": conceptos ya usados en esta categoría
+  // se ofrecen como sugerencias para evitar typos ("Sueldo PAULA" vs "Pago paula erlich").
+  // Cacheado por categoría — no re-fetch si el user vuelve a la misma.
+  const [pastConcepts, setPastConcepts] = useState<string[]>([])
+  const conceptCache = useRef<Map<BudgetCategory, string[]>>(new Map())
+
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
@@ -77,6 +84,33 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
     const list = t === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
     setState(prev => ({ ...prev, entryType: t, category: list[0] }))
   }
+
+  // Cuando cambia la categoría, traigo los últimos N entries y extraigo conceptos
+  // distintos (server-side filter por category, client-side dedup).
+  useEffect(() => {
+    const cached = conceptCache.current.get(state.category)
+    if (cached) { setPastConcepts(cached); return }
+
+    let cancelled = false
+    budgetApi.listEntries({ category: state.category, size: 200, sort: 'entryDate,desc' })
+      .then(res => {
+        if (cancelled) return
+        const seen = new Set<string>()
+        const concepts: string[] = []
+        for (const e of res.content) {
+          const c = e.concept.trim()
+          if (c && !seen.has(c.toLowerCase())) {
+            seen.add(c.toLowerCase())
+            concepts.push(c)
+          }
+        }
+        conceptCache.current.set(state.category, concepts)
+        setPastConcepts(concepts)
+      })
+      .catch(() => { /* el autocomplete es best-effort; si falla, el input sigue funcionando */ })
+
+    return () => { cancelled = true }
+  }, [state.category])
 
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
@@ -203,7 +237,17 @@ export default function BudgetEntryForm({ onClose, onSaved, onSubmit }: Props) {
                 maxLength={300}
                 autoFocus
                 placeholder={isIncome ? 'Donación, curso particular, convenio…' : 'Alquiler oficina junio, sueldo Marcela…'}
+                list="budget-concept-suggestions"
+                autoComplete="off"
               />
+              <datalist id="budget-concept-suggestions">
+                {pastConcepts.map(c => <option key={c} value={c} />)}
+              </datalist>
+              {pastConcepts.length > 0 && (
+                <small className="field__hint">
+                  💡 Hay {pastConcepts.length} concepto{pastConcepts.length === 1 ? '' : 's'} previo{pastConcepts.length === 1 ? '' : 's'} en esta categoría — empezá a escribir para autocompletar.
+                </small>
+              )}
             </Field>
 
             <Field label={isIncome ? 'Monto a cobrar (ARS)' : 'Monto a pagar (ARS)'} required error={errors.amount}>

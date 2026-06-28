@@ -41,6 +41,52 @@ type SortState = { field: SortField; dir: SortDir } | null
 type TypeFilter = EntryType | 'TODOS'
 type CategoryFilter = BudgetCategory | 'TODAS'
 
+// Período del dashboard. La nav (◄ / ►) y los fetches se adaptan al período.
+type Period = 'MONTH' | 'TRIMESTRE' | 'YEAR'
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: 'MONTH',     label: 'Mes' },
+  { value: 'TRIMESTRE', label: 'Trim' },
+  { value: 'YEAR',      label: 'Año' },
+]
+
+// Rango de fechas (LocalDate YYYY-MM-DD) + label legible para el período seleccionado.
+function periodRange(p: Period, year: number, month: number): { from: string; to: string; label: string } {
+  if (p === 'YEAR') {
+    return { from: `${year}-01-01`, to: `${year}-12-31`, label: `Año ${year}` }
+  }
+  if (p === 'TRIMESTRE') {
+    const q       = Math.ceil(month / 3)               // 1..4
+    const startM  = (q - 1) * 3 + 1
+    const endM    = startM + 2
+    return {
+      from:  `${year}-${String(startM).padStart(2, '0')}-01`,
+      to:    `${year}-${String(endM).padStart(2, '0')}-${lastDayOfMonth(year, endM)}`,
+      label: `Trim ${q} · ${year}`,
+    }
+  }
+  return {
+    from:  `${year}-${String(month).padStart(2, '0')}-01`,
+    to:    `${year}-${String(month).padStart(2, '0')}-${lastDayOfMonth(year, month)}`,
+    label: `${MONTHS_FULL[month - 1]} ${year}`,
+  }
+}
+
+// La nav ◄/► avanza/retrocede según el período elegido (mes / trim / año).
+function stepPeriod(delta: -1 | 1, p: Period, year: number, month: number): { year: number; month: number } {
+  if (p === 'YEAR') return { year: year + delta, month }
+  if (p === 'TRIMESTRE') {
+    const q     = Math.ceil(month / 3)
+    const qNext = q + delta
+    if (qNext < 1)  return { year: year - 1, month: 10 }  // último trim del año previo
+    if (qNext > 4)  return { year: year + 1, month: 1 }   // primer trim del año siguiente
+    return { year, month: (qNext - 1) * 3 + 1 }           // primer mes del trim
+  }
+  const total = (month - 1) + delta
+  if (total < 0)  return { year: year - 1, month: 12 }
+  if (total > 11) return { year: year + 1, month: 1 }
+  return { year, month: total + 1 }
+}
+
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create' }
@@ -50,7 +96,11 @@ export default function Presupuesto() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
+  const [period, setPeriod] = useState<Period>('MONTH')
 
+  // Para MES, la KPI viene del endpoint /dashboard/summary (rápido).
+  // Para TRIM/AÑO, traigo todos los entries del rango (size=2000) y agrego cliente —
+  // así reuso un solo fetch y no agrego endpoints al back.
   const [summary,      setSummary]      = useState<BudgetSummary | null>(null)
   const [monthlyFlow,  setMonthlyFlow]  = useState<MonthlyFlow[]>([])
   const [dashLoading,  setDashLoading]  = useState(true)
@@ -76,23 +126,38 @@ export default function Presupuesto() {
     return () => clearTimeout(t)
   }, [query])
 
-  // Dashboard fetch
+  // Dashboard fetch — el KPI y el flow chart.
+  // En MES uso /dashboard/summary; en TRIM/AÑO agrego cliente desde listEntries.
   useEffect(() => {
     setDashLoading(true); setDashError(null)
-    Promise.all([
-      budgetApi.summary(year, month),
-      budgetApi.monthlyFlow(year),
-    ])
+    const { from, to } = periodRange(period, year, month)
+
+    const summaryP: Promise<BudgetSummary> = period === 'MONTH'
+      ? budgetApi.summary(year, month)
+      : budgetApi.listEntries({ from, to, size: 2000 }).then(res => {
+          let totalIncome = 0, totalExpense = 0
+          for (const e of res.content) {
+            if (e.entryType === 'INCOME')  totalIncome  += e.amount
+            else                            totalExpense += e.amount
+          }
+          return {
+            year, month,
+            totalIncome, totalExpense,
+            balance:          totalIncome - totalExpense,
+            projectedIncome:  0,
+            projectedExpense: 0,
+          }
+        })
+
+    Promise.all([summaryP, budgetApi.monthlyFlow(year)])
       .then(([s, f]) => { setSummary(s); setMonthlyFlow(f); setDashLoading(false) })
       .catch((err: Error) => { setDashError(err.message); setDashLoading(false) })
-  }, [year, month, reload])
+  }, [period, year, month, reload])
 
-  // Entries fetch
+  // Entries fetch (tabla, paginada)
   useEffect(() => {
     setLoading(true); setError(null)
-    // Filtramos por mes/año vía from/to (LocalDate)
-    const from = `${year}-${String(month).padStart(2, '0')}-01`
-    const to   = `${year}-${String(month).padStart(2, '0')}-${lastDayOfMonth(year, month)}`
+    const { from, to } = periodRange(period, year, month)
     budgetApi.listEntries({
       type:     typeFilter === 'TODOS' ? undefined : typeFilter,
       category: catFilter  === 'TODAS' ? undefined : catFilter,
@@ -104,16 +169,15 @@ export default function Presupuesto() {
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [year, month, typeFilter, catFilter, page, sort, reload])
+  }, [period, year, month, typeFilter, catFilter, page, sort, reload])
 
   const [exporting, setExporting] = useState(false)
 
-  // Exporta a CSV (Excel) los movimientos del período, trayendo todas las filas.
+  // Exporta a Excel (XLSX) los movimientos del período, trayendo todas las filas.
   async function handleExport() {
     setExporting(true)
     try {
-      const from = `${year}-${String(month).padStart(2, '0')}-01`
-      const to   = `${year}-${String(month).padStart(2, '0')}-${lastDayOfMonth(year, month)}`
+      const { from, to } = periodRange(period, year, month)
       const res = await budgetApi.listEntries({
         type:     typeFilter === 'TODOS' ? undefined : typeFilter,
         category: catFilter  === 'TODAS' ? undefined : catFilter,
@@ -130,7 +194,10 @@ export default function Presupuesto() {
         { label: 'Método',       value: e => e.paymentMethod ? PAYMENT_METHOD_LABELS[e.paymentMethod] : '' },
         { label: 'Referencia',   value: e => e.referenceNumber ?? '' },
       ]
-      exportToCsv(`presupuesto-${year}-${String(month).padStart(2, '0')}`, res.content, cols)
+      const stem = period === 'YEAR'      ? `presupuesto-${year}`
+                 : period === 'TRIMESTRE' ? `presupuesto-${year}-Q${Math.ceil(month / 3)}`
+                 :                          `presupuesto-${year}-${String(month).padStart(2, '0')}`
+      exportToCsv(stem, res.content, cols)
     } catch (err) {
       alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
     } finally {
@@ -165,7 +232,16 @@ export default function Presupuesto() {
   }, [data, debounced])
 
   const totalPages = data?.totalPages ?? 0
-  const periodLabel = `${MONTHS_FULL[month - 1]} ${year}`
+  const periodLabel = periodRange(period, year, month).label
+
+  function changePeriod(next: Period) {
+    setPeriod(next)
+    setPage(0)
+  }
+  function navPeriod(delta: -1 | 1) {
+    const { year: y, month: m } = stepPeriod(delta, period, year, month)
+    setYear(y); setMonth(m); setPage(0)
+  }
 
   return (
     <div className="presupuesto">
@@ -196,13 +272,27 @@ export default function Presupuesto() {
       </header>
 
       <div className="presupuesto__period">
-        <button type="button" className="period-nav" onClick={() => stepMonth(-1, year, month, setYear, setMonth)} aria-label="Mes anterior">
+        <button type="button" className="period-nav" onClick={() => navPeriod(-1)} aria-label="Período anterior">
           <ChevronLeft size={18} strokeWidth={2.2} />
         </button>
         <div className="period-current">{periodLabel}</div>
-        <button type="button" className="period-nav" onClick={() => stepMonth(1, year, month, setYear, setMonth)} aria-label="Mes siguiente">
+        <button type="button" className="period-nav" onClick={() => navPeriod(1)} aria-label="Período siguiente">
           <ChevronRight size={18} strokeWidth={2.2} />
         </button>
+        <div className="period-toggle" role="tablist" aria-label="Ventana de tiempo">
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              aria-selected={period === opt.value}
+              className={`period-toggle__btn ${period === opt.value ? 'period-toggle__btn--active' : ''}`}
+              onClick={() => changePeriod(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* KPIs */}
@@ -622,16 +712,6 @@ function buildPageNumbers(current: number, total: number): (number | '…')[] {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
-function stepMonth(
-  delta: number, year: number, month: number,
-  setYear: (n: number) => void, setMonth: (n: number) => void,
-) {
-  const total = (month - 1) + delta
-  if (total < 0) { setYear(year - 1); setMonth(12) }
-  else if (total > 11) { setYear(year + 1); setMonth(1) }
-  else setMonth(total + 1)
-}
-
 function lastDayOfMonth(year: number, month: number): string {
   const d = new Date(year, month, 0).getDate()
   return String(d).padStart(2, '0')

@@ -112,6 +112,45 @@
   text-align: center;
 }
 
+// Toggle Mes / Trim / Año
+.period-toggle {
+  display: inline-flex;
+  margin-left: 0.75rem;
+  background: $fondo-hover;
+  border-radius: $radio-md;
+  padding: 3px;
+  gap: 2px;
+
+  &__btn {
+    border: none;
+    background: transparent;
+    color: $gris-texto;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.45rem 0.85rem;
+    border-radius: $radio-sm;
+    cursor: pointer;
+    transition: background $transicion, color $transicion;
+
+    &:hover:not(.period-toggle__btn--active) {
+      color: $texto-medio;
+    }
+
+    &--active {
+      background: $blanco;
+      color: $verde-petroleo;
+      box-shadow: $sombra-xs;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .period-toggle {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+}
+
 // ─── KPI Grid ───────────────────────────────────────────────────────────────
 .kpi-grid {
   display: grid;
