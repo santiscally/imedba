@@ -82,8 +82,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     }
     if (state.commission && Number.isNaN(Number(state.commission))) {
       e.commission = 'No es un número válido'
-    } else if (state.commission && Number(state.commission) <= 0) {
-      e.commission = 'Debe ser un número positivo'
     }
     setErrors(e)
     return Object.keys(e).length === 0
