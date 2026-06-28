@@ -119,6 +119,11 @@ export default function Presupuesto() {
   const [error,   setError]   = useState<string | null>(null)
   const [reload,  setReload]  = useState(0)
 
+  // Total de los entries que matchean los filtros actuales (chip + categoría +
+  // período). Se muestra en el toolbar. Reacciona a typeFilter/catFilter/period
+  // pero no a page/sort (el total es sobre TODO el resultset filtrado).
+  const [filteredTotals, setFilteredTotals] = useState<{ count: number; income: number; expense: number } | null>(null)
+
   const [panel, setPanel] = useState<PanelState>({ kind: 'closed' })
 
   useEffect(() => {
@@ -170,6 +175,25 @@ export default function Presupuesto() {
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
   }, [period, year, month, typeFilter, catFilter, page, sort, reload])
+
+  // Totales filtrados — un solo fetch size=2000 cuando cambian filtros/período.
+  useEffect(() => {
+    const { from, to } = periodRange(period, year, month)
+    budgetApi.listEntries({
+      type:     typeFilter === 'TODOS' ? undefined : typeFilter,
+      category: catFilter  === 'TODAS' ? undefined : catFilter,
+      from, to, size: 2000,
+    })
+      .then(res => {
+        let income = 0, expense = 0
+        for (const e of res.content) {
+          if (e.entryType === 'INCOME')  income  += e.amount
+          else                            expense += e.amount
+        }
+        setFilteredTotals({ count: res.totalElements, income, expense })
+      })
+      .catch(() => setFilteredTotals(null))
+  }, [period, year, month, typeFilter, catFilter, reload])
 
   const [exporting, setExporting] = useState(false)
 
@@ -371,6 +395,30 @@ export default function Presupuesto() {
           </select>
         </div>
       </div>
+
+      {filteredTotals && filteredTotals.count > 0 && (
+        <div className="filtered-total">
+          <span className="filtered-total__count">
+            {filteredTotals.count} {filteredTotals.count === 1 ? 'movimiento' : 'movimientos'}
+          </span>
+          {filteredTotals.income > 0 && (
+            <span className="filtered-total__chip filtered-total__chip--income">
+              + {formatPrice(filteredTotals.income)}
+            </span>
+          )}
+          {filteredTotals.expense > 0 && (
+            <span className="filtered-total__chip filtered-total__chip--expense">
+              − {formatPrice(filteredTotals.expense)}
+            </span>
+          )}
+          <span className="filtered-total__net">
+            Neto:{' '}
+            <strong className={filteredTotals.income - filteredTotals.expense >= 0 ? 'is-positive' : 'is-negative'}>
+              {formatPrice(filteredTotals.income - filteredTotals.expense)}
+            </strong>
+          </span>
+        </div>
+      )}
 
       <div className="presupuesto__table-wrap">
         {loading && <div className="presupuesto__loading">Cargando…</div>}

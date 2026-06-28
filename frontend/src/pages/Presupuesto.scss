@@ -151,6 +151,55 @@
   }
 }
 
+// Total filtrado — badge entre el toolbar y la tabla, responde a los filtros
+// activos (chip Ingresos/Egresos + select categoría + período).
+.filtered-total {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.9rem;
+  background: $blanco;
+  border: 1px solid $gris-borde-sutil;
+  border-radius: $radio-md;
+  margin-bottom: -0.5rem;  // pegado a la tabla de abajo
+
+  &__count {
+    font-size: 0.82rem;
+    color: $gris-texto;
+    font-weight: 500;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    &--income  { background: $verde-bg; color: $verde; }
+    &--expense { background: $rojo-bg;  color: $rojo;  }
+  }
+
+  &__net {
+    margin-left: auto;
+    font-size: 0.82rem;
+    color: $gris-texto;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+
+    strong {
+      font-weight: 700;
+      font-size: 0.95rem;
+
+      &.is-positive { color: $verde; }
+      &.is-negative { color: $rojo;  }
+    }
+  }
+}
+
 // ─── KPI Grid ───────────────────────────────────────────────────────────────
 .kpi-grid {
   display: grid;
