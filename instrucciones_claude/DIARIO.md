@@ -29,6 +29,15 @@
 
 ## Entradas
 
+## 2026-06-28 — Fran — docs (contrato de matrícula: template oficial + ejemplo)
+**Qué:** Jaque pasó dos archivos que cierran el último input pendiente del lado del cliente para §8 Email. Guardados en `instrucciones_claude/contratos/` + nota explicativa en `15-contrato-alumno-template.md`.
+1. **`contrato-template-final.docx`** — TEMPLATE oficial nuevo. Rojas 61 (no más Gavilán 2628), **13 cláusulas** (vs 9 del viejo), redacción de mora abstracta ("período de vencimiento informado por la Institución") compatible con Grupos 1/2, cláusula séptima nueva alineada con módulo Pases (% uso plataforma, RTP), protección de datos (Ley 25.326), jurisdicción CABA.
+2. **`contrato-ejemplo-rivero-ileana.pdf`** — Ejemplo concreto de un contrato emitido del modelo VIEJO (alumno Ileana Rivero, curso Salta Intensivo, $812.500). Solo referencia visual; **no usar como plantilla**.
+Doc nueva `15-contrato-alumno-template.md` documenta diferencias viejo↔nuevo, estructura del template, mapeo de campos a entidades del backend, y pendientes para Santi (generación PDF: docx4j/wkhtmltopdf/SendGrid dynamic, adjuntar al mail, setear `Enrollment.contract{FilePath,SentAt,SignedAt}`, eventualmente sumar `startDate`/`endDate` a `Course` para llenar "Inicio/Fin del grupo").
+**Por qué:** Desbloquear §8 (alta de inscripción → enviar recibo + contrato PDF a firmar). Era el último input que faltaba del lado del cliente para que la pipeline mail tenga toda la data.
+**Impacto para el otro (Santi):** Cuando arme la pipeline de mail (cuando elijas proveedor — EnvíaloSimple / SMTP / SendGrid), ya tenés el template oficial. Detalles + mapeo en `15-contrato-alumno-template.md`. Yo del lado frontend espero que la pipeline esté funcionando para mostrar badge "Contrato enviado" + link al PDF en EnrollmentDetail.
+**Refs:** `instrucciones_claude/contratos/contrato-template-final.docx`, `instrucciones_claude/contratos/contrato-ejemplo-rivero-ileana.pdf`, `instrucciones_claude/15-contrato-alumno-template.md`.
+
 ## 2026-06-22 (f) — Santi — backend+frontend (P1 reunión 12-jun: cerrado TODO lo sin bloqueo)
 **Qué:** Cerré los P1 desbloqueados de la reunión 12-jun (doc 14). Ya commiteados antes: §2.2 selector de promo en inscripción (`59ce929`), §3.3 auto-descuento por alumno en venta (`4c95b7d`), §3.4 Royalties→Autorías (`3a3942d`), §7 dashboard rojo intenso +45 días (`79f49a8`). Nuevos en esta tanda:
 - **§3.1 — descuento explícito % en la venta de libros.** Back: `BookSaleCreateRequest` suma `discountPercentage` (opcional, 0-100); `BookSaleService.create` calcula el descuento efectivo dando **prioridad al % explícito (promo/manual) sobre el de alumno**. SIN migración (el `unitPrice` ya captura el descuento). Front: `BookSaleForm` con dropdown de promo (campaña activa) + % manual.
