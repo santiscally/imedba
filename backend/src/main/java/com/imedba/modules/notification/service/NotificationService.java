@@ -6,6 +6,8 @@ import com.imedba.modules.notification.entity.Notification;
 import com.imedba.modules.notification.entity.NotificationStatus;
 import com.imedba.modules.notification.entity.NotificationType;
 import com.imedba.modules.notification.entity.RelatedEntityType;
+import com.imedba.modules.notification.mail.MailAttachment;
+import com.imedba.modules.notification.mail.MailRequest;
 import com.imedba.modules.notification.mail.MailSendException;
 import com.imedba.modules.notification.mail.MailSender;
 import com.imedba.modules.notification.repository.NotificationRepository;
@@ -49,6 +51,18 @@ public class NotificationService {
             NotificationTemplate tpl,
             RelatedEntityType relatedEntityType,
             UUID relatedEntityId) {
+        return enqueue(type, recipientEmail, tpl, relatedEntityType, relatedEntityId, null);
+    }
+
+    /** Variante con adjunto (p. ej. el PDF del contrato en la notif CONTRACT). */
+    @Transactional
+    public Notification enqueue(
+            NotificationType type,
+            String recipientEmail,
+            NotificationTemplate tpl,
+            RelatedEntityType relatedEntityType,
+            UUID relatedEntityId,
+            MailAttachment attachment) {
         if (relatedEntityType != null && relatedEntityId != null) {
             boolean dup = repository.existsByTypeAndRelatedEntityTypeAndRelatedEntityIdAndStatusIn(
                     type, relatedEntityType, relatedEntityId,
@@ -71,6 +85,8 @@ public class NotificationService {
                 .body(tpl.body())
                 .relatedEntityType(relatedEntityType)
                 .relatedEntityId(relatedEntityId)
+                .attachmentContent(attachment != null ? attachment.content() : null)
+                .attachmentFilename(attachment != null ? attachment.filename() : null)
                 .scheduledFor(Instant.now())
                 .attempts(0)
                 .build();
@@ -89,7 +105,7 @@ public class NotificationService {
         int sent = 0;
         for (Notification n : due) {
             try {
-                mailSender.send(n.getRecipientEmail(), n.getSubject(), n.getBody());
+                mailSender.send(toMailRequest(n));
                 n.setStatus(NotificationStatus.SENT);
                 n.setSentAt(Instant.now());
                 n.setErrorMessage(null);
@@ -156,6 +172,16 @@ public class NotificationService {
             }
         }
         return cancelled;
+    }
+
+    private static MailRequest toMailRequest(Notification n) {
+        if (n.getAttachmentContent() != null) {
+            MailAttachment att = MailAttachment.pdf(
+                    n.getAttachmentFilename() != null ? n.getAttachmentFilename() : "adjunto.pdf",
+                    n.getAttachmentContent());
+            return new MailRequest(n.getRecipientEmail(), n.getSubject(), n.getBody(), List.of(att));
+        }
+        return MailRequest.of(n.getRecipientEmail(), n.getSubject(), n.getBody());
     }
 
     private static String truncate(String s, int max) {

@@ -5,9 +5,11 @@ import com.sendgrid.Request;
 import com.sendgrid.Response;
 import com.sendgrid.SendGrid;
 import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Attachments;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
 import java.io.IOException;
+import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -39,12 +41,20 @@ public class SendGridMailSender implements MailSender {
     }
 
     @Override
-    public void send(String to, String subject, String body) {
+    public void send(MailRequest request) {
         Mail mail = new Mail(
                 new Email(fromEmail, fromName),
-                subject,
-                new Email(to),
-                new Content("text/html", body));
+                request.subject(),
+                new Email(request.to()),
+                new Content("text/html", request.body()));
+        for (MailAttachment att : request.attachments()) {
+            Attachments a = new Attachments();
+            a.setContent(Base64.getEncoder().encodeToString(att.content()));
+            a.setType(att.contentType());
+            a.setFilename(att.filename());
+            a.setDisposition("attachment");
+            mail.addAttachments(a);
+        }
         Request req = new Request();
         try {
             req.setMethod(Method.POST);
@@ -55,9 +65,9 @@ public class SendGridMailSender implements MailSender {
             if (status >= 400) {
                 throw new MailSendException("SendGrid HTTP " + status + ": " + res.getBody());
             }
-            log.debug("SendGrid: sent to={} status={}", to, status);
+            log.debug("SendGrid: sent to={} status={}", request.to(), status);
         } catch (IOException e) {
-            throw new MailSendException("SendGrid I/O error enviando a " + to, e);
+            throw new MailSendException("SendGrid I/O error enviando a " + request.to(), e);
         }
     }
 }

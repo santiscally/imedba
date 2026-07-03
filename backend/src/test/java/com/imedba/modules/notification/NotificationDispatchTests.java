@@ -13,6 +13,7 @@ import com.imedba.modules.notification.entity.Notification;
 import com.imedba.modules.notification.entity.NotificationStatus;
 import com.imedba.modules.notification.entity.NotificationType;
 import com.imedba.modules.notification.entity.RelatedEntityType;
+import com.imedba.modules.notification.mail.MailRequest;
 import com.imedba.modules.notification.mail.MailSendException;
 import com.imedba.modules.notification.mail.MailSender;
 import com.imedba.modules.notification.repository.NotificationRepository;
@@ -108,7 +109,7 @@ class NotificationDispatchTests {
         Notification n = pending("a@b.com", "s", "b");
         when(repository.findDueForDispatch(any(Instant.class), any(Pageable.class)))
                 .thenReturn(List.of(n));
-        doNothing().when(mailSender).send("a@b.com", "s", "b");
+        doNothing().when(mailSender).send(any(MailRequest.class));
 
         int sent = service.dispatchDueBatch();
 
@@ -116,6 +117,30 @@ class NotificationDispatchTests {
         assertThat(n.getStatus()).isEqualTo(NotificationStatus.SENT);
         assertThat(n.getSentAt()).isNotNull();
         assertThat(n.getErrorMessage()).isNull();
+        ArgumentCaptor<MailRequest> cap = ArgumentCaptor.forClass(MailRequest.class);
+        verify(mailSender).send(cap.capture());
+        assertThat(cap.getValue().to()).isEqualTo("a@b.com");
+        assertThat(cap.getValue().subject()).isEqualTo("s");
+        assertThat(cap.getValue().body()).isEqualTo("b");
+    }
+
+    @Test
+    @DisplayName("dispatch adjunta el PDF cuando la notification tiene attachmentContent")
+    void dispatch_attaches_pdf_when_present() {
+        Notification n = pending("a@b.com", "s", "b");
+        n.setAttachmentContent(new byte[] {1, 2, 3});
+        n.setAttachmentFilename("contrato-rivero.pdf");
+        when(repository.findDueForDispatch(any(Instant.class), any(Pageable.class)))
+                .thenReturn(List.of(n));
+        doNothing().when(mailSender).send(any(MailRequest.class));
+
+        service.dispatchDueBatch();
+
+        ArgumentCaptor<MailRequest> cap = ArgumentCaptor.forClass(MailRequest.class);
+        verify(mailSender).send(cap.capture());
+        assertThat(cap.getValue().attachments()).hasSize(1);
+        assertThat(cap.getValue().attachments().get(0).filename()).isEqualTo("contrato-rivero.pdf");
+        assertThat(cap.getValue().attachments().get(0).contentType()).isEqualTo("application/pdf");
     }
 
     @Test
@@ -124,7 +149,7 @@ class NotificationDispatchTests {
         Notification n = pending("a@b.com", "s", "b");
         when(repository.findDueForDispatch(any(Instant.class), any(Pageable.class)))
                 .thenReturn(List.of(n));
-        doThrow(new MailSendException("boom")).when(mailSender).send(any(), any(), any());
+        doThrow(new MailSendException("boom")).when(mailSender).send(any(MailRequest.class));
 
         service.dispatchDueBatch();
         assertThat(n.getAttempts()).isEqualTo(1);

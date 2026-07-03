@@ -7,8 +7,9 @@ package com.imedba.modules.notification.mail;
 public interface MailSender {
 
     /**
-     * Envía el email. Si el proveedor remoto responde con error, lanzar
-     * {@link MailSendException} — el scheduler de dispatch hace retry/FAILED.
+     * Envía el email (HTML + adjuntos opcionales). Si el proveedor remoto responde
+     * con error, lanzar {@link MailSendException} — el scheduler de dispatch hace
+     * retry/FAILED.
      */
-    void send(String to, String subject, String body) throws MailSendException;
+    void send(MailRequest request) throws MailSendException;
 }

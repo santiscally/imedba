@@ -4,9 +4,13 @@ import com.imedba.common.dto.PageResponse;
 import com.imedba.modules.notification.dto.NotificationResponse;
 import com.imedba.modules.notification.entity.NotificationStatus;
 import com.imedba.modules.notification.entity.NotificationType;
+import com.imedba.modules.notification.mail.MailRequest;
+import com.imedba.modules.notification.mail.MailSendException;
+import com.imedba.modules.notification.mail.MailSender;
 import com.imedba.modules.notification.mapper.NotificationMapper;
 import com.imedba.modules.notification.repository.NotificationRepository;
 import com.imedba.modules.notification.service.NotificationService;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +39,7 @@ public class NotificationController {
     private final NotificationRepository repository;
     private final NotificationService service;
     private final NotificationMapper mapper;
+    private final MailSender mailSender;
 
     @GetMapping
     @PreAuthorize("hasAuthority('notifications:read')")
@@ -69,5 +74,27 @@ public class NotificationController {
     @PreAuthorize("hasAuthority('notifications:write')")
     public ResponseEntity<NotificationResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(mapper.toResponse(service.cancel(id)));
+    }
+
+    /**
+     * TEST-ONLY — smoke test del proveedor de mail. Manda un mail directo (sincrónico,
+     * sin pasar por la cola) al destinatario y devuelve el resultado + qué adapter está
+     * activo. Con {@code NoopMailSender} sólo loguea (no envía). Borrar antes del go-live.
+     */
+    @PostMapping("/_test-send")
+    @PreAuthorize("hasAuthority('notifications:write')")
+    public ResponseEntity<Map<String, Object>> testSend(
+            @RequestParam(defaultValue = "franallende2000@gmail.com") String to) {
+        String adapter = mailSender.getClass().getSimpleName();
+        try {
+            mailSender.send(MailRequest.of(to,
+                    "IMEDBA — mail de prueba",
+                    "<p>Mail de prueba enviado desde IMEDBA vía <strong>" + adapter + "</strong>.</p>"));
+            return ResponseEntity.ok(Map.of("status", "sent", "adapter", adapter, "to", to));
+        } catch (MailSendException e) {
+            return ResponseEntity.status(502).body(Map.of(
+                    "status", "failed", "adapter", adapter, "to", to,
+                    "error", String.valueOf(e.getMessage())));
+        }
     }
 }

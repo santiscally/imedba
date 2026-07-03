@@ -91,9 +91,27 @@ public class InstallmentScheduler {
                     && i.getStatus() == InstallmentStatus.PENDING) {
                 installmentService.applySurcharge(i);
                 applied++;
+                enqueueOverdueMail(i);
             }
         }
         log.info("Surcharge job: applied 5% surcharge to {} installments (cutoff={})", applied, cutoff);
+    }
+
+    /** Recordatorio de pago 2 (Nico): cuota recién pasada a OVERDUE con el 5% aplicado. Best-effort. */
+    private void enqueueOverdueMail(Installment i) {
+        Enrollment e = i.getEnrollment();
+        if (e == null) return;
+        Student s = e.getStudent();
+        if (s == null || s.getEmail() == null || s.getEmail().isBlank()) return;
+        try {
+            NotificationTemplate tpl = NotificationTemplates.installmentOverdue(
+                    firstName(s), i.getNumber(), i.totalDue());
+            notificationService.enqueue(
+                    NotificationType.INSTALLMENT_OVERDUE, s.getEmail(), tpl,
+                    RelatedEntityType.INSTALLMENT, i.getId());
+        } catch (Exception ex) {
+            log.warn("No se pudo encolar mail INSTALLMENT_OVERDUE (installment={}): {}", i.getId(), ex.getMessage());
+        }
     }
 
     /**

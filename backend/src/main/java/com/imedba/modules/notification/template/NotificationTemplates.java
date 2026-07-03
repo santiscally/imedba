@@ -13,6 +13,42 @@ public final class NotificationTemplates {
 
     private static final DateTimeFormatter DATE_ES = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+    /** Content-ID del logo incrustado inline en el footer de cobranzas (ver SmtpMailSender). */
+    public static final String LOGO_CID = "imedba-logo";
+
+    // --- Bloques compartidos de los recordatorios de pago (textos de Nico) ---
+    // Se concatenan (NO se pasan por String.formatted): los textos contienen "5%".
+
+    private static final String BANK = """
+            <p>Para quienes deban abonar por transferencia bancaria los datos son los siguientes:</p>
+            <p><strong>BANCO CREDICOOP</strong><br/>
+            CBU: 1910014855001401255578<br/>
+            CUIT: 30-71606266-6<br/>
+            Cuenta Corriente: 12555-7 Sucursal: 014<br/>
+            Imedba PlataformaCIE SRL</p>
+            """;
+
+    private static final String BANK_DISCLAIMER = """
+            <p>(Cualquier pedido de pago por fuera de estos datos no es válido y debe ser desestimado)</p>
+            """;
+
+    private static final String PAYWAY = """
+            <p>En caso de que pagues via link (paypal o payway) solicitalo en respuesta a este mail y será enviado.</p>
+            """;
+
+    private static final String MERCADOPAGO_NOTE = """
+            <p>Les informamos que debido a un hackeo de nuestra cuenta de Mercado Pago, no estará más disponible esa vía de pago.</p>
+            """;
+
+    private static final String COBRANZAS_SIGNATURE = """
+            <p>--<br/>Departamento de Cobranzas</p>
+            <p>Somos un equipo de trabajo dispuesto a acompañarte. ¡Acercate a conocernos!</p>
+            <p><img src="cid:imedba-logo" alt="IMEDBA" width="200" height="60" style="display:block;" /></p>
+            <p>Whatsapp +54 9 11 2395 3954 - Rojas 61 - CABA<br/>
+            Horario de atención: lunes a viernes 10.00 a 17.00 horas<br/>
+            (excepto sábados, domingos y feriados)</p>
+            """;
+
     private NotificationTemplates() {}
 
     public static NotificationTemplate welcome(String studentFirstName, String courseName) {
@@ -52,17 +88,18 @@ public final class NotificationTemplates {
         return new NotificationTemplate(subject, body);
     }
 
+    /** Recordatorio de pago 3 (Nico): última instancia, 48hs antes de suspender la plataforma. */
     public static NotificationTemplate preSuspension(
             String studentFirstName, int installmentNumber, LocalDate dueDate) {
-        String subject = "Aviso: tu acceso a Moodle se suspende en 2 días";
+        String subject = "Imedba - Recordatorio de pago 3";
         String body = """
-                <p>Hola %s,</p>
-                <p>La cuota <strong>%d</strong> (venció el <strong>%s</strong>) sigue impaga.
-                Si no se regulariza en los próximos <strong>2 días</strong>, tu acceso
-                al aula virtual (Moodle) será suspendido automáticamente.</p>
-                <p>Si ya pagaste, ignorá este mensaje.</p>
-                <p>— Equipo IMEDBA</p>
-                """.formatted(escape(studentFirstName), installmentNumber, dueDate.format(DATE_ES));
+                <p>Buenas tardes</p>
+                <p>Retomamos el contacto habida cuenta que al día de la fecha no hemos recibido el pago
+                correspondiente a la cuota del mes. Por tal motivo, en caso de que te encuentres cursando
+                actualmente, en las próximas 48hs deberemos proceder a la suspensión de tu ingreso a la
+                plataforma. Si actualmente no estás cursando y comienzas en los próximos meses, se realizará
+                un recargo mayor pasadas las 24hs de este mail.</p>
+                """ + BANK + PAYWAY + COBRANZAS_SIGNATURE;
         return new NotificationTemplate(subject, body);
     }
 
@@ -77,16 +114,36 @@ public final class NotificationTemplates {
         return new NotificationTemplate(subject, body);
     }
 
+    /** Recordatorio de pago 1 (Nico): aviso general de la ventana de pago (1 al 10), antes del recargo. */
     public static NotificationTemplate installmentDueSoon(
             String studentFirstName, int installmentNumber, LocalDate dueDate, BigDecimal amount) {
-        String subject = "Recordatorio: cuota " + installmentNumber + " vence el " + dueDate.format(DATE_ES);
-        String body = """
-                <p>Hola %s,</p>
-                <p>Te recordamos que la cuota <strong>%d</strong> por <strong>$%s</strong>
-                vence el <strong>%s</strong>.</p>
-                <p>— Equipo IMEDBA</p>
-                """.formatted(escape(studentFirstName), installmentNumber,
-                amount.toPlainString(), dueDate.format(DATE_ES));
+        String subject = "Imedba - Recordatorio de pago 1";
+        String body = ("""
+                <p>Buenas tardes.</p>
+                <p>Nos ponemos en contacto para recordarles que el pago de las cuotas debe ser realizado
+                del 1 al 10 de cada mes. Pasada esa fecha se aplicará un 5% de recargo sobre el valor
+                correspondiente. Si al momento de recibir este correo ya abonaste el pago de la cuota,
+                podés desestimar el mensaje.</p>
+                <p>El valor es de <strong>${{AMOUNT}}</strong></p>
+                """ + BANK + BANK_DISCLAIMER + PAYWAY + MERCADOPAGO_NOTE + COBRANZAS_SIGNATURE)
+                .replace("{{AMOUNT}}", amount.toPlainString());
+        return new NotificationTemplate(subject, body);
+    }
+
+    /** Recordatorio de pago 2 (Nico): cuota vencida con recargo del 5% aplicado. */
+    public static NotificationTemplate installmentOverdue(
+            String studentFirstName, int installmentNumber, BigDecimal amount) {
+        String subject = "Imedba - Recordatorio de pago 2";
+        String body = ("""
+                <p>Buenas tardes</p>
+                <p>Nos ponemos nuevamente en contacto para recordarte que estás adeudando la cuota
+                correspondiente al mes en curso. Te recordamos que te corresponde un 5% de recargo sobre
+                el valor de la cuota en concepto de pago fuera de término.</p>
+                <p>El valor es de <strong>${{AMOUNT}}</strong></p>
+                <p>Te solicitamos que nos envíes el comprobante una vez realizado el pago. En caso de que
+                ya hayas abonado, por favor envía el comprobante en respuesta a este mail.</p>
+                """ + BANK + PAYWAY + COBRANZAS_SIGNATURE)
+                .replace("{{AMOUNT}}", amount.toPlainString());
         return new NotificationTemplate(subject, body);
     }
 

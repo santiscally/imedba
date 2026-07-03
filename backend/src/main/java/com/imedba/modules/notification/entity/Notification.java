@@ -78,6 +78,13 @@ public class Notification {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    /** Adjunto opcional (hoy: PDF del contrato en la notif CONTRACT). Null = sin adjunto. */
+    @Column(name = "attachment_content")
+    private byte[] attachmentContent;
+
+    @Column(name = "attachment_filename", length = 255)
+    private String attachmentFilename;
+
     @Default
     @Column(name = "attempts", nullable = false)
     private Integer attempts = 0;

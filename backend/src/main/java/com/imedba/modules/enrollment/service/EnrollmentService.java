@@ -23,6 +23,9 @@ import com.imedba.modules.installment.entity.Installment;
 import com.imedba.modules.installment.entity.InstallmentStatus;
 import com.imedba.modules.installment.repository.InstallmentRepository;
 import com.imedba.modules.installment.service.InstallmentGenerator;
+import com.imedba.modules.notification.contract.ContractData;
+import com.imedba.modules.notification.contract.ContractPdfRenderer;
+import com.imedba.modules.notification.mail.MailAttachment;
 import com.imedba.modules.notification.entity.NotificationType;
 import com.imedba.modules.notification.entity.RelatedEntityType;
 import com.imedba.modules.notification.service.NotificationService;
@@ -40,12 +43,14 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -62,6 +67,7 @@ public class EnrollmentService {
     private final InstallmentRepository installmentRepository;
     private final DiscountCampaignRepository discountCampaignRepository;
     private final NotificationService notificationService;
+    private final ContractPdfRenderer contractPdfRenderer;
     private final EnrollmentMapper mapper;
 
     @Transactional(readOnly = true)
@@ -169,7 +175,39 @@ public class EnrollmentService {
         notificationService.enqueue(NotificationType.WELCOME, s.getEmail(), welcome,
                 RelatedEntityType.ENROLLMENT, saved.getId());
         notificationService.enqueue(NotificationType.CONTRACT, s.getEmail(), contract,
-                RelatedEntityType.ENROLLMENT, saved.getId());
+                RelatedEntityType.ENROLLMENT, saved.getId(), contractPdf(saved));
+    }
+
+    /** Renderiza el PDF del contrato como adjunto; si falla, degrada a mail sin adjunto (no bloquea el alta). */
+    private MailAttachment contractPdf(Enrollment e) {
+        try {
+            byte[] pdf = contractPdfRenderer.render(contractDataFrom(e));
+            return MailAttachment.pdf(contractFilename(e), pdf);
+        } catch (RuntimeException ex) {
+            log.warn("No se pudo generar el PDF del contrato para enrollment={}: {}",
+                    e.getId(), ex.getMessage());
+            return null;
+        }
+    }
+
+    private static ContractData contractDataFrom(Enrollment e) {
+        Student s = e.getStudent();
+        Course c = e.getCourse();
+        BigDecimal disc = nullToZero(e.getDiscountPercentage());
+        String discountLabel = disc.signum() > 0
+                ? disc.stripTrailingZeros().toPlainString() + "%" : "—";
+        return new ContractData(
+                s.getFirstName(), s.getLastName(), s.getNationality(), s.getDni(),
+                null,                          // Student no modela fecha de nacimiento (queda vacío)
+                s.getEmail(),
+                e.getListPrice(), e.getTotalPrice(), discountLabel,
+                c != null ? c.getName() : "",
+                null, null);                   // Course no modela inicio/fin de grupo → "A confirmar"
+    }
+
+    private static String contractFilename(Enrollment e) {
+        String last = e.getStudent().getLastName() != null ? e.getStudent().getLastName() : "alumno";
+        return ("contrato-" + last).toLowerCase().replaceAll("[^a-z0-9._-]+", "-") + ".pdf";
     }
 
     public EnrollmentResponse update(UUID id, EnrollmentUpdateRequest req) {

@@ -41,6 +41,7 @@ target/
 .env
 .env.*
 !.env.example
+*.env.txt
 
 # Docker / runtime
 docker-data/
