@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight,
   UserCircle2, Users, ArrowUp, ArrowDown, ArrowUpDown,
-  Eye, Pencil, Download,
+  Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { studentsApi } from '../api/students'
 import { moodleApi } from '../api/moodle'
@@ -15,7 +15,7 @@ import StudentDetail from '../components/StudentDetail'
 import { canWrite } from '../lib/access'
 import { hasAuthority } from '../lib/auth'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
-import { alertError } from '../lib/confirm'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import './Alumnos.scss'
 
 const PAGE_SIZE = 10
@@ -86,6 +86,22 @@ export default function Alumnos() {
   function handleSaved() {
     setPanel({ kind: 'closed' })
     setReload(r => r + 1)
+  }
+
+  async function handleDelete(s: Student) {
+    const ok = await confirmAction({
+      title: '¿Eliminar alumno?',
+      text: `${s.firstName} ${s.lastName} dejará de aparecer en el listado.`,
+      icon: 'warning', danger: true, confirmText: 'Sí, eliminar',
+    })
+    if (!ok) return
+    try {
+      await studentsApi.remove(s.id)
+      toastSuccess('Alumno eliminado')
+      setReload(r => r + 1)
+    } catch (err) {
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
+    }
   }
 
   async function handleExport() {
@@ -274,6 +290,17 @@ export default function Alumnos() {
                           title="Editar"
                         >
                           <Pencil size={16} />
+                        </button>
+                      )}
+                      {canWrite('/alumnos') && (
+                        <button
+                          className="row-actions__btn row-actions__btn--danger"
+                          type="button"
+                          onClick={() => handleDelete(s)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>

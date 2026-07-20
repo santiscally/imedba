@@ -309,6 +309,12 @@
       color: $verde-petroleo;
       border-color: $verde-petroleo-suave;
     }
+
+    &--danger:hover {
+      background: $rojo-bg;
+      color: $rojo;
+      border-color: $rojo-bg;
+    }
   }
 }
 

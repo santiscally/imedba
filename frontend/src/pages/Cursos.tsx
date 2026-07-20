@@ -3,7 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   BookOpen, ArrowUp, ArrowDown, ArrowUpDown,
   Tag, GraduationCap, CircleDollarSign,
-  Eye, Pencil, Users, Download,
+  Eye, Pencil, Trash2, Users, Download,
 } from 'lucide-react'
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
@@ -16,7 +16,7 @@ import CourseDetail from '../components/CourseDetail'
 import CourseStudents from '../components/CourseStudents'
 import { canWrite } from '../lib/access'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
-import { alertError } from '../lib/confirm'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import './Cursos.scss'
 
 const PAGE_SIZE = 10
@@ -93,6 +93,22 @@ export default function Cursos() {
   function handleSaved() {
     setPanel({ kind: 'closed' })
     setReload(r => r + 1)
+  }
+
+  async function handleDelete(c: Course) {
+    const ok = await confirmAction({
+      title: '¿Eliminar curso?',
+      text: `"${c.name}" dejará de aparecer en el listado. Las inscripciones asociadas podrían impedir el borrado.`,
+      icon: 'warning', danger: true, confirmText: 'Sí, eliminar',
+    })
+    if (!ok) return
+    try {
+      await coursesApi.remove(c.id)
+      toastSuccess('Curso eliminado')
+      setReload(r => r + 1)
+    } catch (err) {
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
+    }
   }
 
   async function handleExport() {
@@ -320,6 +336,17 @@ export default function Cursos() {
                           title="Editar"
                         >
                           <Pencil size={16} />
+                        </button>
+                      )}
+                      {canWrite('/cursos') && (
+                        <button
+                          className="row-actions__btn row-actions__btn--danger"
+                          type="button"
+                          onClick={() => handleDelete(c)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>
