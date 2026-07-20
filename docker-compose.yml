@@ -68,6 +68,11 @@ services:
       KC_CLIENT: imedba-backend
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Para re-aplicar los redirect URIs del client público en cada `up` (ver sync-roles.sh).
+      # SERVER_NAME = dominio fijo (prod); FRONTEND_REDIRECT_URIS_EXTRA = lista extra separada
+      # por coma (ej. otro dominio). El wildcard de quick-tunnels ya va hardcodeado en el script.
+      SERVER_NAME: ${SERVER_NAME:-}
+      FRONTEND_REDIRECT_URIS_EXTRA: ${FRONTEND_REDIRECT_URIS_EXTRA:-}
       TZ: ${TZ:-America/Argentina/Buenos_Aires}
     volumes:
       - ./keycloak/sync-roles.sh:/sync-roles.sh:ro

@@ -3,8 +3,13 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # En prod sí validamos `iss` (mismo dominio público para browser y backend).
-          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
+          # Validación de `iss` OPCIONAL: se activa solo si KEYCLOAK_ISSUER_URI trae
+          # valor. Vacío (default) => Spring valida solo la firma vía JWK (fetch interno
+          # a Keycloak) + timestamps, sin atarse a un hostname público. Esto hace que el
+          # backend acepte tokens venga con el `iss` que venga (localhost, túnel Cloudflare
+          # con hostname random, dominio real) sin romperse. Cuando tengas un dominio fijo
+          # y quieras defensa-en-profundidad, seteá KEYCLOAK_ISSUER_URI y vuelve a validar.
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:}
           jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI}
   jpa:
     show-sql: false

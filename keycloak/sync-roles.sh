@@ -113,4 +113,49 @@ grant VIEWER \
   settlements:read reports:read authors:read books:read book_sales:read diplomas:read \
   staff:read hour_logs:read contacts:read notifications:read
 
+# --- 3) Redirect URIs del client público imedba-frontend (idempotente) -------
+# Igual que los roles: el realm JSON los setea en el PRIMER import; esto los RE-APLICA
+# en cada `up` para que login/logout funcionen detrás de cualquier proxy/túnel SIN editar
+# la consola a mano (`--import-realm` no re-importa un realm existente). Incluye:
+#   - localhost (dev)
+#   - https://*.trycloudflare.com/*  (quick tunnels de Cloudflare: hostname random cada vez)
+#   - https://$SERVER_NAME/*         (dominio público fijo, si está seteado y != localhost)
+#   - $FRONTEND_REDIRECT_URIS_EXTRA  (lista extra separada por coma)
+# webOrigins="+" y post.logout.redirect.uris="+" => heredan de redirectUris (no hay que
+# listar el logout aparte). OJO: el wildcard trycloudflare es cómodo para test/demo pero
+# NO es para prod real; con dominio fijo, sacalo y dejá solo https://$SERVER_NAME/*.
+FRONTEND_CLIENT="imedba-frontend"
+FID=$("$KCADM" get clients -r "$REALM" -q clientId="$FRONTEND_CLIENT" \
+        --fields id --format csv --noquotes 2>/dev/null | tr -d '\r\n')
+if [ -z "$FID" ]; then
+  log "! no encontré el client $FRONTEND_CLIENT — omito redirect URIs"
+else
+  REDIRECTS='"http://localhost:5173/*","http://localhost:3000/*","http://localhost/*","https://*.trycloudflare.com/*"'
+  if [ -n "${SERVER_NAME:-}" ] && [ "$SERVER_NAME" != "localhost" ]; then
+    REDIRECTS="$REDIRECTS,\"https://$SERVER_NAME/*\""
+  fi
+  if [ -n "${FRONTEND_REDIRECT_URIS_EXTRA:-}" ]; then
+    IFS=',' read -ra EXTRA <<< "$FRONTEND_REDIRECT_URIS_EXTRA"
+    for u in "${EXTRA[@]}"; do
+      u="$(echo "$u" | tr -d '[:space:]')"
+      [ -n "$u" ] && REDIRECTS="$REDIRECTS,\"$u\""
+    done
+  fi
+  cat > /tmp/frontend-client.json <<EOF
+{
+  "redirectUris": [ $REDIRECTS ],
+  "webOrigins": [ "+" ],
+  "attributes": {
+    "post.logout.redirect.uris": "+",
+    "pkce.code.challenge.method": "S256"
+  }
+}
+EOF
+  if "$KCADM" update "clients/$FID" -r "$REALM" -f /tmp/frontend-client.json >/dev/null 2>&1; then
+    log "= redirectUris/webOrigins de $FRONTEND_CLIENT re-aplicados"
+  else
+    log "! no pude actualizar redirectUris de $FRONTEND_CLIENT"
+  fi
+fi
+
 log "OK — roles y permisos sincronizados."

@@ -24,7 +24,9 @@ services:
     environment:
       KC_HTTP_RELATIVE_PATH: /auth
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
-      KC_HOSTNAME_STRICT: "true"
+      # STRICT=false: no rechaza requests cuyo Host != KC_HOSTNAME. Necesario cuando entrás
+      # por un hostname distinto al configurado (túnel Cloudflare). Puro relax, no rompe el login.
+      KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY: edge
     deploy:
@@ -37,9 +39,16 @@ services:
   backend:
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
-      APP_CORS_ALLOWED_ORIGINS: https://${SERVER_NAME}
+      # issuer-uri VACÍO por default => validación solo por firma JWK (hostname-agnostic:
+      # sirve para el túnel Cloudflare que cambia de hostname). Seteá KEYCLOAK_ISSUER_URI
+      # en el .env solo cuando tengas un dominio fijo y quieras validar el `iss`.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      # JWK interno (backend -> keycloak por red Docker). Default con /auth (prod usa
+      # KC_HTTP_RELATIVE_PATH=/auth) para que ande aunque el .env no lo setee.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs}
+      # SPA y API van por el mismo origen detrás de nginx => CORS casi nunca se dispara.
+      # Igual dejamos el dominio fijo + wildcard de quick-tunnels por si algo pega cross-origin.
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://${SERVER_NAME}}
       JAVA_OPTS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
