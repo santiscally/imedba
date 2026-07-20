@@ -31,6 +31,15 @@ services:
       # Keycloak ahora sirve bajo /auth -> el JWK set se mueve de ruta.
       # Sin esto el backend no puede validar la firma del JWT (404 al bajar los certs => 500).
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs
+      # Módulo Personal: el backend llama a la Admin API de Keycloak (grant password
+      # contra realm master). Con Keycloak bajo /auth, la base-url tiene que incluir /auth,
+      # si no la auth admin da 404 -> KeycloakAdminException -> 502 en GET /api/v1/users.
+      KEYCLOAK_ADMIN_BASE_URL: http://keycloak:8080/auth
+      # CORS: el navegador manda header Origin en TODO POST/PUT/DELETE (aunque sea
+      # same-origin). El backend valida ese Origin contra esta lista (exacta). Sin el
+      # origen del túnel acá, el GET anda (same-origin GET no manda Origin) pero el POST
+      # da 403 "Invalid CORS request". Se setea la URL del túnel en el .env (env-specific).
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
 
   frontend:
     build:
