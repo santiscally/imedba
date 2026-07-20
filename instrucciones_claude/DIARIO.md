@@ -29,6 +29,59 @@
 
 ## Entradas
 
+## 2026-07-20 — Fran — backend + frontend (correcciones docx Jaque: cierro 5 items backend con permiso explícito de Santi)
+**Qué:** Con Fran de viaje próximo a Brasil, Santi le dio permiso explícito de tocar backend para cerrar todos los items posibles del docx `Sistema imedba correcciones.docx` antes del viaje. Cerré **5 items backend + adaptaciones frontend** (items #3, #5, #6, #7 del docx; el #4 quedó bloqueado por falta de specs de Jaque).
+
+1. **#3 — Bug regenerar cuotas al editar inscripción** (`EnrollmentService.update()`, [EnrollmentService.java:213](backend/src/main/java/com/imedba/modules/enrollment/service/EnrollmentService.java#L213)). Snapshot pre-mapping de `listPrice / discountPercentage / bookPrice / enrollmentFee / numInstallments`; si cambia alguno → `regenerateInstallments(e)` preserva PAID/CANCELLED, descuenta lo ya pagado del total, y regenera el remanente con `InstallmentGenerator.generate(ghost, TOTAL)`. Renumera desde `maxKeptNumber+1` para no colisionar. Ahora editar 1 → 3 cuotas se propaga a `/cuotas`.
+
+2. **#5 — Asientos separados curso/libros en Presupuesto** (docx §Presupuesto). Refactor de `BudgetService.linkFromPayment()`: cuando `enrollment.distributionMode == TOTAL` y `bookPrice > 0` → calcula `bookShare = bookPrice / (finalPrice + fee + bookPrice)`, split del pago en 2 BudgetEntries: `INCOME_ENROLLMENT` (curso+matrícula, subcategory=nombre curso) y `INCOME_SALES` (libros, subcategory="Libros — {curso}"). Late fee siempre al asiento de curso. En SEPARATE/COURSE_AND_FEE → 1 asiento como antes (los libros van por book_sales aparte).
+   - **V033**: agrega `enrollments.distribution_mode VARCHAR(20) NOT NULL DEFAULT 'SEPARATE'` con CHECK constraint. Antes el modo se pasaba en el request de create pero NO se persistía. Dropea `uk_budget_payment_unique` y lo reemplaza por `UNIQUE(payment_id, category)` para permitir 2 asientos por pago sin duplicar exacto.
+   - Enrollment entity, EnrollmentService.create, y builder actualizados para persistir `distributionMode`.
+
+3. **#6 — Stock tradicional vs anillado** (docx §Editorial). Approach A (validado con Fran): duplicar cada libro (7 → 14). `Book.format` ya existía como VARCHAR 50; ahora se usa con enum lógico `TRADICIONAL` | `ANILLADO`.
+   - **V034**: (a) setea `format='TRADICIONAL'` en los libros existentes que no lo tengan o tengan valores viejos (ej. 'Impreso'/'Digital'); (b) crea gemelos ANILLADO por cada TRADICIONAL con mismo `name + " (Anillada)"`, mismo `edition/specialty/pages/salePrice/costPerUnit/studentDiscountPct/royaltyPoolPct`, `stock_quantity=0`; (c) copia todas las filas de `book_authors` del tradicional al anillado; (d) borra `collection_books` de la colección ANILLADA (que apuntaba a los tradicionales por falta de la variante) y las inserta contra los anillados. Idempotente por chequeo de existencia por nombre.
+   - Frontend: select de formato en `BookForm` cambió de "Impreso/Digital" → "TRADICIONAL/ANILLADO". Tabla en `/libros` muestra badge junto al nombre (verde=Tradicional, naranja=Anillado). Verificado con `psql`: 9 TRADICIONAL (7 + PREMA + 1 seed viejo) + 8 ANILLADO.
+
+4. **#7 — Libro PREMA con auto-descuento** (docx §Editorial). Approach validado con Fran: flag boolean explícito en Course.
+   - **V035**: agrega `courses.includes_prema_book BOOLEAN NOT NULL DEFAULT FALSE` + inserta libro `('PREMA', TRADICIONAL, '1ra', 0, stock=0)` si no existe.
+   - `Course.includesPremaBook` (entity + Create/Update/Response DTOs). MapStruct auto-mapea; el `NullValuePropertyMappingStrategy.IGNORE` del update preserva el valor previo si no viene.
+   - **`EnrollmentService.autoRegisterPremaBook(saved)`** después de crear las cuotas: si `course.includesPremaBook == TRUE`, busca el libro con `bookRepository.findFirstByNameAndActiveTrue("PREMA")`, crea `BookSale(book=prema, student, enrollment, quantity=1, unitPrice=0, studentSale=true, notes="Auto-descuento por inscripción a curso PREMA")` y decrementa `prema.stockQuantity`. Si el libro no existe → log.warn y sigue (no bloquea el alta). Nuevo método `BookRepository.findFirstByNameAndActiveTrue(String)`.
+   - Frontend: nuevo checkbox en `CourseForm` con hint explicativo ("Al inscribir un alumno, se descuenta 1 ejemplar del stock automáticamente, sin cargo extra"); chip en `CourseDetail` cuando el flag está en true; tipo `Course.includesPremaBook` + `CourseCreateRequest.includesPremaBook` agregados en [types/course.ts](frontend/src/types/course.ts).
+
+**Bloqueado:** **#4 — Cálculo Liquidación PREMA (% vs $)**. Jaque dijo textualmente *"la pasamos en limpio en un mini zoom me parece así la explico con mejor detalle"* — no hay lista concreta de qué items del cálculo deben ser fijos vs porcentuales. **Pendiente esperar el zoom con Jaque** antes de tocar el cálculo (`SettlementService` / `Diploma.settlementConfig`).
+
+**Fix collateral tests:** `CourseApiIntegrationTests` usaba el constructor viejo de `CourseCreateRequest` (14 args) — sumado `includesPremaBook=false` para que la firma nueva (15 args) compile.
+
+**Impacto para el otro (Santi):** solo quedan **2 items del docx** de tu lado:
+- **#1 Módulo "Plataforma" en Académico** — sección con datos de uso Moodle del alumno. Requiere entidad nueva + endpoints + la integración Moodle que ya está en tu plan. Sin urgencia — no lo pidió con deadline.
+- **#2 Ventana "Liquidación Horas docente y preceptoras"** — feature nueva en Finanzas (además de Liquidación PREMA que ya existe). Grid tipo Excel para cargar horas por docente/clase. Fran le pide el modelo Excel a Jaque cuando pueda y te lo sumamos acá.
+
+Todo lo demás del docx quedó cerrado. Sabías del pivote de propiedad (Fran → backend por este día) porque me lo mensajeaste directo. Migraciones aplicadas OK vía `docker compose up -d --build` (Flyway v035, arranque 10.8s). Verificado con psql:
+```
+format=TRADICIONAL 9, format=ANILLADO 8, PREMA 1, enrollments.distribution_mode ✓, courses.includes_prema_book ✓
+```
+
+**Refs (backend):** `V033__enrollment_distribution_mode.sql`, `V034__books_tradicional_anillado.sql`, `V035__course_includes_prema_book.sql`, `EnrollmentService.java` (update/regenerateInstallments + autoRegisterPremaBook), `BudgetService.java` (linkFromPayment split), `Enrollment.java` (distributionMode field), `Course.java` (includesPremaBook field), `BookRepository.java` (findFirstByNameAndActiveTrue), `CourseCreateRequest/UpdateRequest/Response.java`, `CourseApiIntegrationTests.java`.
+
+**Refs (frontend):** `types/course.ts`, `types/enrollment.ts` (distributionMode ya existía), `BookForm.tsx` (opciones TRADICIONAL/ANILLADO), `Libros.tsx` (badge por formato), `CourseForm.tsx` (checkbox includesPremaBook), `CourseDetail.tsx` (chip visible).
+
+## 2026-07-20 — Fran — frontend (correcciones docx Jaque + handoff backend a Santi)
+**Qué:** Aplico las correcciones del cliente (`Sistema imedba correcciones.docx`, 20-07). Todos los items 100% frontend:
+1. **Presupuesto** — el `<select>` de categorías del toolbar ahora se acota al chip de tipo elegido (Ingreso → solo `INCOME_CATEGORIES`, Egreso → solo `EXPENSE_CATEGORIES`, Todos → todas). Si cambio el tipo y la categoría queda huérfana, `useEffect` la resetea a "Todas" (`Presupuesto.tsx`).
+2. **Rename "Liquidaciones" → "Liquidaciones PREMA"** en `Sidebar.tsx`, `Topbar.tsx` (map `TITLES`) y `Liquidaciones.tsx` (`<h2>`). El módulo sigue siendo el mismo, sólo cambia el label — Jaque pidió el nombre porque va a haber otra ventana "Liquidación Horas docente y preceptoras" (backend, ver más abajo).
+3. **Mover "Diplomaturas" de Finanzas a Académico** en el nav (`Sidebar.tsx`). Ruta `/diplomaturas` intacta.
+4. **Inscripciones — botón "Descargar contrato PDF"** en `EnrollmentDetail.tsx`. Llama a `enrollmentsApi.downloadContract(id, filename)` → `GET /enrollments/{id}/contract` con JWT y baja el blob como `contrato-apellido-nombre.pdf`. Si 404 muestra "El contrato aún no fue generado…". El endpoint del back todavía no existe explícitamente (el mail lo genera y adjunta, pero no lo expone standalone) — apenas Santi cablee el GET, el botón queda funcional sin más cambios.
+5. **Ventas (Editorial) — nombre del alumno en la fila.** El bug percibido ("cargué venta con alumno y no aparece") era que la tabla mostraba sólo un badge "Alumno" sin decir quién. El `BookSaleResponse` del back no trae `studentName` → hago **prefetch client-side** con `studentsApi.get(id)` para los `studentId` visibles, cacheado en `useRef<Map>`. Columna renombrada "Tipo" → "Comprador" y muestra `Apellido Nombre` (o "Alumno" mientras carga). Export XLSX incluye el nombre.
+6. **Modalidades bonitas.** El enum se guarda en DB en SCREAMING_SNAKE por histórico (`SUPER_INTENSIVO`, `SOLO_CHOICE`, etc.). Agregué helper `formatModality()` en `types/course.ts` con overrides (`Súper intensivo`, `Solo Choice`, `Reválida`, `Mix febrero`) + fallback para el resto (`INTENSIVO` → `Intensivo`). Aplicado en `CourseDetail`, `Cursos.tsx` (tabla + export) y `CourseForm.tsx` (select — sigue guardando el value en snake, sólo el label es lindo). No toco datos.
+
+Verificado: `tsc --noEmit` OK, `vite build` OK (main 647 kB, +12 kB por prefetch students + botón contrato + helper).
+
+**Impacto para el otro (Santi):** El botón "Descargar contrato" espera `GET /enrollments/{id}/contract` devolviendo el PDF con headers `Content-Type: application/pdf`. Reusa la generación que ya hace `ContractPdfRenderer` al enviar el mail de bienvenida. Si preferís otro path, avisame y ajusto el front en 30s.
+
+**HANDOFF (backend, obsoleto — ya lo cerré en la entrada de arriba):** los 7 items backend del docx los tomé después con permiso de Santi. Ver entrada previa "correcciones docx Jaque: cierro 5 items backend". Quedan #1 y #2 (Plataforma, Liquidación Horas docentes) para Santi.
+
+**Refs (frontend):** `Presupuesto.tsx`, `Sidebar.tsx`, `Topbar.tsx`, `Liquidaciones.tsx`, `EnrollmentDetail.tsx`, `enrollments.ts` (api), `Ventas.tsx`, `types/course.ts` (`formatModality`), `CourseDetail.tsx`, `Cursos.tsx`, `CourseForm.tsx`. Doc fuente: `Sistema imedba correcciones.docx` (raíz).
+
 ## 2026-07-20 — Santi — FRONTEND (⚠️ área de Fran, a pedido explícito del usuario): botón "eliminar" en Alumnos y Cursos
 **Qué:** El usuario detectó que desde la UI no se podían borrar alumnos ni cursos. El backend YA soportaba el borrado (soft-delete: `DELETE /students/{id}` y `/courses/{id}` → 204, setean `deleted_at`; verificado) y el API client del front YA tenía `studentsApi.remove()` / `coursesApi.remove()` — faltaba solo el BOTÓN en las páginas de lista. Agregado en `Alumnos.tsx` y `Cursos.tsx`: botón papelera (`Trash2`) en la columna de acciones, gateado por `canWrite('/alumnos')` / `canWrite('/cursos')`, con `confirmAction({danger})` → `remove()` → `toastSuccess` → reload. Calca el patrón existente de `Colecciones.tsx`/`Cuotas.tsx`. Sumé el estilo `row-actions__btn--danger:hover` (rojo) a `Alumnos.scss` y `Cursos.scss` (no estaba en esas dos). Build (tsc+vite) OK, imagen `frontend:demo` reconstruida y desplegada; verificado que el bundle incluye los handlers y los endpoints responden 404 a id inexistente (bien cableados).
 **Por qué lo tocó Santi y no Fran:** pedido explícito del usuario en la sesión ("quiero que agregues borrar alumnos y cursos AL MENOS"). CLAUDE.md permite tocar `frontend/` con pedido explícito. **Fran: ojo** — si tenías cambios locales en `Alumnos.tsx`/`Cursos.tsx` o sus `.scss`, revisá al pullear. Cambios acotados y aislados a la columna de acciones + un bloque scss.

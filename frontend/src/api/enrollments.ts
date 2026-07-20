@@ -5,7 +5,8 @@ import type {
   EnrollmentUpdateRequest,
   EnrollmentStatus,
 } from '../types/enrollment'
-import { apiGet, apiPost, apiPut, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiDelete, ApiError } from './client'
+import { getAccessToken } from '../lib/auth'
 
 // Servicio de inscripciones — refleja EnrollmentController (/api/v1/enrollments).
 
@@ -58,5 +59,37 @@ export const enrollmentsApi = {
   },
   remove(id: string): Promise<void> {
     return apiDelete(`/enrollments/${id}`)
+  },
+
+  // Descarga el contrato PDF con los datos del alumno ya rellenados. El endpoint
+  // lo cablea el backend (mail feature). Si no existe todavía → 404 y el caller
+  // muestra un aviso amigable.
+  async downloadContract(id: string, filename: string): Promise<void> {
+    const token = await getAccessToken()
+    const raw   = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? '/api') as string
+    const trimmed = raw.replace(/\/+$/, '')
+    const base  = trimmed.endsWith('/api/v1') ? trimmed
+                : trimmed.endsWith('/api')    ? `${trimmed}/v1`
+                :                                `${trimmed}/api/v1`
+    const res = await fetch(`${base}/enrollments/${id}/contract`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) {
+      throw new ApiError(
+        res.status === 404
+          ? 'El contrato aún no fue generado. Se genera al enviar el mail de bienvenida.'
+          : `No se pudo descargar el contrato (HTTP ${res.status})`,
+        res.status,
+      )
+    }
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   },
 }

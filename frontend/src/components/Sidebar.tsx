@@ -40,19 +40,19 @@ const NAV: NavGroup[] = [
   {
     title: 'Académico',
     items: [
-      { to: '/alumnos',       icon: Users,    label: 'Alumnos'       },
-      { to: '/cursos',        icon: BookOpen, label: 'Cursos'        },
-      { to: '/inscripciones', icon: FileText, label: 'Inscripciones' },
+      { to: '/alumnos',       icon: Users,        label: 'Alumnos'       },
+      { to: '/cursos',        icon: BookOpen,     label: 'Cursos'        },
+      { to: '/inscripciones', icon: FileText,     label: 'Inscripciones' },
+      { to: '/diplomaturas',  icon: GraduationCap, label: 'Diplomaturas'  },
     ],
   },
   {
     title: 'Finanzas',
     items: [
-      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos' },
-      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'     },
-      { to: '/diplomaturas',  icon: GraduationCap, label: 'Diplomaturas'   },
-      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones'  },
-      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'    },
+      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos'    },
+      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'        },
+      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones PREMA' },
+      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'       },
     ],
   },
   {

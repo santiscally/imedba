@@ -8,7 +8,7 @@ import {
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
 import type { Course, BusinessUnit, CourseCreateRequest } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS } from '../types/course'
+import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, formatModality } from '../types/course'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
@@ -125,7 +125,7 @@ export default function Cursos() {
         { label: 'Nombre',         value: c => c.name },
         { label: 'Código',         value: c => c.code ?? '' },
         { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
-        { label: 'Modalidad',      value: c => c.modality ?? '' },
+        { label: 'Modalidad',      value: c => c.modality ? formatModality(c.modality) : '' },
         { label: 'Año / Comisión', value: c =>
             c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
               ? `Com ${c.commission}${c.academicYear != null ? '/' + c.academicYear : ''}`
@@ -287,7 +287,7 @@ export default function Cursos() {
                   </td>
                   <td>
                     {c.modality
-                      ? <span className="pill">{c.modality}</span>
+                      ? <span className="pill">{formatModality(c.modality)}</span>
                       : <span className="muted">—</span>}
                   </td>
                   <td>

@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import {
   X, Pencil, FileText, UserCircle2, GraduationCap,
   CircleDollarSign, Percent, Book, Wallet, Hash,
-  Calendar, PauseCircle, XCircle, Play,
+  Calendar, PauseCircle, XCircle, Play, Download,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Enrollment, EnrollmentStatus } from '../types/enrollment'
 import { ENROLLMENT_STATUS_LABELS } from '../types/enrollment'
+import { enrollmentsApi } from '../api/enrollments'
+import { alertError } from '../lib/confirm'
 import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 
@@ -22,6 +25,19 @@ export default function EnrollmentDetail({
   en, onClose, onEdit, onSuspend, onReactivate, onCancel,
 }: Props) {
   const canWrite = hasAuthority('enrollments:write')
+  const [downloading, setDownloading] = useState(false)
+
+  async function handleDownloadContract() {
+    setDownloading(true)
+    try {
+      const stem = `contrato-${en.student.lastName}-${en.student.firstName}`.toLowerCase().replace(/\s+/g, '-')
+      await enrollmentsApi.downloadContract(en.id, `${stem}.pdf`)
+    } catch (err) {
+      alertError('No se pudo descargar el contrato', err instanceof Error ? err.message : undefined)
+    } finally {
+      setDownloading(false)
+    }
+  }
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -84,6 +100,15 @@ export default function EnrollmentDetail({
               <Row icon={Calendar} label="Enviado" value={formatInstant(en.contractSentAt)} />
               <Row icon={Calendar} label="Firmado" value={formatInstant(en.contractSignedAt)} />
             </dl>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={handleDownloadContract}
+              disabled={downloading}
+              style={{ marginTop: '0.75rem' }}
+            >
+              <Download size={15} /> {downloading ? 'Descargando…' : 'Descargar contrato PDF'}
+            </button>
           </section>
 
           <section className="detail__section">

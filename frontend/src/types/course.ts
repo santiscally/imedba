@@ -59,6 +59,27 @@ export function modalitiesFor(bu: BusinessUnit): readonly string[] {
     : MODALITIES_SUGERIDAS
 }
 
+// Label bonito para modalidades de Residencias (guardadas en DB con estilo
+// SCREAMING_SNAKE_CASE por histórico). Ej: 'SUPER_INTENSIVO' → 'Súper intensivo'.
+// Las de FS ya vienen en Title Case → se dejan tal cual.
+const MODALITY_OVERRIDES: Record<string, string> = {
+  SUPER_INTENSIVO: 'Súper intensivo',
+  MIX_FEBRERO:     'Mix febrero',
+  SOLO_CHOICE:     'Solo Choice',
+  REVALIDA:        'Reválida',
+}
+
+export function formatModality(m: string | null | undefined): string {
+  if (!m) return '—'
+  if (MODALITY_OVERRIDES[m]) return MODALITY_OVERRIDES[m]
+  // Si no está en overrides pero viene en SCREAMING_SNAKE: primer letra en mayúscula.
+  if (/^[A-Z_]+$/.test(m)) {
+    const lower = m.toLowerCase().replace(/_/g, ' ')
+    return lower.charAt(0).toUpperCase() + lower.slice(1)
+  }
+  return m
+}
+
 // Refleja com.imedba.modules.course.dto.CourseResponse
 export interface Course {
   id:                   UUID
@@ -74,6 +95,7 @@ export interface Course {
   commission:           number | null   // nro de comisión (solo Formación Superior)
   contractTemplatePath: string | null
   moodleCourseId:       number | null
+  includesPremaBook:    boolean | null   // V035: al inscribir alumno se auto-descuenta libro PREMA
   active:               boolean | null
   createdAt:            Instant
   updatedAt:            Instant
@@ -93,6 +115,7 @@ export interface CourseCreateRequest {
   commission?:           number | null            // nro de comisión (solo Formación Superior)
   contractTemplatePath?: string | null            // max 500
   moodleCourseId?:       number | null
+  includesPremaBook?:    boolean | null           // V035: auto-descuento libro PREMA al inscribir
   active?:               boolean
 }
 

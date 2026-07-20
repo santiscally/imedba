@@ -31,7 +31,7 @@ const TITLES: Record<string, string> = {
   '/ventas':         'Ventas',
   '/autores':        'Autores',
   '/diplomas':       'Diplomas',
-  '/liquidaciones':  'Liquidaciones',
+  '/liquidaciones':  'Liquidaciones PREMA',
   '/personal':       'Personal',
 }
 

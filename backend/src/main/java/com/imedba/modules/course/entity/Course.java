@@ -79,6 +79,16 @@ public class Course extends BaseEntity {
     @Column(name = "moodle_course_id")
     private Integer moodleCourseId;
 
+    /**
+     * Docx Jaque 2026-07-20 §Editorial: si es true, al crear una inscripción
+     * en este curso se genera automáticamente un {@code BookSale} del libro
+     * "PREMA" (qty=1, unitPrice=0) — el libro se incluye en la matrícula sin
+     * valor agregado, pero descuenta el stock.
+     */
+    @Default
+    @Column(name = "includes_prema_book", nullable = false)
+    private Boolean includesPremaBook = Boolean.FALSE;
+
     @Default
     @Column(name = "is_active", nullable = false)
     private Boolean active = Boolean.TRUE;

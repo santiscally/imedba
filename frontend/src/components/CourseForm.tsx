@@ -6,7 +6,7 @@ import type {
   CourseUpdateRequest,
   BusinessUnit,
 } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, modalitiesFor } from '../types/course'
+import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, modalitiesFor, formatModality } from '../types/course'
 import { COUNTRIES, COUNTRY_LABELS } from '../types/country'
 import './StudentForm.scss'
 
@@ -27,24 +27,26 @@ interface FormState {
   businessUnit:    BusinessUnit
   modality:        string
   country:         string
-  enrollmentPrice: string
-  coursePrice:     string
-  academicYear:    string
-  commission:      string
+  enrollmentPrice:   string
+  coursePrice:       string
+  academicYear:      string
+  commission:        string
+  includesPremaBook: boolean
 }
 
 function initialState(c?: Course): FormState {
   return {
-    name:            c?.name            ?? '',
-    code:            c?.code            ?? '',
-    description:     c?.description     ?? '',
-    businessUnit:    c?.businessUnit    ?? 'RESIDENCIAS',
-    modality:        c?.modality        ?? '',
-    country:         c?.country         ?? 'AR',
-    enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
-    coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
-    academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
-    commission:      c?.commission      != null ? String(c.commission)      : '',
+    name:              c?.name              ?? '',
+    code:              c?.code              ?? '',
+    description:       c?.description       ?? '',
+    businessUnit:      c?.businessUnit      ?? 'RESIDENCIAS',
+    modality:          c?.modality          ?? '',
+    country:           c?.country           ?? 'AR',
+    enrollmentPrice:   c?.enrollmentPrice   != null ? String(c.enrollmentPrice) : '',
+    coursePrice:       c?.coursePrice       != null ? String(c.coursePrice)     : '',
+    academicYear:      c?.academicYear      != null ? String(c.academicYear)    : '',
+    commission:        c?.commission        != null ? String(c.commission)      : '',
+    includesPremaBook: c?.includesPremaBook === true,
   }
 }
 
@@ -99,10 +101,11 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       businessUnit:    state.businessUnit,
       modality:        state.modality.trim()    || null,
       country:         state.country            || null,
-      enrollmentPrice: state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
-      coursePrice:     state.coursePrice        ? Number(state.coursePrice)     : null,
-      academicYear:    state.academicYear       ? Number(state.academicYear)    : null,
-      commission:      showCommission && state.commission ? Number(state.commission) : null,
+      enrollmentPrice:   state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
+      coursePrice:       state.coursePrice        ? Number(state.coursePrice)     : null,
+      academicYear:      state.academicYear       ? Number(state.academicYear)    : null,
+      commission:        showCommission && state.commission ? Number(state.commission) : null,
+      includesPremaBook: state.includesPremaBook,
     }
 
     try {
@@ -187,9 +190,9 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               >
                 <option value="">— Elegir —</option>
                 {state.modality && !modalityOptions.includes(state.modality) && (
-                  <option value={state.modality}>{state.modality}</option>
+                  <option value={state.modality}>{formatModality(state.modality)}</option>
                 )}
-                {modalityOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                {modalityOptions.map(m => <option key={m} value={m}>{formatModality(m)}</option>)}
               </select>
             </Field>
 
@@ -244,6 +247,22 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
                 onChange={e => setField('coursePrice', e.target.value)}
                 placeholder="1020000"
               />
+            </Field>
+
+            <Field label="Extras" fullWidth>
+              <label className="checkbox-row__opt" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  checked={state.includesPremaBook}
+                  onChange={e => setField('includesPremaBook', e.target.checked)}
+                />
+                <span>
+                  <strong>Incluye libro PREMA en la matrícula</strong>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+                    Al inscribir un alumno, se descuenta 1 ejemplar del stock automáticamente (sin cargo extra).
+                  </div>
+                </span>
+              </label>
             </Field>
 
           </div>

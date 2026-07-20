@@ -20,9 +20,11 @@ import com.imedba.modules.budget.repository.PeriodTotals;
 import com.imedba.modules.contact.entity.Contact;
 import com.imedba.modules.contact.repository.ContactRepository;
 import com.imedba.modules.enrollment.entity.Enrollment;
+import com.imedba.modules.enrollment.entity.InstallmentDistribution;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.payment.entity.Payment;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,26 +124,107 @@ public class BudgetService {
                 ? payment.getInstallment().getNumber()
                 : null;
         // Total cobrado = amount + lateFeeAmount (V017). Sumamos a la entrada de presupuesto.
-        BigDecimal total = payment.getAmount();
+        BigDecimal total = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
         if (payment.getLateFeeAmount() != null) {
             total = total.add(payment.getLateFeeAmount());
         }
 
-        BudgetEntry entry = BudgetEntry.builder()
-                .entryType(EntryType.INCOME)
-                .category(BudgetCategory.INCOME_ENROLLMENT)
-                .subcategory(courseName != null ? courseName : "Cuota")
-                .businessUnit(bu)
-                .concept(buildPaymentConcept(installmentNumber, studentName))
-                .amount(total)
-                .entryDate(date)
-                .periodMonth(date.getMonthValue())
-                .periodYear(date.getYear())
-                .paymentMethod(payment.getPaymentMethod())
-                .payment(payment)
-                .registeredBy(AuthUtils.currentUserId().orElse(null))
-                .build();
-        repository.save(entry);
+        // Docx Jaque 2026-07-20 §Presupuesto: cuando la cuota incluye libros
+        // (distributionMode=TOTAL con bookPrice>0), separar el cobro en 2 asientos:
+        // uno de INCOME_ENROLLMENT (curso+matrícula) y otro de INCOME_SALES (libros),
+        // proporcional al peso relativo. El late fee siempre va a INCOME_ENROLLMENT.
+        BigDecimal bookShare = bookShareOf(e);
+        BigDecimal principalTotal = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+        boolean splitByBooks = bookShare.signum() > 0 && principalTotal.signum() > 0;
+
+        List<BudgetEntry> toSave = new ArrayList<>(2);
+
+        if (splitByBooks) {
+            BigDecimal bookAmount = principalTotal.multiply(bookShare)
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal courseAmount = principalTotal.subtract(bookAmount);
+            // late fee → siempre al asiento de curso (no aplica a los libros).
+            if (payment.getLateFeeAmount() != null) {
+                courseAmount = courseAmount.add(payment.getLateFeeAmount());
+            }
+
+            toSave.add(BudgetEntry.builder()
+                    .entryType(EntryType.INCOME)
+                    .category(BudgetCategory.INCOME_ENROLLMENT)
+                    .subcategory(courseName != null ? courseName : "Cuota")
+                    .businessUnit(bu)
+                    .concept(buildPaymentConcept(installmentNumber, studentName))
+                    .amount(courseAmount)
+                    .entryDate(date)
+                    .periodMonth(date.getMonthValue())
+                    .periodYear(date.getYear())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .payment(payment)
+                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .build());
+            toSave.add(BudgetEntry.builder()
+                    .entryType(EntryType.INCOME)
+                    .category(BudgetCategory.INCOME_SALES)
+                    .subcategory("Libros" + (courseName != null ? " — " + courseName : ""))
+                    .businessUnit(bu)
+                    .concept(buildBookShareConcept(installmentNumber, studentName))
+                    .amount(bookAmount)
+                    .entryDate(date)
+                    .periodMonth(date.getMonthValue())
+                    .periodYear(date.getYear())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .payment(payment)
+                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .build());
+        } else {
+            toSave.add(BudgetEntry.builder()
+                    .entryType(EntryType.INCOME)
+                    .category(BudgetCategory.INCOME_ENROLLMENT)
+                    .subcategory(courseName != null ? courseName : "Cuota")
+                    .businessUnit(bu)
+                    .concept(buildPaymentConcept(installmentNumber, studentName))
+                    .amount(total)
+                    .entryDate(date)
+                    .periodMonth(date.getMonthValue())
+                    .periodYear(date.getYear())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .payment(payment)
+                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .build());
+        }
+
+        repository.saveAll(toSave);
+    }
+
+    /**
+     * Proporción del pago que corresponde a libros vs curso+matrícula.
+     * Sólo aplica cuando el modo de distribución fue TOTAL (los libros
+     * viajaron dentro de las cuotas) y hay bookPrice > 0. En SEPARATE y
+     * COURSE_AND_FEE los libros van por book_sales y el pago no incluye
+     * su parte → devuelve 0.
+     */
+    private static BigDecimal bookShareOf(Enrollment e) {
+        if (e == null || e.getDistributionMode() != InstallmentDistribution.TOTAL) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal bookPrice = e.getBookPrice() != null ? e.getBookPrice() : BigDecimal.ZERO;
+        if (bookPrice.signum() <= 0) return BigDecimal.ZERO;
+
+        BigDecimal finalPrice = e.getFinalPrice() != null ? e.getFinalPrice() : BigDecimal.ZERO;
+        BigDecimal fee        = e.getEnrollmentFee() != null ? e.getEnrollmentFee() : BigDecimal.ZERO;
+        BigDecimal denom      = finalPrice.add(fee).add(bookPrice);
+        if (denom.signum() <= 0) return BigDecimal.ZERO;
+        return bookPrice.divide(denom, 6, RoundingMode.HALF_UP);
+    }
+
+    private static String buildBookShareConcept(Integer installmentNumber, String studentName) {
+        StringBuilder sb = new StringBuilder("Libros (parte cuota");
+        if (installmentNumber != null && installmentNumber > 0) {
+            sb.append(" ").append(installmentNumber);
+        }
+        sb.append(")");
+        if (studentName != null) sb.append(" — ").append(studentName);
+        return sb.toString();
     }
 
     private static String buildPaymentConcept(Integer installmentNumber, String studentName) {

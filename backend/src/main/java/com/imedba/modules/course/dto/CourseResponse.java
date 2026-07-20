@@ -21,6 +21,7 @@ public record CourseResponse(
         Integer commission,
         String contractTemplatePath,
         Integer moodleCourseId,
+        Boolean includesPremaBook,
         Boolean active,
         Instant createdAt,
         Instant updatedAt

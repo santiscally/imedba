@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Search, Plus, ChevronLeft, ChevronRight, ChevronDown,
   ShoppingBag, Coins, ArrowUp, ArrowDown, ArrowUpDown,
@@ -6,6 +6,7 @@ import {
   Download, User as UserIcon,
 } from 'lucide-react'
 import { bookSalesApi } from '../api/book-sales'
+import { studentsApi } from '../api/students'
 import type { PageResponse } from '../types/common'
 import type { BookSale, BookSaleCreateRequest, RoyaltyLine } from '../types/book-sale'
 import EmptyState from '../components/EmptyState'
@@ -77,6 +78,12 @@ export default function Ventas() {
 
   const [exportingSales, setExportingSales] = useState(false)
 
+  // El BookSaleResponse del backend NO trae studentName — solo studentId + flag.
+  // Prefetch de nombres para las filas de la página actual, cacheado por id.
+  // Best-effort: si falla queda en '—' y la fila se muestra igual.
+  const [studentNames, setStudentNames] = useState<Record<string, string>>({})
+  const studentNameCache = useRef<Map<string, string>>(new Map())
+
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
@@ -92,6 +99,37 @@ export default function Ventas() {
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
   }, [tab, debounced, page, sort, reload])
+
+  // Prefetch nombres de alumnos para las ventas visibles (los que no estén cacheados).
+  useEffect(() => {
+    const sales = data?.content ?? []
+    const missing = new Set<string>()
+    for (const s of sales) {
+      if (s.studentId && !studentNameCache.current.has(s.studentId)) {
+        missing.add(s.studentId)
+      }
+    }
+    if (missing.size === 0) return
+    let cancelled = false
+    Promise.all(
+      Array.from(missing).map(id =>
+        studentsApi.get(id)
+          .then(st => ({ id, name: `${st.firstName} ${st.lastName}` }))
+          .catch(() => ({ id, name: '' })),
+      ),
+    ).then(pairs => {
+      if (cancelled) return
+      const patch: Record<string, string> = {}
+      for (const p of pairs) {
+        studentNameCache.current.set(p.id, p.name)
+        if (p.name) patch[p.id] = p.name
+      }
+      if (Object.keys(patch).length > 0) {
+        setStudentNames(prev => ({ ...prev, ...patch }))
+      }
+    })
+    return () => { cancelled = true }
+  }, [data])
 
   // Lista de (year, month) a pedir según el tipo de período
   const periodMonths = useMemo<Array<{ year: number; month: number }>>(() => {
@@ -211,7 +249,7 @@ export default function Ventas() {
         { label: 'Precio unit.', value: s => s.unitPrice },
         { label: 'Total',        value: s => s.totalAmount },
         { label: 'Fecha',        value: s => formatInstantDate(s.saleDate) },
-        { label: 'Tipo',         value: s => s.studentSale ? 'Alumno' : 'Lista' },
+        { label: 'Comprador',    value: s => s.studentId ? (studentNames[s.studentId] ?? 'Alumno') : 'Lista' },
       ])
     } catch (err) {
       alertError('No se pudo exportar', err instanceof Error ? err.message : undefined)
@@ -314,7 +352,7 @@ export default function Ventas() {
                     <th className="col-precio">Precio unit.</th>
                     <SortTh label="Total" active={sort?.field === 'totalAmount'} dir={sort?.field === 'totalAmount' ? sort.dir : null} onClick={() => toggleSort('totalAmount')} className="col-precio" />
                     <SortTh label="Fecha" active={sort?.field === 'saleDate'} dir={sort?.field === 'saleDate' ? sort.dir : null} onClick={() => toggleSort('saleDate')} />
-                    <th>Tipo</th>
+                    <th>Comprador</th>
                     <th className="col-acciones">Acciones</th>
                   </tr>
                 </thead>
@@ -336,9 +374,14 @@ export default function Ventas() {
                         <span className="cell-inline"><Calendar size={13} strokeWidth={1.8} /> {formatInstantDate(s.saleDate)}</span>
                       </td>
                       <td>
-                        {s.studentSale
-                          ? <span className="badge badge--pendiente"><GraduationCap size={12} strokeWidth={1.8} /> Alumno</span>
-                          : <span className="muted">Lista</span>}
+                        {s.studentId ? (
+                          <span className="badge badge--pendiente" title={s.studentId}>
+                            <GraduationCap size={12} strokeWidth={1.8} />
+                            {studentNames[s.studentId] ?? 'Alumno'}
+                          </span>
+                        ) : (
+                          <span className="muted">Lista</span>
+                        )}
                       </td>
                       <td className="col-acciones">
                         <div className="row-actions">

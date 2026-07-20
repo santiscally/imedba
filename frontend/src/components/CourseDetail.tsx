@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Course } from '../types/course'
-import { BUSINESS_UNIT_LABELS } from '../types/course'
+import { BUSINESS_UNIT_LABELS, formatModality } from '../types/course'
 import { countryLabel } from '../types/country'
 import { CourseStudentsList } from './CourseStudents'
 import { hasAuthority } from '../lib/auth'
@@ -52,7 +52,7 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
             <h4 className="detail__section-title">Catálogo</h4>
             <dl className="detail__grid">
               <Row icon={Tag}         label="Código"            value={course.code} mono />
-              <Row icon={Layers}      label="Modalidad"         value={course.modality} />
+              <Row icon={Layers}      label="Modalidad"         value={course.modality ? formatModality(course.modality) : null} />
               <Row icon={Building2}   label="Unidad de negocio" value={BUSINESS_UNIT_LABELS[course.businessUnit]} />
               <Row icon={Globe}       label="País"              value={countryLabel(course.country)} />
               {course.businessUnit === 'FORMACION_SUPERIOR' && (
@@ -71,6 +71,9 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
             <dl className="detail__grid">
               <Row icon={CircleDollarSign} label="Matrícula" value={formatPrice(course.enrollmentPrice)} />
               <Row icon={CircleDollarSign} label="Curso"     value={formatPrice(course.coursePrice)} />
+              {course.includesPremaBook && (
+                <Row icon={FileText} label="Extras" value="Incluye libro PREMA (auto-descuento del stock)" />
+              )}
             </dl>
           </section>
 
