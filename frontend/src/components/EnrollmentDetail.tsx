@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import {
   X, Pencil, FileText, UserCircle2, GraduationCap,
   CircleDollarSign, Percent, Book, Wallet, Hash,
-  Calendar, PauseCircle, XCircle, Play,
+  Calendar, PauseCircle, XCircle, Play, Download, CheckCircle2, Circle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Enrollment, EnrollmentStatus } from '../types/enrollment'
@@ -16,12 +17,30 @@ interface Props {
   onSuspend?:  () => void
   onReactivate?: () => void
   onCancel?:   () => void
+  onDownloadContract?: () => Promise<void>
+  onToggleSigned?:     (signed: boolean) => Promise<void>
 }
 
 export default function EnrollmentDetail({
   en, onClose, onEdit, onSuspend, onReactivate, onCancel,
+  onDownloadContract, onToggleSigned,
 }: Props) {
   const canWrite = hasAuthority('enrollments:write')
+  const [downloading, setDownloading] = useState(false)
+  const [togglingSigned, setTogglingSigned] = useState(false)
+  const signed = en.contractSignedAt != null
+
+  async function handleDownload() {
+    if (!onDownloadContract || downloading) return
+    setDownloading(true)
+    try { await onDownloadContract() } finally { setDownloading(false) }
+  }
+
+  async function handleToggleSigned() {
+    if (!onToggleSigned || togglingSigned) return
+    setTogglingSigned(true)
+    try { await onToggleSigned(!signed) } finally { setTogglingSigned(false) }
+  }
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -82,8 +101,36 @@ export default function EnrollmentDetail({
             <h4 className="detail__section-title">Contrato</h4>
             <dl className="detail__grid">
               <Row icon={Calendar} label="Enviado" value={formatInstant(en.contractSentAt)} />
-              <Row icon={Calendar} label="Firmado" value={formatInstant(en.contractSignedAt)} />
+              <Row
+                icon={signed ? CheckCircle2 : Circle}
+                label="Firmado"
+                value={signed ? formatInstant(en.contractSignedAt) : 'Sin firmar'}
+              />
             </dl>
+            <div className="detail__actions">
+              {onDownloadContract && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                >
+                  <Download size={15} /> {downloading ? 'Generando…' : 'Descargar contrato'}
+                </button>
+              )}
+              {canWrite && onToggleSigned && (
+                <button
+                  type="button"
+                  className={signed ? 'btn-ghost' : 'btn-primary'}
+                  onClick={handleToggleSigned}
+                  disabled={togglingSigned}
+                >
+                  {signed
+                    ? <><Circle size={15} /> Marcar sin firmar</>
+                    : <><CheckCircle2 size={15} /> Marcar como firmado</>}
+                </button>
+              )}
+            </div>
           </section>
 
           <section className="detail__section">

@@ -11,7 +11,7 @@ import {
   PAYMENT_GROUPS, PAYMENT_GROUP_LABELS,
 } from '../types/enrollment'
 import type { Student } from '../types/student'
-import type { Course } from '../types/course'
+import type { BusinessUnit, Course } from '../types/course'
 import type { Collection } from '../types/collection'
 import { COLLECTION_VARIANT_LABELS } from '../types/collection'
 import type { Book } from '../types/book'
@@ -103,6 +103,52 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
       setCampaigns(campaignsRes.content)
     }).catch(() => { /* el form funciona igual aun si falla — los selects quedan vacíos */ })
   }, [isCreate])
+
+  /**
+   * Unidad de negocio del curso elegido. Filtra el catálogo de libros y colecciones
+   * (V036, pedido de Nico 2026-07-30): matriculando a un alumno de Residencias el
+   * sistema le dejaba sumar el libro de PREMA a la matrícula.
+   *
+   * Se toma del **curso de esta inscripción**, no del selector global del Topbar:
+   * lo que define qué libros corresponden es el producto que se está vendiendo.
+   */
+  const selectedUnit = useMemo(
+    () => courses.find(c => c.id === state.courseId)?.businessUnit ?? null,
+    [courses, state.courseId],
+  )
+
+  const visibleCollections = useMemo(
+    () => collections.filter(c =>
+      !selectedUnit || c.businessUnit == null || c.businessUnit === selectedUnit),
+    [collections, selectedUnit],
+  )
+
+  const visibleBooks = useMemo(
+    () => books.filter(b =>
+      !selectedUnit || b.businessUnit == null || b.businessUnit === selectedUnit),
+    [books, selectedUnit],
+  )
+
+  /**
+   * Cambiar de curso puede mover la unidad de negocio y dejar fuera de catálogo lo
+   * que ya se había elegido. Se limpia acá, en el handler, y no en un efecto: el
+   * efecto dispararía un render en cascada y además reaccionaría a cualquier cambio
+   * del catálogo, no sólo a la acción del usuario.
+   */
+  function pickCourse(courseId: string) {
+    setField('courseId', courseId)
+
+    const unit = courses.find(c => c.id === courseId)?.businessUnit ?? null
+    if (!unit) return
+    const fits = (bu: BusinessUnit | null) => bu == null || bu === unit
+
+    if (collectionId && !fits(collections.find(c => c.id === collectionId)?.businessUnit ?? null)) {
+      setCollectionId('')
+    }
+    setBookIds(prev => prev.filter(id =>
+      fits(books.find(b => b.id === id)?.businessUnit ?? null)))
+    setAddBookId('')
+  }
 
   // Precio con descuento alumno de un libro suelto.
   function bookNet(b: Book): number {
@@ -292,7 +338,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
               {isCreate ? (
                 <select
                   value={state.courseId}
-                  onChange={e => setField('courseId', e.target.value)}
+                  onChange={e => pickCourse(e.target.value)}
                 >
                   <option value="">Seleccionar curso…</option>
                   {courses.map(c => (
@@ -361,7 +407,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                 <div className="book-picker">
                   <select value={collectionId} onChange={e => pickCollection(e.target.value)}>
                     <option value="">— Sin colección —</option>
-                    {collections.map(c => (
+                    {visibleCollections.map(c => (
                       <option key={c.id} value={c.id}>
                         {c.name} ({COLLECTION_VARIANT_LABELS[c.variant]}) — {formatARS(Math.round(c.price * (1 - (c.studentDiscountPct ?? 0) / 100)))}
                       </option>
@@ -373,7 +419,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                       <div className="book-picker__add">
                         <select value={addBookId} onChange={e => setAddBookId(e.target.value)}>
                           <option value="">Agregar libro suelto…</option>
-                          {books.filter(b => !bookIds.includes(b.id)).map(b => (
+                          {visibleBooks.filter(b => !bookIds.includes(b.id)).map(b => (
                             <option key={b.id} value={b.id}>
                               {b.name} — {formatARS(bookNet(b))}
                             </option>

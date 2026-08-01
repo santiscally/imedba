@@ -1,0 +1,94 @@
+@use '../styles/variables' as *;
+
+// Grilla de clases. Reusa el layout de Editorial.scss; acá va sólo lo propio:
+// el input de horas editable en la fila y la atenuación de las asincrónicas.
+
+.clases {
+  &__nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: $gris-texto;
+    background: $fondo-app;
+    border-radius: $radio-md;
+    padding: 0.7rem 0.9rem;
+    margin: 0;
+
+    > svg { flex-shrink: 0; margin-top: 0.15rem; }
+    strong { color: $texto-oscuro; }
+  }
+}
+
+.clases-table {
+  th.col-fecha     { width: 100px; }
+  th.col-modalidad { width: 120px; }
+  th.col-horas     { width: 110px; text-align: right; }
+  td.col-horas     { text-align: right; }
+
+  // Las asincrónicas no entran en la liquidación: se atenúan para que se note,
+  // pero NO se ocultan — la secretaría igual las carga y las tiene que ver.
+  .is-async td {
+    background: rgba(0, 0, 0, 0.015);
+    color: $gris-texto-sutil;
+  }
+}
+
+// Edición inline de las horas a pagar: es el cierre de mes de Cobranzas, que
+// repasa toda la grilla de una. Abrir un modal por fila sería insufrible.
+.hours-input {
+  width: 88px;
+  padding: 0.32rem 0.5rem;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-sm;
+  background: $blanco;
+  color: $texto-oscuro;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  transition: $transicion;
+
+  &:focus {
+    outline: none;
+    border-color: $verde-petroleo;
+    box-shadow: 0 0 0 3px $verde-petroleo-overlay;
+  }
+
+  &:disabled {
+    background: $fondo-app;
+    color: $gris-texto-sutil;
+    cursor: not-allowed;
+  }
+
+  // Sin guardar todavía: el usuario tiene que ver qué tocó antes de confirmar.
+  &--dirty {
+    border-color: $ambar;
+    background: $ambar-bg;
+  }
+}
+
+// Aviso de clases en vivo sin docente cargada. Nico confirmó que cuando pasa es
+// un dato que falta, no que la clase no tenga docente: sin él, esa persona no
+// entra en ninguna liquidación y no cobra.
+.clases__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: $ambar;
+  background: $ambar-bg;
+  border-radius: $radio-md;
+  padding: 0.7rem 0.9rem;
+
+  > svg { flex-shrink: 0; margin-top: 0.1rem; }
+  strong { font-weight: 700; }
+}
+
+.falta-dato {
+  color: $ambar;
+  font-weight: 600;
+  font-size: 0.82rem;
+}

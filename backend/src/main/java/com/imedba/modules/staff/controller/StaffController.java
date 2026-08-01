@@ -4,10 +4,12 @@ import com.imedba.common.dto.PageResponse;
 import com.imedba.modules.staff.dto.StaffCreateRequest;
 import com.imedba.modules.staff.dto.StaffResponse;
 import com.imedba.modules.staff.dto.StaffUpdateRequest;
+import com.imedba.modules.staff.entity.StaffSegment;
 import com.imedba.modules.staff.entity.StaffType;
 import com.imedba.modules.staff.service.StaffService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -30,14 +32,30 @@ public class StaffController {
 
     private final StaffService service;
 
+    /**
+     * Listado de Personal Académico.
+     *
+     * <p>{@code segment=RESIDENCIAS} o {@code =FORMACION_SUPERIOR} incluye a quienes
+     * están marcadas como {@code AMBAS}; {@code segment=AMBAS} devuelve sólo esas.
+     */
     @GetMapping
     @PreAuthorize("hasAuthority('staff:read')")
     public PageResponse<StaffResponse> list(
             @RequestParam(required = false) StaffType type,
+            @RequestParam(required = false) StaffSegment segment,
+            @RequestParam(required = false) Boolean paidByHours,
+            @RequestParam(required = false) Boolean tutor,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "lastName") Pageable pageable) {
-        return PageResponse.of(service.list(type, active, q, pageable));
+        return PageResponse.of(service.list(type, segment, paidByHours, tutor, active, q, pageable));
+    }
+
+    /** Activas de un rol, sin paginar — para poblar selectores (ej. directoras de una diplomatura). */
+    @GetMapping("/by-type/{type}")
+    @PreAuthorize("hasAuthority('staff:read')")
+    public List<StaffResponse> listActiveByType(@PathVariable StaffType type) {
+        return service.listActiveByType(type);
     }
 
     @GetMapping("/{id}")

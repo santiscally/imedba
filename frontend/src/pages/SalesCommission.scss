@@ -1,0 +1,226 @@
+@use '../styles/variables' as *;
+
+// Liquidación de comisiones de vendedora (doc 17 §3.1).
+// La tabla de buckets replica a propósito las filas de la planilla que IMEDBA
+// lleva a mano en Excel: así Nico puede controlar el número de un vistazo.
+
+.comisiones {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.9rem;
+  }
+
+  &__loading {
+    padding: 2.5rem;
+    text-align: center;
+    color: $gris-texto;
+    font-size: 0.9rem;
+  }
+
+  &__resumen {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    padding: 1rem 1.1rem;
+  }
+
+  &__acciones {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+  }
+
+  &__estado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  &__detalle {
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    overflow: hidden;
+  }
+
+  &__detalle-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: $gris-texto;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid $gris-borde-sutil;
+    background: $fondo-app;
+  }
+
+  &__nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: $gris-texto;
+    background: $fondo-app;
+    border-radius: $radio-md;
+    padding: 0.7rem 0.9rem;
+    margin: 0;
+
+    > svg { flex-shrink: 0; margin-top: 0.15rem; }
+    strong { color: $texto-oscuro; }
+  }
+}
+
+.period-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+  }
+
+  select {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    color: $texto-oscuro;
+    font-size: 0.86rem;
+    font-family: inherit;
+    cursor: pointer;
+
+    &:focus { outline: none; border-color: $verde-petroleo; box-shadow: 0 0 0 3px $verde-petroleo-overlay; }
+    &:disabled { background: $fondo-app; cursor: not-allowed; color: $gris-texto-sutil; }
+  }
+
+  // Mes + año van pegados en la misma fila
+  > select + select { margin-top: 0.35rem; }
+}
+
+// ─── Tabla de buckets (espejo de la planilla) ───────────────────────────────
+.buckets-table {
+  border-collapse: collapse;
+  min-width: 480px;
+
+  th {
+    text-align: left;
+    padding: 0.4rem 0.9rem 0.5rem 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+  }
+
+  td {
+    padding: 0.42rem 0.9rem 0.42rem 0;
+    font-size: 0.88rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  .col-precio { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .col-rate   { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 90px; }
+
+  // Los buckets en cero se atenúan pero NO se ocultan: que Nico vea que el tramo
+  // del 1% dio cero es información, no ruido.
+  .is-empty td { color: $gris-texto-sutil; }
+
+  &__total td {
+    padding-top: 0.6rem;
+    border-bottom: none;
+    font-weight: 700;
+    font-size: 1rem;
+    color: $texto-oscuro;
+  }
+}
+
+.bucket-hint {
+  display: inline-flex;
+  margin-left: 0.3rem;
+  color: $gris-texto-sutil;
+  vertical-align: middle;
+  cursor: help;
+}
+
+// ─── Tabla de detalle línea por línea ───────────────────────────────────────
+.detalle-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 0.7rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+    background: $blanco;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  td {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .col-precio { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .col-rate   { text-align: right; font-variant-numeric: tabular-nums; width: 80px; }
+  .col-num    { text-align: right; font-variant-numeric: tabular-nums; width: 56px; color: $gris-texto-sutil; }
+  .td-date    { white-space: nowrap; }
+
+  // Filas de cohortes previas: se distinguen porque no forman parte del conteo
+  // de "las primeras 30" de este mes.
+  .is-prior td { background: rgba(0, 0, 0, 0.015); }
+}
+
+.producto {
+  display: block;
+  color: $texto-oscuro;
+}
+
+.tipo-chip {
+  display: inline-block;
+  margin-top: 0.2rem;
+  margin-right: 0.3rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  background: $fondo-app;
+  border: 1px solid $gris-borde-sutil;
+  font-size: 0.7rem;
+  color: $gris-texto;
+
+  &--prior {
+    background: $ambar-bg;
+    border-color: transparent;
+    color: $ambar;
+  }
+}

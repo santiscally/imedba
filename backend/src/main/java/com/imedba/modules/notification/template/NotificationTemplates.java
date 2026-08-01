@@ -1,8 +1,11 @@
 package com.imedba.modules.notification.template;
 
 import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Fábrica de templates inline. Estilo sobrio en HTML con sólo los datos clave.
@@ -47,6 +50,19 @@ public final class NotificationTemplates {
             <p>Whatsapp +54 9 11 2395 3954 - Rojas 61 - CABA<br/>
             Horario de atención: lunes a viernes 10.00 a 17.00 horas<br/>
             (excepto sábados, domingos y feriados)</p>
+            """;
+
+    /**
+     * Datos de facturación de IMEDBA, tal como los manda Cobranzas. Son fijos: van
+     * en el mail de honorarios para que la docente pueda emitir la factura.
+     */
+    private static final String DATOS_FACTURACION = """
+            <p>Te paso los datos para realizar la factura:</p>
+            <p><strong>Razón Social:</strong> Imedba Plataforma CIE SRL<br/>
+            <strong>CUIT:</strong> 30716062666<br/>
+            <strong>Dirección:</strong> Rojas 61 - CABA<br/>
+            <strong>IVA:</strong> Responsable Inscripto<br/>
+            <strong>Concepto:</strong> Honorarios docentes</p>
             """;
 
     private NotificationTemplates() {}
@@ -152,22 +168,92 @@ public final class NotificationTemplates {
      * Reunión 2026-05-22 §2.6 (Nico 46:56): "el mail que les tiene que llegar
      * de cuánto van a facturar para que nosotros le paguemos".
      */
-    public static NotificationTemplate settlementApproved(
-            String directorName, String diplomaName,
-            int periodMonth, int periodYear,
-            BigDecimal amountToInvoice) {
-        String subject = "Liquidación " + diplomaName + " — " + periodMonth + "/" + periodYear;
-        String body = """
-                <p>Hola %s,</p>
-                <p>La liquidación de la diplomatura <strong>%s</strong> correspondiente
-                al período <strong>%d/%d</strong> fue aprobada.</p>
-                <p>Te corresponde facturar: <strong>$%s</strong>.</p>
-                <p>Una vez que envíes la factura, IMEDBA va a coordinar el pago.</p>
-                <p>— Equipo IMEDBA</p>
-                """.formatted(escape(directorName), escape(diplomaName),
-                periodMonth, periodYear, amountToInvoice.toPlainString());
-        return new NotificationTemplate(subject, body);
+    /**
+     * Pedido de factura por horas docentes o de preceptoría. Texto de Nico
+     * (2026-07-31), con el detalle de clases del mes y los datos de facturación.
+     *
+     * <p>Cada línea del detalle replica el formato que él escribe a mano:
+     * {@code Clase 7/5: Medicina Interna CLIN 80 - Gastro - 2,5 hs}. Las partes
+     * vacías se omiten para no dejar guiones sueltos.
+     *
+     * @param lines  una entrada por clase, ya formateada por el llamador
+     * @param totalHours horas facturables (para preceptoras ya incluye el 0,25 por clase)
+     */
+    public static NotificationTemplate teachingInvoiceRequest(
+            String staffFirstName,
+            List<String> lines,
+            BigDecimal totalHours,
+            BigDecimal totalAmount) {
+
+        StringBuilder detalle = new StringBuilder();
+        if (lines != null) {
+            for (String l : lines) {
+                detalle.append("<p>").append(escape(l)).append("</p>\n");
+            }
+        }
+
+        // El texto no se pasa por formatted() en los bloques compartidos porque
+        // algunos contienen '%'; acá se concatena por la misma razón.
+        String body = "<p>Hola " + escape(staffFirstName) + ", buen día!</p>\n"
+                + """
+                  <p>Ya finalizado el mes, te paso el detalle de tus horas y te pido nos hagas
+                  la factura para poder realizarte la transferencia correspondiente.</p>
+                  """
+                + detalle
+                + "<p><strong>Sincrónico " + formatHours(totalHours)
+                + " horas: Total $" + formatMoney(totalAmount) + "</strong></p>\n"
+                + DATOS_FACTURACION
+                + "<p>Saludos!</p>\n"
+                + COBRANZAS_SIGNATURE;
+
+        return new NotificationTemplate("Imedba - Honorarios docentes", body);
     }
+
+    /**
+     * Pedido de factura a una directora por la liquidación de PREMA. Texto de Nico
+     * (2026-07-31).
+     *
+     * <p>El texto dice «tutorías» porque es literalmente lo que Cobranzas escribe,
+     * aunque el pago sea el de la liquidación de la diplomatura. Se respeta tal cual.
+     */
+    public static NotificationTemplate diplomaSettlementInvoiceRequest(
+            String directorName,
+            int periodMonth,
+            int periodYear,
+            BigDecimal amountToInvoice) {
+
+        String body = "<p>Hola " + escape(directorName) + ",</p>\n"
+                + "<p>Ya finalizado el mes de " + MONTHS_ES[periodMonth - 1] + " de " + periodYear
+                + " paso el importe correspondiente al pago de las tutorías en relación a lo"
+                + " cobrado durante el mes.</p>\n"
+                + "<p>El importe a facturar es de <strong>$" + formatMoney(amountToInvoice)
+                + "</strong>.-</p>\n"
+                + "<p>Le recuerdo me envíe la factura para poder realizar la transferencia.</p>\n"
+                + "<p>Saludos!</p>\n"
+                + COBRANZAS_SIGNATURE;
+
+        return new NotificationTemplate("Imedba - Formación Superior Honorarios", body);
+    }
+
+    private static final String[] MONTHS_ES = {
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    };
+
+    /** «2,5» y no «2.50»: es como lo escribe Cobranzas y como se lee en Argentina. */
+    private static String formatHours(BigDecimal h) {
+        if (h == null) return "0";
+        BigDecimal clean = h.stripTrailingZeros();
+        return clean.toPlainString().replace('.', ',');
+    }
+
+    /** «337.500» — miles con punto, sin decimales si son cero. */
+    private static String formatMoney(BigDecimal amount) {
+        if (amount == null) return "0";
+        return NumberFormat.getNumberInstance(ES_AR).format(amount);
+    }
+
+    private static final Locale ES_AR = Locale.forLanguageTag("es-AR");
 
     /** Escapado mínimo para evitar inyección básica de HTML en los campos dinámicos. */
     private static String escape(String s) {

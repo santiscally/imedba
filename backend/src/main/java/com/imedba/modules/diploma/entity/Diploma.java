@@ -2,10 +2,13 @@ package com.imedba.modules.diploma.entity;
 
 import com.imedba.common.entity.BaseEntity;
 import com.imedba.modules.course.entity.Course;
+import com.imedba.modules.staff.entity.Staff;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
@@ -17,10 +20,8 @@ import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -57,28 +58,24 @@ public class Diploma extends BaseEntity {
     @Column(name = "course_price", precision = 12, scale = 2)
     private BigDecimal coursePrice;
 
-    @Column(name = "tax_commission_pct", precision = 5, scale = 2)
-    private BigDecimal taxCommissionPct;
-
-    @Column(name = "secretary_salary", precision = 12, scale = 2)
-    private BigDecimal secretarySalary;
-
-    @Column(name = "advertising_amount", precision = 12, scale = 2)
-    private BigDecimal advertisingAmount;
-
-    @Column(name = "admin_pct", precision = 5, scale = 2)
-    private BigDecimal adminPct;
-
-    @Column(name = "university_pct", precision = 5, scale = 2)
-    private BigDecimal universityPct;
-
-    @Column(name = "imedba_pct", precision = 5, scale = 2)
-    private BigDecimal imedbaPct;
-
+    /**
+     * Directoras de la diplomatura, tomadas de Personal Académico (V035).
+     *
+     * <p><b>Sin porcentaje.</b> Antes se pedía un «% de directora» al crear la
+     * diplomatura; el cliente lo bajó explícitamente el 2026-07-23 («eso habría que
+     * sacarlo y que sólo pida cuántas directoras y quiénes»). Se reparten en partes
+     * iguales la mitad del subtotal 2 menos las grabaciones.
+     *
+     * <p>Todos los costos y porcentajes de la liquidación viven en el settlement,
+     * no acá (decisión 2026-05-22 §2.6).
+     */
     @Default
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "partners_config", columnDefinition = "jsonb", nullable = false)
-    private List<PartnerConfig> partnersConfig = new ArrayList<>();
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "diploma_directors",
+            joinColumns = @JoinColumn(name = "diploma_id"),
+            inverseJoinColumns = @JoinColumn(name = "staff_id"))
+    private List<Staff> directors = new ArrayList<>();
 
     @Default
     @Column(name = "is_active", nullable = false)

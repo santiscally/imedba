@@ -5,6 +5,7 @@ import com.imedba.modules.collection.dto.CollectionCreateRequest;
 import com.imedba.modules.collection.dto.CollectionResponse;
 import com.imedba.modules.collection.dto.CollectionSellRequest;
 import com.imedba.modules.collection.service.CollectionService;
+import com.imedba.modules.course.entity.BusinessUnit;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -36,8 +37,10 @@ public class CollectionController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('books:read')")
-    public List<CollectionResponse> list(@RequestParam(required = false) Boolean active) {
-        return service.list(active);
+    public List<CollectionResponse> list(
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) BusinessUnit businessUnit) {
+        return service.list(active, businessUnit);
     }
 
     @GetMapping("/{id}")

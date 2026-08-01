@@ -46,6 +46,7 @@
               "books:read", "books:write",
               "book_sales:read", "book_sales:write",
               "diplomas:read", "diplomas:write",
+              "sales_commissions:read", "sales_commissions:write",
               "staff:read", "staff:write",
               "hour_logs:read", "hour_logs:write",
               "contacts:read", "contacts:write",
@@ -94,6 +95,9 @@
               "formacion_superior:read", "formacion_superior:write",
               "notifications:manage",
               "diplomas:read", "diplomas:write",
+              "sales_commissions:read", "sales_commissions:write",
+              "hour_logs:read", "hour_logs:write",
+              "staff:read",
               "notifications:read", "notifications:write",
               "contacts:read"
             ]
@@ -113,6 +117,8 @@
               "installments:read",
               "teaching:read",
               "residencias:read", "residencias:write",
+              "hour_logs:read", "hour_logs:write",
+              "staff:read",
               "notifications:manage",
               "notifications:read", "notifications:write",
               "contacts:read"
@@ -148,6 +154,10 @@
               "payments:read",
               "reports:read",
               "book_sales:read",
+              "sales_commissions:read", "sales_commissions:write",
+              "settlements:read", "settlements:write",
+              "hour_logs:read",
+              "staff:read",
               "contacts:read"
             ]
           }
@@ -176,6 +186,7 @@
               "books:read",
               "book_sales:read",
               "diplomas:read",
+              "sales_commissions:read",
               "staff:read",
               "hour_logs:read",
               "contacts:read",
@@ -228,6 +239,8 @@
         { "name": "book_sales:write" },
         { "name": "diplomas:read" },
         { "name": "diplomas:write" },
+        { "name": "sales_commissions:read" },
+        { "name": "sales_commissions:write" },
         { "name": "staff:read" },
         { "name": "staff:write" },
         { "name": "hour_logs:read" },

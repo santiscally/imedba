@@ -1,0 +1,109 @@
+@use '../styles/variables' as *;
+
+// Valores hora — modal desde Personal Académico.
+
+.rates__nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: $gris-texto;
+  background: $fondo-app;
+  border-radius: $radio-md;
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1rem 0;
+
+  > svg { flex-shrink: 0; margin-top: 0.15rem; }
+  strong { color: $texto-oscuro; }
+}
+
+.rates-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+    border-bottom: 1px solid $gris-borde-sutil;
+  }
+
+  td {
+    padding: 0.6rem 0.7rem;
+    font-size: 0.88rem;
+    color: $texto-medio;
+    border-bottom: 1px solid $gris-borde-sutil;
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  &__name { font-weight: 600; color: $texto-oscuro; }
+
+  &__rate { text-align: right; font-variant-numeric: tabular-nums; width: 160px; }
+
+  // Marca los conceptos que la liquidación busca POR NOMBRE: renombrarlos la deja
+  // sin tarifa y obliga a cargar el valor a mano.
+  &__tag {
+    display: inline-block;
+    margin-left: 0.45rem;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    background: $ambar-bg;
+    color: $ambar;
+    font-size: 0.66rem;
+    font-weight: 600;
+    cursor: help;
+  }
+
+  .is-inactive td { opacity: 0.55; }
+}
+
+.rate-input {
+  width: 130px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-sm;
+  background: $blanco;
+  color: $texto-oscuro;
+  font-size: 0.88rem;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+
+  &:focus {
+    outline: none;
+    border-color: $verde-petroleo;
+    box-shadow: 0 0 0 3px $verde-petroleo-overlay;
+  }
+
+  &--dirty { border-color: $ambar; background: $ambar-bg; }
+}
+
+.rates__new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed $gris-borde;
+
+  input, select {
+    padding: 0.42rem 0.6rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: $texto-oscuro;
+
+    &:focus { outline: none; border-color: $verde-petroleo; }
+  }
+
+  input[type="text"] { flex: 1; min-width: 180px; }
+  input[type="number"] { width: 120px; text-align: right; }
+}

@@ -1,5 +1,6 @@
 package com.imedba.modules.book.dto;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -13,6 +14,8 @@ import java.math.BigDecimal;
  */
 public record BookUpdateRequest(
         @Size(max = 255) String name,
+        /** Unidad en la que se ofrece (V036). null = todas. */
+        BusinessUnit businessUnit,
         @Size(max = 50) String code,
         @Size(max = 100) String specialty,
         @Size(max = 50) String format,

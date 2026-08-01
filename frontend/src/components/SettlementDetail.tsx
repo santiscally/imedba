@@ -75,49 +75,77 @@ export default function SettlementDetail({
             </dl>
           </section>
 
+          {/* El orden espeja la planilla de IMEDBA: cada paso descuenta del anterior. */}
           <section className="detail__section">
-            <h4 className="detail__section-title">Costos fijos</h4>
+            <h4 className="detail__section-title">1 · Impuestos y gastos bancarios</h4>
             <dl className="detail__grid">
-              <Row icon={Percent}          label="Comisión impuestos" value={formatPrice(settlement.taxCommissionAmount)} />
-              <Row icon={CircleDollarSign} label="Sueldo secretaria"  value={formatPrice(settlement.secretaryAmount)} />
-              <Row icon={CircleDollarSign} label="Publicidad"         value={formatPrice(settlement.advertisingAmount)} />
+              <Row icon={Percent} label="Impuestos"
+                value={`− ${formatPrice(settlement.taxCommissionAmount)}`} />
+              <Row icon={CircleDollarSign} label="Subtotal 1"
+                value={formatPrice(settlement.subtotal1)} highlight />
             </dl>
           </section>
 
           <section className="detail__section">
-            <h4 className="detail__section-title">Reparto institucional</h4>
+            <h4 className="detail__section-title">2 · Gastos administrativos</h4>
             <dl className="detail__grid">
-              <Row icon={Building2}  label="Administración" value={formatPrice(settlement.adminAmount)} />
-              <Row icon={University} label="Universidad"    value={formatPrice(settlement.universityAmount)} />
-              <Row icon={GraduationCap} label="IMEDBA"      value={formatPrice(settlement.imedbaAmount)} />
+              <Row icon={CircleDollarSign} label="Secretaría"
+                value={`− ${formatPrice(settlement.secretaryAmount)}`} />
+              <Row icon={CircleDollarSign} label="Publicidad"
+                value={`− ${formatPrice(settlement.advertisingAmount)}`} />
+              <Row icon={Building2} label="Administración"
+                value={`− ${formatPrice(settlement.administrationAmount)}`} />
+              <Row icon={CircleDollarSign} label="Gastos varios"
+                value={`− ${formatPrice(settlement.miscExpensesAmount)}`} />
+              <Row icon={CircleDollarSign} label="Subtotal 2"
+                value={formatPrice(settlement.subtotal2)} highlight />
             </dl>
+          </section>
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">3 · Reparto 50 / 50</h4>
+            <dl className="detail__grid">
+              <Row icon={CircleDollarSign} label="Cada mitad"
+                value={formatPrice(settlement.halfAmount)} highlight />
+              <Row icon={GraduationCap} label="Ganancia IMEDBA"
+                value={formatPrice(settlement.imedbaAmount)} />
+              <Row icon={University} label="Acumulado UNTREF"
+                value={formatPrice(settlement.untrefAmount)} />
+            </dl>
+            <p className="detail__note">
+              El acumulado de UNTREF no se paga este mes: se salda al cerrar la comisión.
+            </p>
           </section>
 
           <section className="detail__section">
             <h4 className="detail__section-title">
               <Users size={14} strokeWidth={1.8} />
               Directoras
-              <span className="detail__sum">Total: {formatPrice(settlement.partnersTotal)}</span>
+              <span className="detail__sum">Total: {formatPrice(settlement.directorsBaseAmount)}</span>
             </h4>
+            <dl className="detail__grid">
+              <Row icon={CircleDollarSign} label="Mitad de directoras"
+                value={formatPrice(settlement.halfAmount)} />
+              <Row icon={CircleDollarSign} label="Grabaciones docentes"
+                value={`− ${formatPrice(settlement.recordingsAmount)}`} />
+            </dl>
             <div className="partners-table">
-              {settlement.partnersDistribution.length === 0 ? (
+              {settlement.directorsDistribution.length === 0 ? (
                 <div className="partners-table__empty">Sin directoras en esta liquidación.</div>
               ) : (
                 <table>
                   <thead>
                     <tr>
                       <th>Nombre</th>
-                      <th className="partners-table__pct">%</th>
                       <th className="partners-table__amount">Monto</th>
                       <th>Email</th>
                       <th className="partners-table__paid">Pagada</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {settlement.partnersDistribution.map((p, i) => (
-                      <tr key={i}>
+                    {settlement.directorsDistribution.map((p, i) => (
+                      <tr key={p.staffId ?? i}>
                         <td className="partners-table__name">{p.name}</td>
-                        <td className="partners-table__pct">{p.pct}%</td>
                         <td className="partners-table__amount">{formatPrice(p.amount)}</td>
                         <td className="partners-table__email">
                           {p.email

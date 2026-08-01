@@ -12,6 +12,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -44,8 +47,9 @@ public class EnrollmentController {
             @RequestParam(required = false) UUID studentId,
             @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) EnrollmentStatus status,
+            @RequestParam(required = false) Boolean contractSigned,
             @PageableDefault(size = 20, sort = "enrollmentDate") Pageable pageable) {
-        return PageResponse.of(service.list(studentId, courseId, status, pageable));
+        return PageResponse.of(service.list(studentId, courseId, status, contractSigned, pageable));
     }
 
     /** Inscripciones cargadas por el usuario autenticado (pensado para vendedoras). */
@@ -75,6 +79,35 @@ public class EnrollmentController {
     public EnrollmentResponse update(
             @PathVariable UUID id, @Valid @RequestBody EnrollmentUpdateRequest req) {
         return service.update(id, req);
+    }
+
+    /**
+     * Descarga el PDF del contrato de matrícula.
+     *
+     * <p>Faltaba: el renderer sólo se usaba para adjuntar el contrato al mail, así que
+     * el botón «descargar contrato» del front fallaba en silencio (reporte 2026-07-23).
+     */
+    @GetMapping("/{id}/contract")
+    @PreAuthorize("hasAuthority('enrollments:read')")
+    public ResponseEntity<byte[]> downloadContract(@PathVariable UUID id) {
+        EnrollmentService.ContractDownload pdf = service.renderContract(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(pdf.filename()).build().toString())
+                .body(pdf.content());
+    }
+
+    /**
+     * Tilda / destilda el contrato como firmado (pedido 2026-07-23). El listado se
+     * filtra con {@code GET /api/v1/enrollments?contractSigned=true|false}.
+     */
+    @PutMapping("/{id}/contract-signed")
+    @PreAuthorize("hasAuthority('enrollments:write')")
+    public EnrollmentResponse setContractSigned(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "true") boolean signed) {
+        return service.setContractSigned(id, signed);
     }
 
     @PutMapping("/{id}/suspend")

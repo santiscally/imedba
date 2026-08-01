@@ -32,7 +32,9 @@ const TITLES: Record<string, string> = {
   '/autores':        'Autores',
   '/diplomas':       'Diplomas',
   '/liquidaciones':  'Liquidaciones',
-  '/personal':       'Personal',
+  '/personal':       'Usuarios',
+  '/personal-academico': 'Personal Académico',
+  '/clases':         'Clases',
 }
 
 export default function Topbar() {

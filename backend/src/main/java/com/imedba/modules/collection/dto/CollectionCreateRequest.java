@@ -1,5 +1,6 @@
 package com.imedba.modules.collection.dto;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.collection.entity.CollectionVariant;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 public record CollectionCreateRequest(
         @NotBlank @Size(max = 200) String name,
+        BusinessUnit businessUnit,
         @NotNull CollectionVariant variant,
         @NotNull @DecimalMin("0.00") @Digits(integer = 10, fraction = 2) BigDecimal price,
         @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal studentDiscountPct,

@@ -17,6 +17,8 @@ import Libros        from './pages/Libros'
 import Ventas        from './pages/Ventas'
 import Colecciones   from './pages/Colecciones'
 import Personal      from './pages/Personal'
+import PersonalAcademico from './pages/PersonalAcademico'
+import Clases        from './pages/Clases'
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
         <Route path="/alumnos"       element={<Alumnos />} />
         <Route path="/cursos"        element={<Cursos />} />
         <Route path="/inscripciones" element={<Inscripciones />} />
+        <Route path="/personal-academico" element={<PersonalAcademico />} />
+        <Route path="/clases"        element={<Clases />} />
         <Route path="/cuotas"        element={<Cuotas />} />
         <Route path="/descuentos"    element={<Descuentos />} />
         <Route path="/diplomaturas"  element={<Diplomaturas />} />

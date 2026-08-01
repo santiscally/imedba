@@ -2,6 +2,7 @@ import type { PageResponse } from '../types/common'
 import type {
   Book, BookCreateRequest, BookUpdateRequest, BookAuthorRequest, BookStockUpdateRequest,
 } from '../types/book'
+import type { BusinessUnit } from '../types/course'
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
 
 // Servicio de libros — refleja BookController (/api/v1/books).
@@ -11,6 +12,11 @@ export interface ListBooksParams {
   specialty?: string
   branch?:    string
   active?:    boolean
+  /**
+   * Filtra por unidad de negocio (V036). Incluye los libros SIN unidad asignada:
+   * null significa «se vende en todas», no «en ninguna».
+   */
+  businessUnit?: BusinessUnit
   page?:      number
   size?:      number
   sort?:      string        // ej: "name,asc"
@@ -22,6 +28,7 @@ function buildQuery(params: ListBooksParams): string {
   if (params.specialty)            qp.set('specialty', params.specialty)
   if (params.branch)               qp.set('branch',    params.branch)
   if (params.active !== undefined) qp.set('active',    String(params.active))
+  if (params.businessUnit)         qp.set('businessUnit', params.businessUnit)
   if (params.page   !== undefined) qp.set('page',      String(params.page))
   if (params.size   !== undefined) qp.set('size',      String(params.size))
   if (params.sort)                 qp.set('sort',      params.sort)

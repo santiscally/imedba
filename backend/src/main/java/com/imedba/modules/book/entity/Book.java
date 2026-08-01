@@ -1,7 +1,10 @@
 package com.imedba.modules.book.entity;
 
 import com.imedba.common.entity.BaseEntity;
+import com.imedba.modules.course.entity.BusinessUnit;
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
@@ -33,6 +36,15 @@ public class Book extends BaseEntity {
 
     @Column(name = "name", nullable = false, length = 200)
     private String name;
+
+    /**
+     * Unidad en la que se ofrece el libro (V036). Filtra el selector de libros de la
+     * inscripción por la unidad del curso: un alumno de Residencias no debería poder
+     * sumar el libro de PREMA a su matrícula. NULL = disponible en todas.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "business_unit", length = 30)
+    private BusinessUnit businessUnit;
 
     @Column(name = "code", length = 20)
     private String code;

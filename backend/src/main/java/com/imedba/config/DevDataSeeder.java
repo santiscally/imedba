@@ -1,6 +1,8 @@
 package com.imedba.config;
 
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.enrollment.entity.Enrollment;
@@ -69,14 +71,14 @@ public class DevDataSeeder implements ApplicationRunner {
 
         Course resi = courseRepository.save(Course.builder()
                 .name("Residencia Médica — Curso Libre 2026").code("RM-LIBRE-2026")
-                .businessUnit(BusinessUnit.RESIDENCIAS).modality("LIBRE").country("AR")
+                .businessUnit(BusinessUnit.RESIDENCIAS)
+                .courseType(CourseType.NORMAL).modality(Modality.LIBRE).country("AR")
                 .enrollmentPrice(new BigDecimal("120000")).coursePrice(new BigDecimal("1020000"))
                 .academicYear(2026).build());
 
         courseRepository.save(Course.builder()
                 .name("Diplomatura Neurodesarrollo").code("FS-NEURO-C10")
-                .businessUnit(BusinessUnit.FORMACION_SUPERIOR).modality("Diplomatura Neurodesarrollo")
-                .country("AR").enrollmentPrice(new BigDecimal("50000")).coursePrice(new BigDecimal("400000"))
+                .businessUnit(BusinessUnit.FORMACION_SUPERIOR).country("AR").enrollmentPrice(new BigDecimal("50000")).coursePrice(new BigDecimal("400000"))
                 .academicYear(2026).commission(10).build());
 
         // Alumnos de prueba con emails ficticios (sirven para probar la rama "no existe en Moodle").

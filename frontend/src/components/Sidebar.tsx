@@ -5,7 +5,7 @@ import {
   CreditCard, Tag, Wallet,
   Book, ShoppingBag, Library,
   GraduationCap, Calculator,
-  Briefcase,
+  UserCog, CalendarDays,
   ChevronLeft, LogOut,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -40,9 +40,13 @@ const NAV: NavGroup[] = [
   {
     title: 'Académico',
     items: [
-      { to: '/alumnos',       icon: Users,    label: 'Alumnos'       },
-      { to: '/cursos',        icon: BookOpen, label: 'Cursos'        },
-      { to: '/inscripciones', icon: FileText, label: 'Inscripciones' },
+      { to: '/alumnos',            icon: Users,         label: 'Alumnos'       },
+      { to: '/cursos',             icon: BookOpen,      label: 'Cursos'        },
+      { to: '/inscripciones',      icon: FileText,      label: 'Inscripciones' },
+      // Docentes/tutoras/preceptoras/directoras. OJO: distinto de /personal,
+      // que son los usuarios de Keycloak (abajo, "Usuarios").
+      { to: '/personal-academico', icon: GraduationCap, label: 'Personal Académico' },
+      { to: '/clases',             icon: CalendarDays,  label: 'Clases'             },
     ],
   },
   {
@@ -66,7 +70,9 @@ const NAV: NavGroup[] = [
   {
     title: 'Administración',
     items: [
-      { to: '/personal', icon: Briefcase, label: 'Personal' },   // usuarios Keycloak — solo admin
+      // Renombrado de "Personal" a "Usuarios": chocaba con Personal Académico y
+      // se prestaba a confusión. Son los usuarios de Keycloak (acceso y roles).
+      { to: '/personal', icon: UserCog, label: 'Usuarios' },   // solo admin
     ],
   },
 ]

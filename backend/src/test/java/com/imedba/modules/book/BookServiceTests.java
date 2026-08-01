@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.imedba.common.error.BadRequestException;
 import com.imedba.common.error.ConflictException;
 import com.imedba.modules.author.repository.AuthorRepository;
 import com.imedba.modules.book.entity.Book;
@@ -69,10 +70,13 @@ class BookServiceTests {
     }
 
     @Test
-    @DisplayName("reserveStock rechaza quantity <= 0")
+    @DisplayName("reserveStock rechaza quantity <= 0 con 400, no con 500")
     void reserve_stock_non_positive_rejected() {
+        // Antes tiraba IllegalArgumentException pelada, que el GlobalExceptionHandler no
+        // mapea: una cantidad inválida del cliente salía como 500 «Error interno».
         assertThatThrownBy(() -> service.reserveStock(UUID.randomUUID(), 0))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("mayor a 0");
     }
 
     @Test
@@ -86,7 +90,7 @@ class BookServiceTests {
         when(bookRepository.save(any(Book.class))).thenReturn(b);
 
         var req = new com.imedba.modules.book.dto.BookCreateRequest(
-                "Test", "C1", "spec", "fmt", "1ed", 100,
+                "Test", null, "C1", "spec", "fmt", "1ed", 100,
                 new BigDecimal("100.00"), new BigDecimal("30.00"),
                 new BigDecimal("10.00"), new BigDecimal("50.00"),
                 10, "Central",

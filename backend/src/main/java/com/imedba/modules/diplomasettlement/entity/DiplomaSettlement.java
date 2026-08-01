@@ -69,20 +69,36 @@ public class DiplomaSettlement {
     @Column(name = "input_advertising_amount", precision = 12, scale = 2)
     private BigDecimal inputAdvertisingAmount;
 
-    @Column(name = "input_admin_pct", precision = 5, scale = 2)
-    private BigDecimal inputAdminPct;
+    /** Administración de IMEDBA — MONTO FIJO. Antes de V035 era un porcentaje. */
+    @Column(name = "input_administration_amount", precision = 14, scale = 2)
+    private BigDecimal inputAdministrationAmount;
 
-    @Column(name = "input_university_pct", precision = 5, scale = 2)
-    private BigDecimal inputUniversityPct;
+    /** GASTOS VARIOS — monto fijo. Cuarto gasto administrativo, faltaba antes de V035. */
+    @Column(name = "input_misc_expenses_amount", precision = 14, scale = 2)
+    private BigDecimal inputMiscExpensesAmount;
 
+    /** Grabaciones docentes: se descuenta SÓLO de la mitad de las directoras. */
+    @Column(name = "input_recordings_amount", precision = 14, scale = 2)
+    private BigDecimal inputRecordingsAmount;
+
+    /** % de la MITAD no-directoras que queda como ganancia IMEDBA (default 80). */
     @Column(name = "input_imedba_pct", precision = 5, scale = 2)
     private BigDecimal inputImedbaPct;
 
-    // ===== Outputs (calculados por SettlementEngine) =====
+    /** % de la MITAD no-directoras que se acumula para UNTREF (default 20). */
+    @Column(name = "input_untref_pct", precision = 5, scale = 2)
+    private BigDecimal inputUntrefPct;
+
+    // ===== Outputs (calculados por SettlementEngine, paso por paso) =====
 
     @Default
     @Column(name = "tax_commission_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal taxCommissionAmount = BigDecimal.ZERO;
+
+    /** Cobrado − impuestos. El «verde» de la planilla de IMEDBA. */
+    @Default
+    @Column(name = "subtotal_1", nullable = false, precision = 14, scale = 2)
+    private BigDecimal subtotal1 = BigDecimal.ZERO;
 
     @Default
     @Column(name = "secretary_amount", nullable = false, precision = 12, scale = 2)
@@ -93,25 +109,45 @@ public class DiplomaSettlement {
     private BigDecimal advertisingAmount = BigDecimal.ZERO;
 
     @Default
-    @Column(name = "admin_amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal adminAmount = BigDecimal.ZERO;
+    @Column(name = "administration_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal administrationAmount = BigDecimal.ZERO;
 
     @Default
-    @Column(name = "university_amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal universityAmount = BigDecimal.ZERO;
+    @Column(name = "misc_expenses_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal miscExpensesAmount = BigDecimal.ZERO;
+
+    /** Subtotal 1 menos los 4 gastos fijos. El «naranja»: es lo que se parte 50/50. */
+    @Default
+    @Column(name = "subtotal_2", nullable = false, precision = 14, scale = 2)
+    private BigDecimal subtotal2 = BigDecimal.ZERO;
+
+    /** Mitad del subtotal 2. Una va a directoras, la otra se reparte 80/20. */
+    @Default
+    @Column(name = "half_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal halfAmount = BigDecimal.ZERO;
+
+    @Default
+    @Column(name = "recordings_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal recordingsAmount = BigDecimal.ZERO;
+
+    /** Mitad − grabaciones. Es lo que se reparte entre las directoras en partes iguales. */
+    @Default
+    @Column(name = "directors_base_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal directorsBaseAmount = BigDecimal.ZERO;
 
     @Default
     @Column(name = "imedba_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal imedbaAmount = BigDecimal.ZERO;
 
+    /** Porción de UNTREF. No se paga mensualmente: se acumula hasta cerrar la comisión. */
     @Default
-    @Column(name = "partners_total", nullable = false, precision = 12, scale = 2)
-    private BigDecimal partnersTotal = BigDecimal.ZERO;
+    @Column(name = "untref_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal untrefAmount = BigDecimal.ZERO;
 
     @Default
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "partners_distribution", columnDefinition = "jsonb", nullable = false)
-    private List<PartnerDistribution> partnersDistribution = new ArrayList<>();
+    @Column(name = "directors_distribution", columnDefinition = "jsonb", nullable = false)
+    private List<DirectorDistribution> directorsDistribution = new ArrayList<>();
 
     @Default
     @Enumerated(EnumType.STRING)

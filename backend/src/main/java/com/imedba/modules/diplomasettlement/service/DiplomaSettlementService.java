@@ -13,7 +13,7 @@ import com.imedba.modules.diploma.service.DiplomaService;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementCreateRequest;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementResponse;
 import com.imedba.modules.diplomasettlement.entity.DiplomaSettlement;
-import com.imedba.modules.diplomasettlement.entity.PartnerDistribution;
+import com.imedba.modules.diplomasettlement.entity.DirectorDistribution;
 import com.imedba.modules.diplomasettlement.entity.SettlementStatus;
 import com.imedba.modules.diplomasettlement.mapper.DiplomaSettlementMapper;
 import com.imedba.modules.diplomasettlement.repository.DiplomaSettlementRepository;
@@ -66,10 +66,11 @@ public class DiplomaSettlementService {
                 : collectedForPeriod(d, req.periodYear(), req.periodMonth());
 
         SettlementEngine.Inputs inputs = new SettlementEngine.Inputs(
-                req.taxCommissionPct(), req.secretarySalary(), req.advertisingAmount(),
-                req.adminPct(), req.universityPct(), req.imedbaPct());
+                req.taxPct(), req.secretaryAmount(), req.advertisingAmount(),
+                req.administrationAmount(), req.miscExpensesAmount(), req.recordingsAmount(),
+                req.imedbaPct(), req.untrefPct());
         DiplomaSettlement settlement = SettlementEngine.compute(
-                d, req.periodYear(), req.periodMonth(), total, inputs);
+                d, req.periodYear(), req.periodMonth(), total, d.getDirectors(), inputs);
         settlement.setStatus(SettlementStatus.DRAFT);
         settlement.setCreatedBy(AuthUtils.currentUserId().orElse(null));
         return mapper.toResponse(repository.save(settlement));
@@ -90,22 +91,29 @@ public class DiplomaSettlementService {
         }
         SettlementEngine.Inputs inputs = new SettlementEngine.Inputs(
                 existing.getInputTaxCommissionPct(), existing.getInputSecretarySalary(),
-                existing.getInputAdvertisingAmount(), existing.getInputAdminPct(),
-                existing.getInputUniversityPct(), existing.getInputImedbaPct());
+                existing.getInputAdvertisingAmount(), existing.getInputAdministrationAmount(),
+                existing.getInputMiscExpensesAmount(), existing.getInputRecordingsAmount(),
+                existing.getInputImedbaPct(), existing.getInputUntrefPct());
         DiplomaSettlement recomputed = SettlementEngine.compute(
                 existing.getDiploma(),
                 existing.getPeriodYear(),
                 existing.getPeriodMonth(),
                 existing.getTotalCollected(),
+                existing.getDiploma() == null ? List.of() : existing.getDiploma().getDirectors(),
                 inputs);
         existing.setTaxCommissionAmount(recomputed.getTaxCommissionAmount());
+        existing.setSubtotal1(recomputed.getSubtotal1());
         existing.setSecretaryAmount(recomputed.getSecretaryAmount());
         existing.setAdvertisingAmount(recomputed.getAdvertisingAmount());
-        existing.setAdminAmount(recomputed.getAdminAmount());
-        existing.setUniversityAmount(recomputed.getUniversityAmount());
+        existing.setAdministrationAmount(recomputed.getAdministrationAmount());
+        existing.setMiscExpensesAmount(recomputed.getMiscExpensesAmount());
+        existing.setSubtotal2(recomputed.getSubtotal2());
+        existing.setHalfAmount(recomputed.getHalfAmount());
+        existing.setRecordingsAmount(recomputed.getRecordingsAmount());
+        existing.setDirectorsBaseAmount(recomputed.getDirectorsBaseAmount());
         existing.setImedbaAmount(recomputed.getImedbaAmount());
-        existing.setPartnersTotal(recomputed.getPartnersTotal());
-        existing.setPartnersDistribution(recomputed.getPartnersDistribution());
+        existing.setUntrefAmount(recomputed.getUntrefAmount());
+        existing.setDirectorsDistribution(recomputed.getDirectorsDistribution());
         return mapper.toResponse(existing);
     }
 
@@ -129,19 +137,19 @@ public class DiplomaSettlementService {
      * El contexto queda en el subject/body del template.
      */
     private void enqueueDirectorNotifications(DiplomaSettlement s) {
-        List<PartnerDistribution> partners = s.getPartnersDistribution();
-        if (partners == null || partners.isEmpty()) {
+        List<DirectorDistribution> directors = s.getDirectorsDistribution();
+        if (directors == null || directors.isEmpty()) {
             return;
         }
         String diplomaName = s.getDiploma() != null ? s.getDiploma().getName() : "";
-        for (PartnerDistribution p : partners) {
+        for (DirectorDistribution p : directors) {
             if (p.email() == null || p.email().isBlank() || p.amount() == null
                     || p.amount().signum() <= 0) {
                 continue;
             }
-            NotificationTemplate tpl = NotificationTemplates.settlementApproved(
-                    p.name() != null ? p.name() : "",
-                    diplomaName,
+            // Plantilla de Nico (2026-07-31): «Imedba - Formación Superior Honorarios».
+            NotificationTemplate tpl = NotificationTemplates.diplomaSettlementInvoiceRequest(
+                    p.greetingName(),
                     s.getPeriodMonth(), s.getPeriodYear(),
                     p.amount());
             notificationService.enqueue(
@@ -195,18 +203,23 @@ public class DiplomaSettlementService {
         String prefix = "Liquidación " + diplomaName + " " + period;
 
         int created = 0;
-        created += expense(s, BudgetCategory.TAXES, prefix + " — Impuestos y comisiones",
+        created += expense(s, BudgetCategory.TAXES, prefix + " — Impuestos y gastos bancarios",
                 s.getTaxCommissionAmount());
         created += expense(s, BudgetCategory.SALARIES, prefix + " — Sueldo secretaría",
                 s.getSecretaryAmount());
         created += expense(s, BudgetCategory.ADVERTISING, prefix + " — Publicidad",
                 s.getAdvertisingAmount());
         created += expense(s, BudgetCategory.OTHER, prefix + " — Administración",
-                s.getAdminAmount());
-        created += expense(s, BudgetCategory.SUPPLIERS, prefix + " — Universidad",
-                s.getUniversityAmount());
-        if (s.getPartnersDistribution() != null) {
-            for (PartnerDistribution p : s.getPartnersDistribution()) {
+                s.getAdministrationAmount());
+        created += expense(s, BudgetCategory.OTHER, prefix + " — Gastos varios",
+                s.getMiscExpensesAmount());
+        created += expense(s, BudgetCategory.OTHER, prefix + " — Grabaciones docentes",
+                s.getRecordingsAmount());
+        // UNTREF NO se asienta: no se paga este mes, se acumula hasta que cierre la
+        // comisión (reunión 2026-07-24, 19:42). Cuando se implemente el pago del
+        // acumulado, el egreso se genera ahí — asentarlo acá lo duplicaría.
+        if (s.getDirectorsDistribution() != null) {
+            for (DirectorDistribution p : s.getDirectorsDistribution()) {
                 created += expense(s, BudgetCategory.SUPPLIERS,
                         prefix + " — Directora " + (p.name() != null ? p.name() : ""),
                         p.amount());

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.imedba.common.enums.PaymentMethod;
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.enrollment.dto.EnrollmentCreateRequest;
@@ -47,7 +48,7 @@ class PaymentApiIntegrationTests extends AbstractIntegrationTest {
                 .active(Boolean.TRUE).build()).getId();
         courseId = courseRepository.save(Course.builder()
                 .name("Curso Cobranza").code("COB-01")
-                .businessUnit(BusinessUnit.RESIDENCIAS).modality("VIRTUAL")
+                .businessUnit(BusinessUnit.RESIDENCIAS).modality(Modality.LIBRE)
                 .enrollmentPrice(new BigDecimal("10000.00"))
                 .coursePrice(new BigDecimal("50000.00"))
                 .active(Boolean.TRUE).build()).getId();

@@ -4,6 +4,8 @@ import type {
   CourseCreateRequest,
   CourseUpdateRequest,
   BusinessUnit,
+  CourseType,
+  Modality,
 } from '../types/course'
 import { apiGet, apiPost, apiPut, apiDelete } from './client'
 
@@ -14,6 +16,9 @@ export interface ListCoursesParams {
   businessUnit?: BusinessUnit
   active?:       boolean
   year?:         number       // ciclo lectivo
+  /** Filtros de la taxonomía nueva (V038): permiten agrupar para análisis. */
+  courseType?:   CourseType
+  modality?:     Modality
   page?:         number
   size?:         number
   sort?:         string       // ej: "name,asc"
@@ -25,6 +30,8 @@ function buildQuery(params: ListCoursesParams): string {
   if (params.businessUnit)           qp.set('businessUnit', params.businessUnit)
   if (params.active !== undefined)   qp.set('active', String(params.active))
   if (params.year   !== undefined)   qp.set('year',   String(params.year))
+  if (params.courseType)             qp.set('courseType', params.courseType)
+  if (params.modality)               qp.set('modality',   params.modality)
   if (params.page   !== undefined)   qp.set('page',   String(params.page))
   if (params.size   !== undefined)   qp.set('size',   String(params.size))
   if (params.sort)                   qp.set('sort',   params.sort)

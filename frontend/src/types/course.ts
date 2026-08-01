@@ -29,35 +29,42 @@ export const BUSINESS_UNIT_LABELS: Record<BusinessUnit, string> = {
 // El catálogo de países vive en types/country.ts (reutilizable). Course.country
 // guarda el código ISO-2 (ver Country / COUNTRIES / COUNTRY_LABELS).
 
-// Modalidades observadas en `precio de lista` y `excel datos alumnos`
-// (texto libre en el backend — VARCHAR 50 — pero mantenemos este listado
-//  como referencia para autocompletar el form).
-export const MODALITIES_SUGERIDAS = [
-  'LIBRE',
-  'VIVO',
-  'SOLO_CHOICE',
-  'INTENSIVO',
-  'PLUS',
-  'REVALIDA',
-  'TRADICIONAL',
-  'MIX_FEBRERO',
-  'SUPER_INTENSIVO',
-] as const
+/**
+ * Tipo de curso (V038). Uno de los tres ejes con los que IMEDBA diferencia sus
+ * cursos, junto con el NOMBRE —el eje editable: Tucumán, Córdoba, Junio/Julio…—
+ * y la modalidad.
+ *
+ * Correcciones 2026-07-23: «Tipo de curso: Normal (o sin detalle, es el curso
+ * anual clásico), Intensivo y Choice».
+ */
+export type CourseType = 'NORMAL' | 'INTENSIVO' | 'CHOICE'
 
-// Modalidades de Formación Superior (reunión 12-jun, lista de Jaque).
-export const MODALITIES_FORMACION_SUPERIOR = [
-  'Diplomatura Prematuros',
-  'Diplomatura Neurodesarrollo',
-  'Curso PAF',
-] as const
+export const COURSE_TYPES: CourseType[] = ['NORMAL', 'INTENSIVO', 'CHOICE']
 
-// Modalidad en cascada según unidad de negocio (reunión 12-jun): FS usa las
-// diplomaturas; el resto, las sugeridas de Residencias.
-export function modalitiesFor(bu: BusinessUnit): readonly string[] {
-  return bu === 'FORMACION_SUPERIOR'
-    ? MODALITIES_FORMACION_SUPERIOR
-    : MODALITIES_SUGERIDAS
+export const COURSE_TYPE_LABELS: Record<CourseType, string> = {
+  NORMAL:    'Normal (anual clásico)',
+  INTENSIVO: 'Intensivo',
+  CHOICE:    'Choice',
 }
+
+/** Modalidad de cursado (V038): por su cuenta o con clases en vivo. */
+export type Modality = 'LIBRE' | 'VIVO'
+
+export const MODALITIES: Modality[] = ['LIBRE', 'VIVO']
+
+export const MODALITY_LABELS: Record<Modality, string> = {
+  LIBRE: 'Libre',
+  VIVO:  'Vivo',
+}
+
+/**
+ * Antes de V038 `modality` era texto libre y mezclaba tres conceptos: la
+ * modalidad real, el tipo de curso (TRADICIONAL, SUPER_INTENSIVO, MIX_FEBRERO…)
+ * y el producto de Formación Superior («Diplomatura Prematuros», «Curso PAF»).
+ * Por eso no se podía agrupar por tipo ni por modalidad, que es justo lo que el
+ * cliente pidió. Los productos de FS se identifican por el NOMBRE del curso;
+ * Reválida y banco de preguntas, también.
+ */
 
 // Refleja com.imedba.modules.course.dto.CourseResponse
 export interface Course {
@@ -66,7 +73,8 @@ export interface Course {
   code:                 string | null
   description:          string | null
   businessUnit:         BusinessUnit
-  modality:             string | null
+  courseType:           CourseType | null   // NORMAL | INTENSIVO | CHOICE
+  modality:             Modality | null     // LIBRE | VIVO
   country:              string | null   // ISO-2 (AR/UY); default 'AR' en backend
   enrollmentPrice:      number | null   // BigDecimal en backend → number en JS
   coursePrice:          number | null
@@ -85,7 +93,8 @@ export interface CourseCreateRequest {
   code?:                 string | null            // max 50
   description?:          string | null
   businessUnit:          BusinessUnit             // required
-  modality?:             string | null            // max 50
+  courseType?:           CourseType | null
+  modality?:             Modality | null
   country?:              string | null            // ISO-2 (AR/UY), default AR
   enrollmentPrice?:      number | null            // ≥ 0
   coursePrice?:          number | null            // ≥ 0

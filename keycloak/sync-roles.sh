@@ -44,6 +44,7 @@ enrollments:read enrollments:write installments:read installments:write \
 payments:read payments:write discount_campaigns:read discount_campaigns:write \
 budget:read budget:write books:read books:write book_sales:read book_sales:write \
 authors:read authors:write diplomas:read diplomas:write staff:read staff:write \
+sales_commissions:read sales_commissions:write \
 hour_logs:read hour_logs:write contacts:read contacts:write \
 notifications:read notifications:write notifications:manage reports:read admin:manage \
 moodle:read moodle:write residencias:read residencias:write \
@@ -93,11 +94,14 @@ grant VENDEDORA \
 grant SECRETARIA_FS \
   students:read enrollments:read settlements:read settlements:write installments:read \
   teaching:read formacion_superior:read formacion_superior:write notifications:manage \
-  diplomas:read diplomas:write notifications:read notifications:write contacts:read
+  diplomas:read diplomas:write sales_commissions:read sales_commissions:write \
+  hour_logs:read hour_logs:write staff:read \
+  notifications:read notifications:write contacts:read
 
 grant SECRETARIA_RM \
   students:read courses:read enrollments:read installments:read teaching:read \
   residencias:read residencias:write notifications:manage notifications:read \
+  hour_logs:read hour_logs:write staff:read \
   notifications:write contacts:read
 
 grant EDITORIAL \
@@ -105,13 +109,15 @@ grant EDITORIAL \
   books:read books:write authors:read authors:write book_sales:read book_sales:write
 
 grant CONTABLE \
-  budget:read budget:write payments:read reports:read book_sales:read contacts:read
+  budget:read budget:write payments:read reports:read book_sales:read contacts:read \
+  sales_commissions:read sales_commissions:write \
+  settlements:read settlements:write hour_logs:read staff:read
 
 grant VIEWER \
   students:read courses:read enrollments:read payments:read installments:read \
   discount_campaigns:read editorial:read stock:read budget:read teaching:read \
   settlements:read reports:read authors:read books:read book_sales:read diplomas:read \
-  staff:read hour_logs:read contacts:read notifications:read
+  sales_commissions:read staff:read hour_logs:read contacts:read notifications:read
 
 # --- 3) Redirect URIs del client público imedba-frontend (idempotente) -------
 # Igual que los roles: el realm JSON los setea en el PRIMER import; esto los RE-APLICA

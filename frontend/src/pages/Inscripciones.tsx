@@ -3,6 +3,7 @@ import {
   Search, Plus, ChevronLeft, ChevronRight,
   FileText, ArrowUp, ArrowDown, ArrowUpDown,
   UserCircle2, GraduationCap, Eye, Pencil, Tag, Download,
+  CheckCircle2, Circle, FileDown,
 } from 'lucide-react'
 import { enrollmentsApi } from '../api/enrollments'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
@@ -18,7 +19,7 @@ import EnrollmentForm from '../components/EnrollmentForm'
 import EnrollmentDetail from '../components/EnrollmentDetail'
 import { canWrite } from '../lib/access'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
-import { alertError } from '../lib/confirm'
+import { alertError, toastSuccess } from '../lib/confirm'
 import './Inscripciones.scss'
 
 const PAGE_SIZE = 10
@@ -34,6 +35,21 @@ type SortState = { field: SortField; dir: SortDir } | null
 
 type StatusFilter = EnrollmentStatus | 'TODAS'
 
+/** Filtro de contrato firmado (pedido 2026-07-23). Se resuelve server-side. */
+type ContractFilter = 'TODOS' | 'FIRMADO' | 'SIN_FIRMAR'
+
+const CONTRACT_FILTERS: { key: ContractFilter; label: string }[] = [
+  { key: 'TODOS',      label: 'Todos los contratos' },
+  { key: 'FIRMADO',    label: 'Firmados' },
+  { key: 'SIN_FIRMAR', label: 'Sin firmar' },
+]
+
+function contractFilterToParam(f: ContractFilter): boolean | undefined {
+  if (f === 'FIRMADO')    return true
+  if (f === 'SIN_FIRMAR') return false
+  return undefined
+}
+
 type PanelState =
   | { kind: 'closed' }
   | { kind: 'create' }
@@ -44,8 +60,10 @@ export default function Inscripciones() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
   const [status,    setStatus]    = useState<StatusFilter>('TODAS')
+  const [contract,  setContract]  = useState<ContractFilter>('TODOS')
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'enrollmentDate', dir: 'desc' })
+  const [busyContract, setBusyContract] = useState<string | null>(null)
 
   const [data,    setData]    = useState<PageResponse<Enrollment> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -70,16 +88,17 @@ export default function Inscripciones() {
     // `q` se manda igual pero el backend lo ignora (no hay full-text sobre enrollments);
     // el filtrado por texto se hace client-side en `filtered` (ver abajo).
     enrollmentsApi.list({
-      q:            debounced || undefined,
-      status:       status === 'TODAS' ? undefined : status,
-      businessUnit: unidadBu,
+      q:              debounced || undefined,
+      status:         status === 'TODAS' ? undefined : status,
+      contractSigned: contractFilterToParam(contract),
+      businessUnit:   unidadBu,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, status, unidadBu, page, sort, reload])
+  }, [debounced, status, contract, unidadBu, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -132,6 +151,34 @@ export default function Inscripciones() {
     () => ['TODAS', ...ENROLLMENT_STATUSES],
     [],
   )
+
+  /** Descarga el PDF del contrato. El endpoint exige Bearer, así que va por fetch. */
+  async function handleDownloadContract(en: Enrollment) {
+    setBusyContract(en.id)
+    try {
+      await enrollmentsApi.downloadContract(en.id, en.student.lastName)
+    } catch (err) {
+      alertError('No se pudo generar el contrato',
+        err instanceof Error ? err.message : undefined)
+    } finally { setBusyContract(null) }
+  }
+
+  async function handleToggleSigned(en: Enrollment, signed: boolean) {
+    setBusyContract(en.id)
+    try {
+      const updated = await enrollmentsApi.setContractSigned(en.id, signed)
+      setReload(r => r + 1)
+      // Si el detalle está abierto sobre esta inscripción, refrescarlo con lo que
+      // devolvió el backend en vez de esperar el reload del listado.
+      if (panel.kind === 'detail' && panel.en.id === en.id) {
+        setPanel({ kind: 'detail', en: updated })
+      }
+      toastSuccess(signed ? 'Contrato marcado como firmado' : 'Contrato marcado sin firmar')
+    } catch (err) {
+      alertError('No se pudo actualizar el contrato',
+        err instanceof Error ? err.message : undefined)
+    } finally { setBusyContract(null) }
+  }
 
   async function handleExport() {
     setExporting(true)
@@ -217,6 +264,22 @@ export default function Inscripciones() {
             </button>
           ))}
         </div>
+
+        <div className="contract-select">
+          <label className="contract-select__label" htmlFor="contract-filter">
+            <FileText size={15} strokeWidth={1.8} /> Contrato
+          </label>
+          <select
+            id="contract-filter"
+            className="contract-select__input"
+            value={contract}
+            onChange={e => { setContract(e.target.value as ContractFilter); setPage(0) }}
+          >
+            {CONTRACT_FILTERS.map(f => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="inscripciones__table-wrap">
@@ -269,6 +332,7 @@ export default function Inscripciones() {
                   onClick={() => toggleSort('totalPrice')}
                   className="col-precio"
                 />
+                <th className="col-contrato">Contrato</th>
                 <SortableTh
                   label="Estado"
                   field="status"
@@ -314,6 +378,28 @@ export default function Inscripciones() {
                       ? <span className="price">{formatPrice(en.totalPrice)}</span>
                       : <span className="muted">—</span>}
                   </td>
+                  <td className="col-contrato">
+                    {canWrite('/inscripciones') ? (
+                      <button
+                        type="button"
+                        className={`contract-toggle ${en.contractSignedAt ? 'contract-toggle--signed' : ''}`}
+                        onClick={() => handleToggleSigned(en, en.contractSignedAt == null)}
+                        disabled={busyContract === en.id}
+                        title={en.contractSignedAt
+                          ? `Firmado el ${formatDate(en.contractSignedAt)} — clic para desmarcar`
+                          : 'Sin firmar — clic para marcar como firmado'}
+                        aria-pressed={en.contractSignedAt != null}
+                      >
+                        {en.contractSignedAt
+                          ? <><CheckCircle2 size={15} strokeWidth={2} /> Firmado</>
+                          : <><Circle size={15} strokeWidth={1.8} /> Sin firmar</>}
+                      </button>
+                    ) : (
+                      <span className={`badge ${en.contractSignedAt ? 'badge--activo' : 'badge--pendiente'}`}>
+                        {en.contractSignedAt ? 'Firmado' : 'Sin firmar'}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${statusBadgeClass(en.status)}`}>
                       {ENROLLMENT_STATUS_LABELS[en.status]}
@@ -329,6 +415,16 @@ export default function Inscripciones() {
                         title="Ver detalle"
                       >
                         <Eye size={16} />
+                      </button>
+                      <button
+                        className="row-actions__btn"
+                        type="button"
+                        onClick={() => handleDownloadContract(en)}
+                        disabled={busyContract === en.id}
+                        aria-label="Descargar contrato"
+                        title="Descargar contrato"
+                      >
+                        <FileDown size={16} />
                       </button>
                       {canWrite('/inscripciones') && (
                         <button
@@ -385,6 +481,8 @@ export default function Inscripciones() {
           onSuspend={() => handleStatusAction(panel.en, 'suspend')}
           onReactivate={() => handleStatusAction(panel.en, 'reactivate')}
           onCancel={() => handleStatusAction(panel.en, 'cancel')}
+          onDownloadContract={() => handleDownloadContract(panel.en)}
+          onToggleSigned={(signed) => handleToggleSigned(panel.en, signed)}
         />
       )}
     </div>

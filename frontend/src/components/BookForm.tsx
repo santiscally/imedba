@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { X, Save, BookPlus } from 'lucide-react'
 import type { Book, BookCreateRequest, BookUpdateRequest } from '../types/book'
+import type { BusinessUnit } from '../types/course'
+import { BUSINESS_UNIT_LABELS } from '../types/course'
 import './StudentForm.scss'
 
 type Payload = BookCreateRequest | BookUpdateRequest
@@ -17,11 +19,14 @@ interface FormState {
   name: string; code: string; specialty: string; format: string; edition: string
   pages: string; salePrice: string; studentDiscountPct: string; royaltyPoolPct: string
   costPerUnit: string; stockQuantity: string; branch: string
+  /** '' = se ofrece en todas las unidades. */
+  businessUnit: BusinessUnit | ''
 }
 
 function initialState(b?: Book): FormState {
   return {
     name:               b?.name ?? '',
+    businessUnit:       b?.businessUnit ?? '',
     code:               b?.code ?? '',
     specialty:          b?.specialty ?? '',
     format:             b?.format ?? '',
@@ -78,6 +83,7 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
     const numOrNull = (v: string) => (v ? Number(v) : null)
     const base = {
       name:               state.name.trim(),
+      businessUnit:       state.businessUnit === '' ? null : state.businessUnit,
       code:               state.code.trim() || null,
       specialty:          state.specialty.trim() || null,
       format:             state.format.trim() || null,
@@ -119,6 +125,19 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
             <Field label="Nombre" required error={errors.name} full>
               <input type="text" value={state.name} maxLength={255} autoFocus
                 onChange={e => setField('name', e.target.value)} placeholder="Manual de…" />
+            </Field>
+            <Field label="Unidad de negocio" error={errors.businessUnit}>
+              <select value={state.businessUnit}
+                onChange={e => setField('businessUnit', e.target.value as BusinessUnit | '')}>
+                <option value="">Todas las unidades</option>
+                {(['RESIDENCIAS', 'FORMACION_SUPERIOR', 'EDITORIAL'] as BusinessUnit[]).map(u => (
+                  <option key={u} value={u}>{BUSINESS_UNIT_LABELS[u]}</option>
+                ))}
+              </select>
+              <span className="field__hint">
+                Define en qué inscripciones se puede ofrecer. El libro de PREMA va en
+                Formación Superior para que no aparezca al matricular en Residencias.
+              </span>
             </Field>
             <Field label="Código" error={errors.code}>
               <input type="text" value={state.code} maxLength={50}

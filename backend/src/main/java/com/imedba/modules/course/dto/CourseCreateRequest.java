@@ -1,6 +1,8 @@
 package com.imedba.modules.course.dto;
 
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -15,7 +17,8 @@ public record CourseCreateRequest(
         @Size(max = 50)  String code,
         String description,
         @NotNull BusinessUnit businessUnit,
-        @Size(max = 50)  String modality,
+        CourseType courseType,
+        Modality modality,
         @Pattern(regexp = "^[A-Z]{2}$", message = "country debe ser ISO 3166-1 alpha-2") String country,
         @PositiveOrZero  BigDecimal enrollmentPrice,
         @PositiveOrZero  BigDecimal coursePrice,

@@ -72,11 +72,13 @@ public class EnrollmentService {
 
     @Transactional(readOnly = true)
     public Page<EnrollmentResponse> list(
-            UUID studentId, UUID courseId, EnrollmentStatus status, Pageable pageable) {
+            UUID studentId, UUID courseId, EnrollmentStatus status,
+            Boolean contractSigned, Pageable pageable) {
         Specification<Enrollment> spec = Specification
                 .where(EnrollmentSpecs.byStudent(studentId))
                 .and(EnrollmentSpecs.byCourse(courseId))
                 .and(EnrollmentSpecs.byStatus(status))
+                .and(EnrollmentSpecs.byContractSigned(contractSigned))
                 .and(EnrollmentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
                 .and(vendedoraScope());
         return repository.findAll(spec, pageable).map(mapper::toResponse);
@@ -178,6 +180,28 @@ public class EnrollmentService {
                 RelatedEntityType.ENROLLMENT, saved.getId(), contractPdf(saved));
     }
 
+    /**
+     * Genera el PDF del contrato para descarga directa.
+     *
+     * <p>Reportado el 2026-07-23: «no me permite descargar contrato», y en la llamada
+     * del 24-jul: «como que no me decía nada». Causa: el renderer existía pero sólo se
+     * usaba para adjuntar el PDF al mail de CONTRACT — no había endpoint de descarga,
+     * así que el botón del front no tenía contra qué pegar.
+     *
+     * <p>A diferencia de {@link #contractPdf(Enrollment)} (que degrada a mail sin
+     * adjunto para no bloquear el alta), acá el error se propaga: si el PDF no sale,
+     * la descarga tiene que fallar con un error visible, no con un archivo vacío.
+     */
+    @Transactional(readOnly = true)
+    public ContractDownload renderContract(UUID id) {
+        Enrollment e = findVisible(id);
+        byte[] pdf = contractPdfRenderer.render(contractDataFrom(e));
+        return new ContractDownload(contractFilename(e), pdf);
+    }
+
+    /** PDF del contrato listo para servir. */
+    public record ContractDownload(String filename, byte[] content) {}
+
     /** Renderiza el PDF del contrato como adjunto; si falla, degrada a mail sin adjunto (no bloquea el alta). */
     private MailAttachment contractPdf(Enrollment e) {
         try {
@@ -214,6 +238,25 @@ public class EnrollmentService {
         Enrollment e = findVisible(id);
         mapper.updateEntity(req, e);
         recalculatePrices(e);
+        return mapper.toResponse(e);
+    }
+
+    /**
+     * Marca o desmarca el contrato como firmado (pedido 2026-07-23).
+     *
+     * <p>Endpoint propio en vez de pasar por {@code update}: el checkbox del listado
+     * no tiene que mandar el resto del payload ni disparar el recálculo de precios.
+     * Idempotente — volver a tildar no corre la fecha ya registrada.
+     */
+    public EnrollmentResponse setContractSigned(UUID id, boolean signed) {
+        Enrollment e = findVisible(id);
+        if (signed) {
+            if (e.getContractSignedAt() == null) {
+                e.setContractSignedAt(Instant.now());
+            }
+        } else {
+            e.setContractSignedAt(null);
+        }
         return mapper.toResponse(e);
     }
 

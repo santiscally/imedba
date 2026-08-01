@@ -7,8 +7,13 @@ import {
 } from 'lucide-react'
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
-import type { Course, BusinessUnit, CourseCreateRequest } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS } from '../types/course'
+import type {
+  Course, BusinessUnit, CourseCreateRequest, CourseType, Modality,
+} from '../types/course'
+import {
+  BUSINESS_UNITS, BUSINESS_UNIT_LABELS,
+  COURSE_TYPES, COURSE_TYPE_LABELS, MODALITIES, MODALITY_LABELS,
+} from '../types/course'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
@@ -60,6 +65,11 @@ export default function Cursos() {
     return () => clearTimeout(t)
   }, [query])
 
+  // Filtros de la taxonomía nueva (V038): son el motivo del pedido —
+  // «poder filtrar dependiendo la necesidad y así poder agrupar para análisis».
+  const [courseType, setCourseType] = useState<CourseType | ''>('')
+  const [modality,   setModality]   = useState<Modality | ''>('')
+
   // Al cambiar la unidad global, volver a la primera página.
   useEffect(() => { setPage(0) }, [unidad])
 
@@ -69,13 +79,15 @@ export default function Cursos() {
       q:             debounced || undefined,
       businessUnit:  effectiveBu,
       year,
+      courseType:    courseType || undefined,
+      modality:      modality   || undefined,
       page,
       size:          PAGE_SIZE,
       sort:          sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, effectiveBu, year, page, sort, reload])
+  }, [debounced, effectiveBu, year, courseType, modality, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -99,6 +111,8 @@ export default function Cursos() {
     setExporting(true)
     try {
       const res = await coursesApi.list({
+        courseType: courseType || undefined,
+        modality:   modality   || undefined,
         q:            debounced || undefined,
         businessUnit: effectiveBu,
         year,
@@ -109,7 +123,8 @@ export default function Cursos() {
         { label: 'Nombre',         value: c => c.name },
         { label: 'Código',         value: c => c.code ?? '' },
         { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
-        { label: 'Modalidad',      value: c => c.modality ?? '' },
+        { label: 'Tipo de curso',  value: c => c.courseType ? COURSE_TYPE_LABELS[c.courseType] : '' },
+      { label: 'Modalidad',      value: c => c.modality ? MODALITY_LABELS[c.modality] : '' },
         { label: 'Año / Comisión', value: c =>
             c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
               ? `Com ${c.commission}${c.academicYear != null ? '/' + c.academicYear : ''}`
@@ -166,7 +181,7 @@ export default function Cursos() {
           <Search size={16} strokeWidth={1.8} className="search__icon" />
           <input
             type="text"
-            placeholder="Buscar por nombre, código o modalidad…"
+            placeholder="Buscar por nombre o código…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="search__input"
@@ -190,6 +205,30 @@ export default function Cursos() {
             ))}
           </div>
         )}
+
+        <select
+          className="cursos__year-select"
+          value={courseType}
+          onChange={e => { setCourseType(e.target.value as CourseType | ''); setPage(0) }}
+          aria-label="Tipo de curso"
+        >
+          <option value="">Todos los tipos</option>
+          {COURSE_TYPES.map(t => (
+            <option key={t} value={t}>{COURSE_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
+
+        <select
+          className="cursos__year-select"
+          value={modality}
+          onChange={e => { setModality(e.target.value as Modality | ''); setPage(0) }}
+          aria-label="Modalidad"
+        >
+          <option value="">Todas las modalidades</option>
+          {MODALITIES.map(m => (
+            <option key={m} value={m}>{MODALITY_LABELS[m]}</option>
+          ))}
+        </select>
 
         <select
           className="cursos__year-select"
@@ -270,8 +309,11 @@ export default function Cursos() {
                     </div>
                   </td>
                   <td>
-                    {c.modality
-                      ? <span className="pill">{c.modality}</span>
+                    {c.courseType || c.modality
+                      ? <span className="stack">
+                          {c.courseType && <span className="pill">{COURSE_TYPE_LABELS[c.courseType]}</span>}
+                          {c.modality && <span className="pill pill--modalidad">{MODALITY_LABELS[c.modality]}</span>}
+                        </span>
                       : <span className="muted">—</span>}
                   </td>
                   <td>

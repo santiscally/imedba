@@ -1,140 +1,220 @@
 package com.imedba.modules.diplomasettlement.service;
 
 import com.imedba.modules.diploma.entity.Diploma;
-import com.imedba.modules.diploma.entity.PartnerConfig;
+import com.imedba.modules.diplomasettlement.entity.DirectorDistribution;
 import com.imedba.modules.diplomasettlement.entity.DiplomaSettlement;
-import com.imedba.modules.diplomasettlement.entity.PartnerDistribution;
+import com.imedba.modules.staff.entity.Staff;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Motor de liquidación mensual de diplomaturas.
+ * Motor de liquidación mensual de diplomaturas (PREMA).
  *
- * <p>Orden de aplicación (fijo, no configurable por ahora):
- * <ol>
- *   <li>Impuestos y comisiones: total × tax_commission_pct / 100</li>
- *   <li>Sueldo secretaria: monto fijo</li>
- *   <li>Publicidad: monto fijo</li>
- *   <li>remaining1 = total − impuestos − secretaria − publicidad</li>
- *   <li>Administración: remaining1 × admin_pct / 100</li>
- *   <li>Universidad: remaining1 × university_pct / 100</li>
- *   <li>IMEDBA: remaining1 × imedba_pct / 100</li>
- *   <li>Socias total: remaining1 − admin − universidad − imedba</li>
- *   <li>Reparto entre socias: socias_total × pct_socia / 100</li>
- * </ol>
+ * <p>Fuente: {@code liquidaciones-especificacion-20260724.docx} + reunión 2026-07-24
+ * (16:10-17:18). Ver {@code instrucciones_claude/17-correcciones-y-liquidaciones-20260724.md}
+ * §3.3.
  *
- * <p>A partir de la reunión 2026-05-22 (§2.5/2.6), los porcentajes y montos
- * se cargan por liquidación (no por diploma). Los campos {@code input*} ganan
- * sobre los defaults del Diploma; si están NULL se hace fallback al Diploma.
+ * <p><b>Fórmula</b>
+ * <pre>
+ *   BASE        = total cobrado del mes
+ *   impuestos   = BASE × pct_impuestos_y_gastos_bancarios      [%, PRIMER descuento]
+ *   SUBTOTAL_1  = BASE − impuestos                              («verde»)
+ *   SUBTOTAL_2  = SUBTOTAL_1 − SECRETARIA − PUBLICIDAD
+ *                            − ADMINISTRACION − GASTOS_VARIOS   («naranja», 4 montos FIJOS)
+ *   MITAD       = SUBTOTAL_2 / 2
  *
- * <p>Redondeo: HALF_UP a 2 decimales en cada paso. El remanente por error de
- * redondeo queda en partners_total (no se prorratea).
+ *   rama directoras:  base_dir      = MITAD − grabaciones_docentes
+ *                     por_directora = base_dir / n_directoras   (partes iguales)
+ *   rama empresa:     ganancia_imedba  = MITAD × 80%
+ *                     acumulado_untref = MITAD × 20%
+ * </pre>
+ *
+ * <p><b>Identidad de control</b> (cierra siempre, al centavo):
+ * <pre>
+ *   SUBTOTAL_2 = Σ por_directora + grabaciones + ganancia_imedba + acumulado_untref
+ * </pre>
+ *
+ * <p><b>Redondeo:</b> HALF_UP a 2 decimales. Los residuos de las dos divisiones
+ * (el /2 y el /n_directoras) los absorbe la última directora — si se prorratearan
+ * o se descartaran, la identidad de arriba dejaría de cerrar.
+ *
+ * <p><b>El acumulado de UNTREF no se paga mensualmente:</b> se acumula y se salda
+ * al cerrar la comisión (reunión 19:42). Acá sólo se calcula y se registra.
  */
 public final class SettlementEngine {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
+    private static final BigDecimal TWO = new BigDecimal("2");
+
+    /** Reparto por defecto de la mitad que no va a las directoras. */
+    public static final BigDecimal DEFAULT_IMEDBA_PCT = new BigDecimal("80");
+    public static final BigDecimal DEFAULT_UNTREF_PCT = new BigDecimal("20");
 
     private SettlementEngine() {}
 
-    /** Inputs explícitos por liquidación. Cualquier campo NULL hace fallback al Diploma. */
+    /**
+     * Inputs de la liquidación. Todos se cargan al liquidar, no en la diplomatura
+     * (decisión 2026-05-22 §2.6: «publicidad no es un porcentaje de nada, es lo que
+     * se gastó ese mes»).
+     *
+     * @param taxPct               impuestos y gastos bancarios, en % sobre lo cobrado
+     * @param secretaryAmount      sueldo secretaría — monto fijo
+     * @param advertisingAmount    publicidad — monto fijo
+     * @param administrationAmount administración de IMEDBA — monto fijo
+     * @param miscExpensesAmount   gastos varios — monto fijo
+     * @param recordingsAmount     grabaciones docentes — se descuenta SÓLO de la mitad
+     *                             de las directoras
+     * @param imedbaPct            % de la mitad no-directoras que queda como ganancia (default 80).
+     *                             <b>Es el que manda:</b> a UNTREF le toca el resto de esa mitad,
+     *                             calculado por resta, para que los dos sumen exacto.
+     * @param untrefPct            % de UNTREF (default 20). Se guarda para mostrarlo y auditar;
+     *                             el monto sale por resta. El form valida que los dos sumen 100.
+     */
     public record Inputs(
-            BigDecimal taxCommissionPct,
-            BigDecimal secretarySalary,
+            BigDecimal taxPct,
+            BigDecimal secretaryAmount,
             BigDecimal advertisingAmount,
-            BigDecimal adminPct,
-            BigDecimal universityPct,
-            BigDecimal imedbaPct) {
+            BigDecimal administrationAmount,
+            BigDecimal miscExpensesAmount,
+            BigDecimal recordingsAmount,
+            BigDecimal imedbaPct,
+            BigDecimal untrefPct) {
 
         public static Inputs empty() {
-            return new Inputs(null, null, null, null, null, null);
+            return new Inputs(null, null, null, null, null, null, null, null);
         }
 
-        public Inputs withDefaultsFrom(Diploma d) {
+        /** Los montos nulos valen 0; los porcentajes de reparto caen a 80/20. */
+        public Inputs resolved() {
             return new Inputs(
-                    taxCommissionPct  != null ? taxCommissionPct  : d.getTaxCommissionPct(),
-                    secretarySalary   != null ? secretarySalary   : d.getSecretarySalary(),
-                    advertisingAmount != null ? advertisingAmount : d.getAdvertisingAmount(),
-                    adminPct          != null ? adminPct          : d.getAdminPct(),
-                    universityPct     != null ? universityPct     : d.getUniversityPct(),
-                    imedbaPct         != null ? imedbaPct         : d.getImedbaPct());
+                    zeroIfNull(taxPct),
+                    zeroIfNull(secretaryAmount),
+                    zeroIfNull(advertisingAmount),
+                    zeroIfNull(administrationAmount),
+                    zeroIfNull(miscExpensesAmount),
+                    zeroIfNull(recordingsAmount),
+                    imedbaPct != null ? imedbaPct : DEFAULT_IMEDBA_PCT,
+                    untrefPct != null ? untrefPct : DEFAULT_UNTREF_PCT);
         }
     }
 
     public static DiplomaSettlement compute(
-            Diploma d, int year, int month, BigDecimal totalCollected, Inputs inputs) {
-        BigDecimal total = totalCollected == null ? BigDecimal.ZERO
-                : totalCollected.setScale(2, RoundingMode.HALF_UP);
+            Diploma diploma,
+            int year,
+            int month,
+            BigDecimal totalCollected,
+            List<Staff> directors,
+            Inputs inputs) {
 
-        Inputs resolved = (inputs == null ? Inputs.empty() : inputs).withDefaultsFrom(d);
+        BigDecimal base = money(totalCollected);
+        Inputs in = (inputs == null ? Inputs.empty() : inputs).resolved();
 
-        BigDecimal taxPct = safePct(resolved.taxCommissionPct());
-        BigDecimal secretary = safeAmount(resolved.secretarySalary());
-        BigDecimal advertising = safeAmount(resolved.advertisingAmount());
-        BigDecimal adminPct = safePct(resolved.adminPct());
-        BigDecimal universityPct = safePct(resolved.universityPct());
-        BigDecimal imedbaPct = safePct(resolved.imedbaPct());
+        // (1) Impuestos y gastos bancarios — primer descuento, sobre lo cobrado.
+        BigDecimal tax = pctOf(base, in.taxPct());
+        BigDecimal subtotal1 = base.subtract(tax);
 
-        BigDecimal tax = applyPct(total, taxPct);
-        BigDecimal remaining1 = total.subtract(tax).subtract(secretary).subtract(advertising);
-        if (remaining1.signum() < 0) remaining1 = BigDecimal.ZERO;
+        // (2) Gastos administrativos — cuatro MONTOS FIJOS, no porcentajes.
+        BigDecimal secretary      = money(in.secretaryAmount());
+        BigDecimal advertising    = money(in.advertisingAmount());
+        BigDecimal administration = money(in.administrationAmount());
+        BigDecimal misc           = money(in.miscExpensesAmount());
+        BigDecimal subtotal2 = subtotal1
+                .subtract(secretary).subtract(advertising)
+                .subtract(administration).subtract(misc);
 
-        BigDecimal admin = applyPct(remaining1, adminPct);
-        BigDecimal university = applyPct(remaining1, universityPct);
-        BigDecimal imedba = applyPct(remaining1, imedbaPct);
+        // (3) Split 50/50. Si el mes cerró en rojo no se inventa un reparto negativo.
+        if (subtotal2.signum() < 0) subtotal2 = BigDecimal.ZERO;
+        BigDecimal half = subtotal2.divide(TWO, 2, RoundingMode.HALF_UP);
 
-        BigDecimal partnersTotal = remaining1.subtract(admin).subtract(university).subtract(imedba);
-        if (partnersTotal.signum() < 0) partnersTotal = BigDecimal.ZERO;
+        // La OTRA mitad se calcula por resta, no dividiendo de nuevo. Con un subtotal
+        // impar en centavos (p.ej. 3.830.410,27) cada mitad da ...,135 y redondear las
+        // dos por separado las hace sumar un centavo MÁS que el subtotal. Por resta,
+        // las dos mitades suman siempre exacto.
+        BigDecimal companyHalf = subtotal2.subtract(half);
 
-        List<PartnerDistribution> dist = new ArrayList<>();
-        List<PartnerConfig> partners = d.getPartnersConfig();
-        if (partners != null) {
-            for (PartnerConfig p : partners) {
-                BigDecimal pct = p.pct() == null ? BigDecimal.ZERO : p.pct();
-                BigDecimal amount = applyPct(partnersTotal, pct);
-                dist.add(new PartnerDistribution(
-                        p.name(), pct, amount, p.email(), Boolean.FALSE));
-            }
-        }
+        // Rama directoras: la mitad menos las grabaciones, en partes iguales.
+        BigDecimal recordings = money(in.recordingsAmount());
+        if (recordings.compareTo(half) > 0) recordings = half;   // no puede dejarlas en negativo
+        BigDecimal directorsBase = half.subtract(recordings);
+
+        // Rama empresa: 80/20 sobre la OTRA mitad (no sobre el subtotal).
+        // UNTREF sale por resta para que IMEDBA + UNTREF dé exactamente esa mitad.
+        BigDecimal imedba = pctOf(companyHalf, in.imedbaPct());
+        BigDecimal untref = companyHalf.subtract(imedba);
+
+        List<DirectorDistribution> distribution = splitEqually(directorsBase, directors);
 
         return DiplomaSettlement.builder()
-                .diploma(d)
+                .diploma(diploma)
                 .periodMonth(month)
                 .periodYear(year)
-                .totalCollected(total)
-                .inputTaxCommissionPct(resolved.taxCommissionPct())
-                .inputSecretarySalary(resolved.secretarySalary())
-                .inputAdvertisingAmount(resolved.advertisingAmount())
-                .inputAdminPct(resolved.adminPct())
-                .inputUniversityPct(resolved.universityPct())
-                .inputImedbaPct(resolved.imedbaPct())
+                .totalCollected(base)
+                // inputs (se guardan para poder reproducir el cálculo)
+                .inputTaxCommissionPct(in.taxPct())
+                .inputSecretarySalary(in.secretaryAmount())
+                .inputAdvertisingAmount(in.advertisingAmount())
+                .inputAdministrationAmount(in.administrationAmount())
+                .inputMiscExpensesAmount(in.miscExpensesAmount())
+                .inputRecordingsAmount(in.recordingsAmount())
+                .inputImedbaPct(in.imedbaPct())
+                .inputUntrefPct(in.untrefPct())
+                // resultados, paso por paso
                 .taxCommissionAmount(tax)
+                .subtotal1(subtotal1)
                 .secretaryAmount(secretary)
                 .advertisingAmount(advertising)
-                .adminAmount(admin)
-                .universityAmount(university)
+                .administrationAmount(administration)
+                .miscExpensesAmount(misc)
+                .subtotal2(subtotal2)
+                .halfAmount(half)
+                .recordingsAmount(recordings)
+                .directorsBaseAmount(directorsBase)
                 .imedbaAmount(imedba)
-                .partnersTotal(partnersTotal)
-                .partnersDistribution(dist)
+                .untrefAmount(untref)
+                .directorsDistribution(distribution)
                 .build();
     }
 
-    /** Overload de compat sin inputs explícitos: usa los defaults del Diploma. */
-    public static DiplomaSettlement compute(Diploma d, int year, int month, BigDecimal totalCollected) {
-        return compute(d, year, month, totalCollected, Inputs.empty());
+    /**
+     * Reparte {@code total} en partes iguales. La <b>última</b> directora absorbe el
+     * residuo del redondeo: con 3 directoras y $100, sale 33,33 / 33,33 / 33,34 y la
+     * suma vuelve a dar exactamente $100.
+     */
+    private static List<DirectorDistribution> splitEqually(BigDecimal total, List<Staff> directors) {
+        List<DirectorDistribution> out = new ArrayList<>();
+        if (directors == null || directors.isEmpty()) {
+            return out;
+        }
+        int n = directors.size();
+        BigDecimal each = total.divide(new BigDecimal(n), 2, RoundingMode.DOWN);
+        BigDecimal assigned = each.multiply(new BigDecimal(n - 1));
+
+        for (int i = 0; i < n; i++) {
+            Staff d = directors.get(i);
+            BigDecimal amount = (i == n - 1) ? total.subtract(assigned) : each;
+            out.add(new DirectorDistribution(
+                    d.getId(),
+                    (d.getLastName() + ", " + d.getFirstName()).trim(),
+                    d.getFirstName(),
+                    d.getEmail(),
+                    amount,
+                    Boolean.FALSE));
+        }
+        return out;
     }
 
-    private static BigDecimal safePct(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO : v;
+    private static BigDecimal pctOf(BigDecimal base, BigDecimal pct) {
+        if (base == null || pct == null) return BigDecimal.ZERO;
+        return base.multiply(pct).divide(HUNDRED, 2, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal safeAmount(BigDecimal v) {
+    private static BigDecimal money(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal applyPct(BigDecimal base, BigDecimal pct) {
-        if (base == null || pct == null) return BigDecimal.ZERO;
-        return base.multiply(pct).divide(HUNDRED, 2, RoundingMode.HALF_UP);
+    private static BigDecimal zeroIfNull(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 }

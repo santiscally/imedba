@@ -2,6 +2,8 @@ package com.imedba.modules.course.repository;
 
 import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.course.entity.Course;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import java.util.Collection;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -33,6 +35,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
               AND (:country IS NULL OR c.country = :country)
               AND (:active IS NULL OR c.active = :active)
               AND (:year IS NULL OR c.academicYear = :year)
+              AND (:courseType IS NULL OR c.courseType = :courseType)
+              AND (:modality IS NULL OR c.modality = :modality)
               AND (:q = '' OR LOWER(c.name) LIKE CONCAT('%', :q, '%')
                            OR LOWER(COALESCE(c.code, '')) LIKE CONCAT('%', :q, '%'))
             """)
@@ -43,5 +47,7 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
             @Param("country") String country,
             @Param("active") Boolean active,
             @Param("year") Integer year,
+            @Param("courseType") CourseType courseType,
+            @Param("modality") Modality modality,
             Pageable pageable);
 }

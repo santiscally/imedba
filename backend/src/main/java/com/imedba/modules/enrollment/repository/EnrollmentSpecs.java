@@ -33,6 +33,19 @@ public final class EnrollmentSpecs {
     }
 
     /**
+     * Contratos firmados / sin firmar (pedido 2026-07-23: «necesitaríamos un espacio
+     * donde poder tildar los contratos firmados»). {@code null} no filtra.
+     */
+    public static Specification<Enrollment> byContractSigned(Boolean signed) {
+        return (root, q, cb) -> {
+            if (signed == null) return null;
+            return signed
+                    ? cb.isNotNull(root.get("contractSignedAt"))
+                    : cb.isNull(root.get("contractSignedAt"));
+        };
+    }
+
+    /**
      * Segmentación Residencias ↔ Formación Superior (Fase 9.a — reunión 2026-04-24).
      * Filtra inscripciones cuyo curso tenga {@code businessUnit} en {@code allowed}.
      * Si {@code allowed} contiene todos los valores del enum, devuelve null (no filtra).

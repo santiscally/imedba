@@ -1,5 +1,53 @@
 @use '../styles/variables' as *;
 
+// ─── Selector de tipo de liquidación (pedido 2026-07-24) ────────────────────
+// Antes esta pantalla obligaba a elegir una diplomatura primero. Ahora es una
+// entrada general: PREMA / comisiones de vendedora / horas docentes.
+.liquidaciones__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  border-bottom: 1px solid $gris-borde-sutil;
+}
+
+.kind-tab {
+  position: relative;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: $gris-texto;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: $transicion;
+
+  &:hover:not(:disabled) { color: $verde-petroleo; }
+
+  &--active {
+    color: $verde-petroleo;
+    border-bottom-color: $verde-petroleo;
+  }
+
+  &:disabled {
+    color: $gris-texto-sutil;
+    cursor: not-allowed;
+  }
+
+  &__soon {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: $ambar-bg;
+    color: $ambar;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+}
+
 .liquidaciones {
   display: flex;
   flex-direction: column;

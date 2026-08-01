@@ -5,6 +5,8 @@ import com.imedba.modules.course.dto.CourseCreateRequest;
 import com.imedba.modules.course.dto.CourseResponse;
 import com.imedba.modules.course.dto.CourseUpdateRequest;
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.modules.course.service.CourseService;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -39,8 +41,12 @@ public class CourseController {
             @RequestParam(required = false) String country,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Integer year,
+            /** Filtros de la taxonomía nueva (V038): permiten agrupar para análisis. */
+            @RequestParam(required = false) CourseType courseType,
+            @RequestParam(required = false) Modality modality,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return PageResponse.of(service.list(q, businessUnit, country, active, year, pageable));
+        return PageResponse.of(service.list(
+                q, businessUnit, country, active, year, courseType, modality, pageable));
     }
 
     @GetMapping("/{id}")

@@ -1,6 +1,7 @@
 package com.imedba.modules.collection.entity;
 
 import com.imedba.common.entity.BaseEntity;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.book.entity.Book;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,6 +47,11 @@ public class Collection extends BaseEntity {
 
     @Column(name = "name", nullable = false, length = 200)
     private String name;
+
+    /** Unidad en la que se ofrece (V036). NULL = disponible en todas. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "business_unit", length = 30)
+    private BusinessUnit businessUnit;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "variant", nullable = false, length = 20)

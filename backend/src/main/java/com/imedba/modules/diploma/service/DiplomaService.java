@@ -5,14 +5,15 @@ import com.imedba.common.error.NotFoundException;
 import com.imedba.modules.diploma.dto.DiplomaCreateRequest;
 import com.imedba.modules.diploma.dto.DiplomaResponse;
 import com.imedba.modules.diploma.dto.DiplomaUpdateRequest;
-import com.imedba.modules.diploma.dto.PartnerConfigDto;
 import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.mapper.DiplomaMapper;
 import com.imedba.modules.diploma.repository.DiplomaRepository;
 import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
-import java.math.BigDecimal;
+import com.imedba.modules.staff.entity.Staff;
+import com.imedba.modules.staff.entity.StaffType;
+import com.imedba.modules.staff.repository.StaffRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +29,7 @@ public class DiplomaService {
     private final DiplomaRepository repository;
     private final DiplomaMapper mapper;
     private final CourseRepository courseRepository;
+    private final StaffRepository staffRepository;
 
     @Transactional(readOnly = true)
     public List<DiplomaResponse> list(Boolean onlyActive) {
@@ -43,7 +45,6 @@ public class DiplomaService {
     }
 
     public DiplomaResponse create(DiplomaCreateRequest req) {
-        validatePartners(req.partnersConfig());
         Diploma d = Diploma.builder()
                 .name(req.name())
                 .universityName(req.universityName())
@@ -54,13 +55,7 @@ public class DiplomaService {
                 .description(req.description())
                 .enrollmentPrice(req.enrollmentPrice())
                 .coursePrice(req.coursePrice())
-                .taxCommissionPct(req.taxCommissionPct())
-                .secretarySalary(req.secretarySalary())
-                .advertisingAmount(req.advertisingAmount())
-                .adminPct(req.adminPct())
-                .universityPct(req.universityPct())
-                .imedbaPct(req.imedbaPct())
-                .partnersConfig(new ArrayList<>(mapper.fromDtoList(req.partnersConfig())))
+                .directors(new ArrayList<>(resolveDirectors(req.directorIds())))
                 .active(Boolean.TRUE)
                 .build();
         return mapper.toResponse(repository.save(d));
@@ -73,19 +68,37 @@ public class DiplomaService {
         if (req.description() != null) d.setDescription(req.description());
         if (req.enrollmentPrice() != null) d.setEnrollmentPrice(req.enrollmentPrice());
         if (req.coursePrice() != null) d.setCoursePrice(req.coursePrice());
-        if (req.taxCommissionPct() != null) d.setTaxCommissionPct(req.taxCommissionPct());
-        if (req.secretarySalary() != null) d.setSecretarySalary(req.secretarySalary());
-        if (req.advertisingAmount() != null) d.setAdvertisingAmount(req.advertisingAmount());
-        if (req.adminPct() != null) d.setAdminPct(req.adminPct());
-        if (req.universityPct() != null) d.setUniversityPct(req.universityPct());
-        if (req.imedbaPct() != null) d.setImedbaPct(req.imedbaPct());
-        if (req.partnersConfig() != null) {
-            validatePartners(req.partnersConfig());
-            d.setPartnersConfig(new ArrayList<>(mapper.fromDtoList(req.partnersConfig())));
+        // null = no tocar; lista (incluso vacía) = reemplaza el set completo.
+        if (req.directorIds() != null) {
+            d.getDirectors().clear();
+            d.getDirectors().addAll(resolveDirectors(req.directorIds()));
         }
         if (req.active() != null) d.setActive(req.active());
         syncCourse(d);
         return mapper.toResponse(d);
+    }
+
+    /**
+     * Resuelve las directoras contra Personal Académico.
+     *
+     * <p>Exige que sean {@code DIRECTORA}: si alguien carga por error a una docente,
+     * el error tiene que saltar acá y no aparecer como un reparto raro tres pasos
+     * después, en la liquidación.
+     */
+    private List<Staff> resolveDirectors(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        List<Staff> out = new ArrayList<>(ids.size());
+        for (UUID id : ids) {
+            Staff s = staffRepository.findById(id)
+                    .orElseThrow(() -> NotFoundException.of("Staff", id));
+            if (s.getStaffType() != StaffType.DIRECTORA) {
+                throw new ConflictException(
+                        s.getFirstName() + " " + s.getLastName() + " no está cargada como"
+                        + " directora en Personal Académico (rol actual: " + s.getStaffType() + ")");
+            }
+            out.add(s);
+        }
+        return out;
     }
 
     public void deactivate(UUID id) {
@@ -130,17 +143,6 @@ public class DiplomaService {
 
     private static String truncate(String s, int max) {
         return s != null && s.length() > max ? s.substring(0, max) : s;
-    }
-
-    private void validatePartners(List<PartnerConfigDto> partners) {
-        if (partners == null || partners.isEmpty()) return;
-        BigDecimal sum = partners.stream()
-                .map(p -> p.pct() == null ? BigDecimal.ZERO : p.pct())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (sum.compareTo(new BigDecimal("100.00")) > 0) {
-            throw new ConflictException(
-                    "La suma de los % de socias no puede exceder 100 (actual: " + sum + ")");
-        }
     }
 
     private Diploma find(UUID id) {

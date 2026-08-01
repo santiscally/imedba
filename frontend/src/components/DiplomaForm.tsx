@@ -1,11 +1,12 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { X, Save, GraduationCap, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { X, Save, GraduationCap, UserPlus } from 'lucide-react'
 import type {
   Diploma,
   DiplomaCreateRequest,
   DiplomaUpdateRequest,
-  PartnerConfig,
 } from '../types/diploma'
+import type { Staff } from '../types/staff'
+import { staffApi } from '../api/staff'
 import './StudentForm.scss'
 import './DiplomaForm.scss'
 
@@ -19,85 +20,68 @@ interface Props {
   onSubmit: (payload: Payload) => Promise<Diploma>
 }
 
-interface PartnerRow { name: string; pct: string; email: string }
-
-// Reunión 2026-05-22 §2.5: la diplomatura sólo tiene datos del "producto" + directoras.
-// Los costos fijos (comisión impuestos, sueldo secretaria, publicidad) y el reparto
-// institucional (admin/universidad/imedba %) se cargan POR LIQUIDACIÓN (SettlementForm),
-// no acá. El backend mantiene esas columnas (compat) — en edición se preservan.
+/**
+ * La diplomatura sólo tiene datos del «producto» + quiénes son las directoras.
+ *
+ * Los costos y porcentajes se cargan POR LIQUIDACIÓN (SettlementForm), y desde
+ * V035 <b>ya no se pide un «% de la directora»</b>: el cliente lo bajó el
+ * 2026-07-23 («eso habría que sacarlo y que sólo pida cuántas directoras y
+ * quiénes»). Se reparten en partes iguales.
+ */
 interface FormState {
-  name:               string
-  universityName:     string
-  description:        string
-  enrollmentPrice:    string
-  coursePrice:        string
-  partners:           PartnerRow[]
-}
-
-function partnerToRow(p: PartnerConfig): PartnerRow {
-  return { name: p.name, pct: String(p.pct), email: p.email ?? '' }
+  name:            string
+  universityName:  string
+  description:     string
+  enrollmentPrice: string
+  coursePrice:     string
+  directorIds:     string[]
 }
 
 function initialState(d?: Diploma): FormState {
   return {
-    name:              d?.name              ?? '',
-    universityName:    d?.universityName    ?? '',
-    description:       d?.description       ?? '',
-    enrollmentPrice:   d?.enrollmentPrice   != null ? String(d.enrollmentPrice)   : '',
-    coursePrice:       d?.coursePrice       != null ? String(d.coursePrice)       : '',
-    partners:          d?.partnersConfig?.map(partnerToRow) ?? [],
+    name:            d?.name            ?? '',
+    universityName:  d?.universityName  ?? '',
+    description:     d?.description     ?? '',
+    enrollmentPrice: d?.enrollmentPrice != null ? String(d.enrollmentPrice) : '',
+    coursePrice:     d?.coursePrice     != null ? String(d.coursePrice)     : '',
+    directorIds:     d?.directors?.map(x => x.id) ?? [],
   }
 }
 
-type FieldErrors = Partial<Record<keyof FormState, string>> & {
-  partners?:    string
-  partnerRow?:  Record<number, Partial<Record<keyof PartnerRow, string>>>
-}
+type FieldErrors = Partial<Record<keyof FormState, string>>
 
 export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
   const [state,       setState]       = useState<FormState>(initialState(initial))
   const [errors,      setErrors]      = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving,      setSaving]      = useState(false)
+  // Directoras disponibles: Personal Académico con rol DIRECTORA (V034/V035).
+  const [availableDirectors, setAvailableDirectors] = useState<Staff[] | null>(null)
 
+  useEffect(() => {
+    staffApi.listActiveByType('DIRECTORA')
+      .then(setAvailableDirectors)
+      .catch(() => setAvailableDirectors([]))
+  }, [])
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
-  function setPartner(idx: number, key: keyof PartnerRow, value: string) {
-    setState(prev => {
-      const next = [...prev.partners]
-      next[idx] = { ...next[idx], [key]: value }
-      return { ...prev, partners: next }
-    })
-    setErrors(prev => ({
+  function toggleDirector(id: string) {
+    setState(prev => ({
       ...prev,
-      partners: undefined,
-      partnerRow: { ...prev.partnerRow, [idx]: { ...prev.partnerRow?.[idx], [key]: undefined } },
+      directorIds: prev.directorIds.includes(id)
+        ? prev.directorIds.filter(x => x !== id)
+        : [...prev.directorIds, id],
     }))
   }
 
-  function addPartner() {
-    setState(prev => ({ ...prev, partners: [...prev.partners, { name: '', pct: '', email: '' }] }))
-  }
-
-  function removePartner(idx: number) {
-    setState(prev => ({ ...prev, partners: prev.partners.filter((_, i) => i !== idx) }))
-  }
-
-  // Suma de % de las directoras (no puede superar 100).
-  const sumPct = useMemo(
-    () => Math.round(state.partners.reduce((acc, x) => acc + (Number(x.pct) || 0), 0) * 100) / 100,
-    [state.partners])
-
-  const sumOver = sumPct > 100
-
   function validate(): boolean {
     const e: FieldErrors = {}
-    if (!state.name.trim())               e.name = 'Obligatorio'
-    if (state.name.length > 300)          e.name = 'Máx 300 caracteres'
+    if (!state.name.trim())                e.name = 'Obligatorio'
+    if (state.name.length > 300)           e.name = 'Máx 300 caracteres'
     if (state.universityName.length > 200) e.universityName = 'Máx 200 caracteres'
 
     function validateNumber(field: keyof FormState) {
@@ -107,20 +91,6 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     }
     validateNumber('enrollmentPrice')
     validateNumber('coursePrice')
-
-    const rowErrors: Record<number, Partial<Record<keyof PartnerRow, string>>> = {}
-    state.partners.forEach((p, i) => {
-      const re: Partial<Record<keyof PartnerRow, string>> = {}
-      if (!p.name.trim()) re.name = 'Obligatorio'
-      if (!p.pct)                          re.pct = 'Obligatorio'
-      else if (Number.isNaN(Number(p.pct))) re.pct = 'No es un número válido'
-      if (p.email && !/^\S+@\S+\.\S+$/.test(p.email)) re.email = 'Email inválido'
-      if (Object.keys(re).length) rowErrors[i] = re
-    })
-    if (Object.keys(rowErrors).length) e.partnerRow = rowErrors
-
-    // Guard de la suma de % de directoras: visible como hint en el header (sumPct),
-    // pero ya no bloquea el submit (pedido del usuario: solo validar "es un número").
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -132,26 +102,14 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     setSaving(true); setSubmitError(null)
 
     const payload: Payload = {
-      name:               state.name.trim(),
-      universityName:     state.universityName.trim() || null,
-      description:        state.description.trim()    || null,
-      enrollmentPrice:    state.enrollmentPrice   ? Number(state.enrollmentPrice)   : null,
-      coursePrice:        state.coursePrice       ? Number(state.coursePrice)       : null,
-      // Costos fijos + reparto institucional: no se editan acá (van por liquidación).
-      // En edición se preservan los valores actuales; en alta quedan null.
-      taxCommissionPct:   initial?.taxCommissionPct  ?? null,
-      secretarySalary:    initial?.secretarySalary   ?? null,
-      advertisingAmount:  initial?.advertisingAmount ?? null,
-      adminPct:           initial?.adminPct          ?? null,
-      universityPct:      initial?.universityPct     ?? null,
-      imedbaPct:          initial?.imedbaPct         ?? null,
-      partnersConfig:     state.partners.length === 0
-        ? null
-        : state.partners.map(p => ({
-            name:  p.name.trim(),
-            pct:   Number(p.pct),
-            email: p.email.trim() || null,
-          })),
+      name:            state.name.trim(),
+      universityName:  state.universityName.trim() || null,
+      description:     state.description.trim()    || null,
+      enrollmentPrice: state.enrollmentPrice ? Number(state.enrollmentPrice) : null,
+      coursePrice:     state.coursePrice     ? Number(state.coursePrice)     : null,
+      // Siempre se manda la lista (aunque esté vacía): en update, null significaría
+      // "no tocar" y no habría forma de sacar a todas las directoras.
+      directorIds:     state.directorIds,
     }
 
     try {
@@ -242,58 +200,43 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
             <div className="partners__header">
               <h4 className="form-section partners__title">
                 Directoras
-                <span className={`form-section__hint ${sumOver ? 'form-section__hint--err' : ''}`}>
-                  Total asignado: {sumPct}% / 100%
+                <span className="form-section__hint">
+                  {state.directorIds.length === 0
+                    ? 'Ninguna seleccionada'
+                    : `${state.directorIds.length} seleccionada${state.directorIds.length === 1 ? '' : 's'} — reparten en partes iguales`}
                 </span>
               </h4>
-              <button type="button" className="btn-ghost btn-ghost--sm" onClick={addPartner}>
-                <Plus size={14} /> Agregar directora
-              </button>
             </div>
-            {state.partners.length === 0 && (
-              <div className="partners__empty">No hay directoras configuradas para esta diplomatura.</div>
+
+            {availableDirectors === null && (
+              <div className="partners__empty">Cargando…</div>
             )}
-            {state.partners.map((p, i) => {
-              const rowErr = errors.partnerRow?.[i] ?? {}
-              return (
-                <div key={i} className="partners__row">
-                  <Field label="Nombre" required error={rowErr.name} className="partners__name">
+
+            {availableDirectors?.length === 0 && (
+              <div className="partners__empty">
+                No hay nadie cargado como <strong>Directora</strong> en Personal Académico.
+                Cargala primero desde Académico → Personal Académico y volvé acá.
+              </div>
+            )}
+
+            {availableDirectors && availableDirectors.length > 0 && (
+              <div className="director-picker">
+                {availableDirectors.map(d => (
+                  <label key={d.id} className="director-picker__item">
                     <input
-                      type="text"
-                      value={p.name}
-                      onChange={e => setPartner(i, 'name', e.target.value)}
-                      placeholder="Dra. Laura Méndez"
+                      type="checkbox"
+                      checked={state.directorIds.includes(d.id)}
+                      onChange={() => toggleDirector(d.id)}
                     />
-                  </Field>
-                  <Field label="Porcentaje (%)" required error={rowErr.pct} className="partners__pct">
-                    <input
-                      type="number" step="0.01"
-                      value={p.pct}
-                      onChange={e => setPartner(i, 'pct', e.target.value)}
-                      placeholder="20"
-                    />
-                  </Field>
-                  <Field label="Email" error={rowErr.email} className="partners__email">
-                    <input
-                      type="email"
-                      value={p.email}
-                      onChange={e => setPartner(i, 'email', e.target.value)}
-                      placeholder="laura@imedba.dev"
-                    />
-                  </Field>
-                  <button
-                    type="button"
-                    className="partners__remove"
-                    onClick={() => removePartner(i)}
-                    aria-label="Quitar directora"
-                    title="Quitar directora"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )
-            })}
-            {errors.partners && <div className="form__error">{errors.partners}</div>}
+                    <span className="director-picker__name">
+                      <UserPlus size={13} strokeWidth={1.8} />
+                      {d.lastName}, {d.firstName}
+                    </span>
+                    {d.email && <span className="director-picker__email">{d.email}</span>}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           <h4 className="form-section">Descripción</h4>

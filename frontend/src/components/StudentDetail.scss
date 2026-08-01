@@ -146,6 +146,15 @@
     margin: 0;
   }
 
+  // Acciones dentro de una sección (ej. descargar contrato / marcar firmado),
+  // a diferencia de __footer que son las del modal entero.
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
   &__footer {
     display: flex;
     justify-content: flex-end;
@@ -154,4 +163,16 @@
     border-top: 1px solid $gris-borde-sutil;
     margin-top: 0.5rem;
   }
+}
+
+// Nota aclaratoria al pie de una sección del detalle (ej. por qué el acumulado
+// de UNTREF no se paga este mes).
+.detail__note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: $gris-texto;
+  background: $fondo-app;
+  border-radius: $radio-md;
+  padding: 0.55rem 0.75rem;
+  margin: 0.6rem 0 0 0;
 }

@@ -98,6 +98,52 @@ public class KeycloakAdminClient {
         return out;
     }
 
+    /**
+     * Mapa {@code id → nombre visible} de todos los usuarios del realm, en <b>una</b>
+     * llamada.
+     *
+     * <p>Existe aparte de {@link #listUsers()} porque ese resuelve los roles de cada
+     * usuario con una llamada extra por cabeza (N+1 contra Keycloak) y acá sólo hace
+     * falta el nombre. Lo usa la liquidación de comisiones para mostrar «Vendedora
+     * Fulana» en vez del UUID crudo, sin exigir {@code admin:manage}.
+     *
+     * <p>Degrada a mapa vacío si la integración admin está apagada o Keycloak no
+     * responde: mostrar el UUID es peor que un nombre, pero mucho mejor que un 500.
+     */
+    public Map<String, String> displayNamesById() {
+        if (!isEnabled()) {
+            return Map.of();
+        }
+        try {
+            JsonNode arr = adminGet(adminToken(),
+                    "/admin/realms/{realm}/users?briefRepresentation=true&max=500",
+                    props.getRealm());
+            Map<String, String> out = new LinkedHashMap<>();
+            if (arr != null && arr.isArray()) {
+                for (JsonNode u : arr) {
+                    String id = text(u, "id");
+                    if (id != null && !id.isBlank()) {
+                        out.put(id, displayName(u));
+                    }
+                }
+            }
+            return out;
+        } catch (RuntimeException e) {
+            log.warn("No se pudieron resolver los nombres de usuario contra Keycloak: {}",
+                    e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private static String displayName(JsonNode u) {
+        String first = text(u, "firstName");
+        String last = text(u, "lastName");
+        String full = ((first == null ? "" : first) + " " + (last == null ? "" : last)).trim();
+        if (!full.isEmpty()) return full;
+        String username = text(u, "username");
+        return username != null ? username : text(u, "email");
+    }
+
     /** Crea el usuario (email = username), le setea password y le asigna el rol. Devuelve el id. */
     public String createUser(String email, String firstName, String lastName,
                              String password, String role, boolean temporary) {

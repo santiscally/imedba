@@ -1,5 +1,6 @@
 package com.imedba.modules.book.service;
 
+import com.imedba.common.error.BadRequestException;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.modules.author.entity.Author;
@@ -9,6 +10,7 @@ import com.imedba.modules.book.dto.BookCreateRequest;
 import com.imedba.modules.book.dto.BookResponse;
 import com.imedba.modules.book.dto.BookUpdateRequest;
 import com.imedba.modules.book.entity.Book;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.book.entity.BookAuthor;
 import com.imedba.modules.book.mapper.BookMapper;
 import com.imedba.modules.book.repository.BookAuthorRepository;
@@ -36,11 +38,12 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public Page<BookResponse> list(String q, String specialty, String branch, Boolean active,
-                                   Pageable pageable) {
+                                   BusinessUnit businessUnit, Pageable pageable) {
         Specification<Book> spec = Specification.where(BookSpecs.nameContains(q))
                 .and(BookSpecs.bySpecialty(specialty))
                 .and(BookSpecs.byBranch(branch))
-                .and(BookSpecs.isActive(active));
+                .and(BookSpecs.isActive(active))
+                .and(BookSpecs.availableIn(businessUnit));
         return bookRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
@@ -125,7 +128,7 @@ public class BookService {
      */
     public Book reserveStock(UUID bookId, int qty) {
         if (qty <= 0) {
-            throw new IllegalArgumentException("qty must be > 0");
+            throw new BadRequestException("La cantidad a descontar del stock debe ser mayor a 0");
         }
         Book b = find(bookId);
         Integer current = b.getStockQuantity() == null ? 0 : b.getStockQuantity();

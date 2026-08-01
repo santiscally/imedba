@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus,
   GraduationCap, ArrowUp, ArrowDown, ArrowUpDown,
-  University, CircleDollarSign, Percent, Users,
+  University, CircleDollarSign, Users,
   Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { diplomasApi } from '../api/diplomas'
@@ -89,7 +89,7 @@ export default function Diplomaturas() {
       { label: 'Curso vinculado', value: d => d.courseName ?? '' },
       { label: 'Precio matrícula', value: d => d.enrollmentPrice ?? '' },
       { label: 'Precio curso',     value: d => d.coursePrice ?? '' },
-      { label: 'Directoras',      value: d => d.partnersConfig?.length ?? 0 },
+      { label: 'Directoras',      value: d => d.directors?.length ?? 0 },
       { label: 'Descripción',     value: d => d.description ?? '' },
     ])
   }
@@ -125,7 +125,7 @@ export default function Diplomaturas() {
           <p className="diplomaturas__subtitle">
             {total > 0
               ? `${total} ${total === 1 ? 'diplomatura registrada' : 'diplomaturas registradas'}`
-              : 'Programas de formación superior con reparto de directoras'}
+              : 'Programas de formación superior — las directoras se cargan desde Personal Académico'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -200,7 +200,6 @@ export default function Diplomaturas() {
                   onClick={() => toggleSort('coursePrice')}
                   className="col-precio"
                 />
-                <th className="col-reparto">Reparto</th>
                 <SortableTh
                   label="Directoras"
                   field="partnersCount"
@@ -213,10 +212,6 @@ export default function Diplomaturas() {
             </thead>
             <tbody>
               {visible.map(d => {
-                const totalAssigned = Math.round(
-                  ((d.adminPct ?? 0) + (d.universityPct ?? 0) + (d.imedbaPct ?? 0)
-                    + (d.partnersConfig?.reduce((a, p) => a + p.pct, 0) ?? 0)) * 100,
-                ) / 100
                 return (
                   <tr key={d.id} className="diplomaturas-table__row">
                     <td>
@@ -247,16 +242,10 @@ export default function Diplomaturas() {
                         ? <span className="price"><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(d.coursePrice)}</span>
                         : <span className="muted">—</span>}
                     </td>
-                    <td className="col-reparto">
-                      <span className={`reparto ${totalAssigned > 100 ? 'reparto--err' : ''}`}>
-                        <Percent size={12} strokeWidth={1.8} />
-                        {totalAssigned}% asignado
-                      </span>
-                    </td>
                     <td className="col-socias">
                       <span className="cell-inline">
                         <Users size={13} strokeWidth={1.8} />
-                        {d.partnersConfig?.length ?? 0}
+                        {d.directors?.length ?? 0}
                       </span>
                     </td>
                     <td className="col-acciones">
@@ -363,7 +352,7 @@ function compare(a: Diploma, b: Diploma, field: SortField): number {
     case 'name':           return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
     case 'universityName': return strCompare(a.universityName, b.universityName)
     case 'coursePrice':    return numCompare(a.coursePrice,    b.coursePrice)
-    case 'partnersCount':  return (a.partnersConfig?.length ?? 0) - (b.partnersConfig?.length ?? 0)
+    case 'partnersCount':  return (a.directors?.length ?? 0) - (b.directors?.length ?? 0)
   }
 }
 
