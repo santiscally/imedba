@@ -172,7 +172,7 @@ export default function Liquidaciones() {
         <div className="liquidaciones__header-text">
           <h2 className="liquidaciones__title">
             <span className="liquidaciones__title-icon"><FileSpreadsheet size={22} strokeWidth={2} /></span>
-            Liquidaciones
+            Liquidaciones PREMA
           </h2>
           <p className="liquidaciones__subtitle">
             {kind === 'COMISIONES'

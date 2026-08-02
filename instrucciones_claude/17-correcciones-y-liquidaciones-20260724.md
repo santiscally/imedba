@@ -12,14 +12,14 @@
 | §3.1 Comisiones de vendedora | ✅ **Hecho, back + front.** 15 tests contra la planilla de junio. Dos bugs propios corregidos en autorevisión (§9.5). UI en §9.7. |
 | 5.1 Descarga de contrato | ✅ **Hecho, back + front.** Root cause: no existía el endpoint (§9.2). |
 | 5.2 Tildar contratos firmados + filtro | ✅ **Hecho, back + front** (§9.3, §9.7). |
-| §4 Personal Académico | ✅ **Hecho, back + front.** `V034` + CRUD + 5 tests (§9.6, §9.7). |
+| §4 Personal Académico | ✅ **Hecho, back + front.** `V037` + CRUD + 5 tests (§9.6, §9.7). |
 | 5.6 Entrada general de liquidaciones | ✅ **Hecho.** `/liquidaciones` ahora tiene selector de tipo (§9.7). |
-| §3.3 PREMA v2 + 5.5 (sacar % directora) | ✅ **Hecho, back + front.** `V035` + motor reescrito + 12 tests. Ver §9.8. |
-| 5.4 Libro PREMA condicional | ✅ **Hecho, back + front.** `V036` + filtro por unidad. Ver §9.9. |
-| Tutora → casilla (no rol) | ✅ **Hecho, back + front.** `V036`. Ver §9.9. |
-| §3.2 Docentes/preceptoras | ✅ **Hecho, back + front.** `V037` + grilla de clases + motor + 12 tests. Ver §9.10. |
-| 5.3 Tipos y modalidad de curso | ✅ **Hecho, back + front.** `V038` + filtros combinables. Ver §9.12. |
-| Plantillas de mail de pedido de factura | ✅ **Hecho.** `V039` + las 2 plantillas de Nico + 12 tests. Ver §9.13. |
+| §3.3 PREMA v2 + 5.5 (sacar % directora) | ✅ **Hecho, back + front.** `V038` + motor reescrito + 12 tests. Ver §9.8. |
+| 5.4 Libro PREMA condicional | ✅ **Hecho, back + front.** `V039` + filtro por unidad. Ver §9.9. |
+| Tutora → casilla (no rol) | ✅ **Hecho, back + front.** `V039`. Ver §9.9. |
+| §3.2 Docentes/preceptoras | ✅ **Hecho, back + front.** `V040` + grilla de clases + motor + 12 tests. Ver §9.10. |
+| 5.3 Tipos y modalidad de curso | ✅ **Hecho, back + front.** `V041` + filtros combinables. Ver §9.12. |
+| Plantillas de mail de pedido de factura | ✅ **Hecho.** `V042` + las 2 plantillas de Nico + 12 tests. Ver §9.13. |
 | Errores de cliente que salían como 500 | ✅ **Hecho.** `BadRequestException` + 404 para paths inexistentes (§9.14). |
 
 > **Actualización 2026-07-30.** Santi mandó las preguntas a Nico recortadas a 6, descartando *"todo lo que implicaba cosas ya cargadas, porque se carga de vuelta y listo"*. Eso **resuelve §7.4 y §7.5**: no hay que migrar liquidaciones viejas ni mapear los cursos MIX / Super Intensivo. Con eso PREMA v2 quedó desbloqueado y se hizo. **Más tarde ese mismo día Nico contestó todo y mandó la planilla completa** (había exportado una sola hoja): §7.1, §7.2, §7.7 y §7.10 resueltos → ver §3.2 y §9.9. **Ya no queda nada bloqueado.**
@@ -290,7 +290,7 @@ Es decir: el orden y las bases están mal desde el paso 3 en adelante. **Toda li
 #### Migración
 
 ```
-V033__diploma_settlement_v2.sql
+V038__diploma_settlement_v2.sql
   diplomas:
     − admin_pct, university_pct, imedba_pct, partners_config (JSONB con pct)
     + directors (FK M:N a academic_staff, o JSONB solo con ids/nombres — sin pct)
@@ -317,7 +317,7 @@ En la llamada Nico lo generaliza (23:06): *"quizás se puede poner como **person
 Es un CRUD sobre la tabla `staff` que **ya existe** (V013) — no se crea entidad nueva. Se extiende:
 
 ```
-V034__academic_staff.sql
+V037__academic_staff.sql
   staff:
     + dni            VARCHAR(20)
     + subject        VARCHAR(200)     -- materia/s que da
@@ -379,9 +379,9 @@ Orden pensado para que lo verificable salga primero y lo bloqueado no frene al r
 | Fase | Contenido | Depende de |
 |---|---|---|
 | **A** | 5.1 contrato (bug), 5.2 tildar firmados, 5.4 libro PREMA, 5.6 entrada general de liquidaciones | — |
-| **B** | §4 Personal Académico (V034 + CRUD + UI) | — |
+| **B** | §4 Personal Académico (V037 + CRUD + UI) | — |
 | **C** | §3.1 Comisiones vendedora: motor + tablas + tests contra la planilla de junio | B (vendedora sale de Keycloak, no de staff → en rigor no depende; se puede paralelizar con A) |
-| **D** | §3.3 PREMA v2: V033 + reescritura de `SettlementEngine` + tests con caso real | B (directoras), §7.4 |
+| **D** | §3.3 PREMA v2: V036 + reescritura de `SettlementEngine` + tests con caso real | B (directoras), §7.4 |
 | **E** | §3.2 Docentes/preceptoras: extensión de `hour_logs` + grilla + mail | B, **§7.1 bloqueante** |
 | **F** | 5.3 tipos y modalidad de curso + filtros | §7.5 |
 
@@ -441,7 +441,7 @@ Y una tercera: cuando decís "unidad de negocio", ¿te referís al **selector de
 
 ### 9.1 Comisiones de vendedora (§3.1) — completo en backend
 
-`V033__sales_commission.sql` + `modules/salescommission/`. Migración aplicada limpia sobre un Postgres 16 virgen corriendo V001→V033 en orden.
+`V036__sales_commission.sql` + `modules/salescommission/`. Migración aplicada limpia sobre un Postgres 16 virgen corriendo V001→V036 en orden.
 
 | Pieza | Archivo |
 |---|---|
@@ -508,7 +508,7 @@ Agregado `GET /api/v1/enrollments/{id}/contract` → `application/pdf` con `Cont
 
 ### 9.6 Personal Académico (§4) — completo en backend
 
-`V034__academic_staff.sql`. **No se creó entidad nueva**: se extendió la tabla `staff` de V013, que ya modelaba docentes / tutoras / preceptoras.
+`V037__academic_staff.sql`. **No se creó entidad nueva**: se extendió la tabla `staff` de V013, que ya modelaba docentes / tutoras / preceptoras.
 
 | Cambio | Detalle |
 |---|---|
@@ -563,7 +563,7 @@ Implementado con autorización explícita de Santi durante la licencia de Fran. 
 
 ### 9.8 PREMA v2 (§3.3 + 5.5) — completo, back + front
 
-`V035__diploma_settlement_v2.sql`. Es el arreglo del cálculo que estaba mal.
+`V038__diploma_settlement_v2.sql`. Es el arreglo del cálculo que estaba mal.
 
 **Cambio de modelo.** `diplomas` **dejó de tener costos y porcentajes** — se dropearon `tax_commission_pct`, `secretary_salary`, `advertising_amount`, `admin_pct`, `university_pct`, `imedba_pct` y `partners_config`. Todo eso se carga al liquidar. Lo único que queda en la diplomatura es **quiénes son las directoras**, vía la tabla nueva `diploma_directors` contra Personal Académico (staff con rol `DIRECTORA`).
 
@@ -590,7 +590,7 @@ Implementado con autorización explícita de Santi durante la licencia de Fran. 
 
 **Datos existentes:** las liquidaciones ya cargadas no se migran — se calcularon con la fórmula equivocada y sus importes no significan nada en el modelo nuevo. Quedan con los campos nuevos en 0 y hay que regenerarlas. Acordado con el cliente el 2026-07-30 (los datos se recargan de cero), que es lo que resolvió §7.4.
 
-### 9.9 Respuestas de Nico (2026-07-30) — `V036`
+### 9.9 Respuestas de Nico (2026-07-30) — `V039`
 
 Dos cambios de modelo que salieron de sus respuestas.
 
@@ -608,7 +608,7 @@ Dos cambios de modelo que salieron de sus respuestas.
 
 ### 9.10 Liquidación de horas docentes (§3.2) — completa, back + front
 
-`V037__class_sessions_teaching_settlement.sql` + `modules/teaching/` + dos pantallas.
+`V040__class_sessions_teaching_settlement.sql` + `modules/teaching/` + dos pantallas.
 
 **Tabla nueva, no `hour_logs`.** `hour_logs` es un agregado mensual (staff × actividad × mes) y la grilla real es **por clase**, con datos que ahí no existen: fecha, materia, comisión, sincrónica/asincrónica y —sobre todo— la preceptora, que **se asigna clase por clase y no coincide con la docente de esa fila**. `hour_logs` queda obsoleto; no se borró para no romper nada, pero ya no es el camino.
 
@@ -648,7 +648,7 @@ Las 4 que quedaban se respondieron, y dos de las respuestas **destapaban gaps de
 
 ### 9.12 Tipos de curso y modalidad (5.3) — completo, back + front
 
-`V038__course_type_and_modality.sql`.
+`V041__course_type_and_modality.sql`.
 
 **El problema real era peor de lo que decía el pedido.** `courses.modality` era `VARCHAR(50)` de texto libre y estaba cargando **tres conceptos distintos a la vez**:
 
@@ -672,11 +672,11 @@ Reválida y «banco de preguntas» **no** son tipo ni modalidad: son productos a
 
 **Se eliminó la cascada modalidad↔unidad** que existía desde junio (FS ofrecía las diplomaturas como «modalidad»). Tipo y modalidad son ejes propios y valen para cualquier unidad; sólo la comisión sigue siendo exclusiva de FS.
 
-**Migración de datos existentes:** se mapea únicamente lo que mapea sin ambigüedad —`TRADICIONAL→NORMAL`, `INTENSIVO→INTENSIVO`, y `LIBRE`/`VIVO` se preservan—. `SUPER_INTENSIVO`, `MIX_FEBRERO`, `PLUS` y los productos de FS quedan en NULL: no tienen equivalencia en la taxonomía nueva y el cliente confirmó que los cursos se recargan, así que no se inventa un mapeo que después haya que deshacer. **Verificado** simulando una base pre-V038 con los 6 valores viejos y corriendo la migración encima.
+**Migración de datos existentes:** se mapea únicamente lo que mapea sin ambigüedad —`TRADICIONAL→NORMAL`, `INTENSIVO→INTENSIVO`, y `LIBRE`/`VIVO` se preservan—. `SUPER_INTENSIVO`, `MIX_FEBRERO`, `PLUS` y los productos de FS quedan en NULL: no tienen equivalencia en la taxonomía nueva y el cliente confirmó que los cursos se recargan, así que no se inventa un mapeo que después haya que deshacer. **Verificado** simulando una base pre-V041 con los 6 valores viejos y corriendo la migración encima.
 
 **Filtros combinables** en `GET /api/v1/courses?courseType=&modality=` y en la UI, que es el motivo del pedido (*«poder filtrar dependiendo la necesidad y así poder agrupar para análisis»*). Probado contra el stack: `?courseType=NORMAL&modality=VIVO` devuelve exactamente «Córdoba vivo clásico», el ejemplo textual de Nico.
 
-### 9.13 Plantillas de pedido de factura (2026-07-31) — `V039`
+### 9.13 Plantillas de pedido de factura (2026-07-31) — `V042`
 
 Nico mandó los dos mails **tal como los escribe hoy a mano**. Quedaron cableados a las dos liquidaciones que los disparan, así que dejan de redactarse uno por uno.
 
@@ -691,7 +691,7 @@ Nico mandó los dos mails **tal como los escribe hoy a mano**. Quedaron cableado
 
 **El saludo va por nombre de pila.** El snapshot de la distribución guardaba `name` como `Alvarez, Iris` (formato de grilla) y el mail salía `Hola Alvarez, Iris`. Se agregó `firstName` al `DirectorDistribution` con `greetingName()`, que cae al nombre completo si el snapshot es viejo y no lo tiene. El DTO **no** expone el campo nuevo: los types del front no cambian.
 
-`V039` agrega `TEACHING_INVOICE_REQUEST` al CHECK de `notifications.type` y `TEACHING_SETTLEMENT` al de `related_entity_type` — tipo propio para que la dedup de `NotificationService` no lo confunda con otra notificación de la misma entidad. El de directoras reusa `SETTLEMENT_APPROVED` (V019): cambió el texto, no el evento. Si la persona no tiene email cargado, la liquidación **igual** avanza de estado y queda un warning en el log: no se bloquea una liquidación correcta por un dato de contacto faltante.
+`V042` agrega `TEACHING_INVOICE_REQUEST` al CHECK de `notifications.type` y `TEACHING_SETTLEMENT` al de `related_entity_type` — tipo propio para que la dedup de `NotificationService` no lo confunda con otra notificación de la misma entidad. El de directoras reusa `SETTLEMENT_APPROVED` (V019): cambió el texto, no el evento. Si la persona no tiene email cargado, la liquidación **igual** avanza de estado y queda un warning en el log: no se bloquea una liquidación correcta por un dato de contacto faltante.
 
 **Verificado end-to-end contra el stack**, reproduciendo el mail real de Ana: dos clases de mayo (2,5 h + 2 h) → liquidación de 4,5 h × $75.000 = **$337.500**, y la fila en `notifications` sale con el asunto exacto y el cuerpo con las dos líneas de clase. El de PREMA sale con `El importe a facturar es de $1.315.205,14.-` sobre la corrida de junio. Además 12 tests de plantilla (`InvoiceRequestTemplateTests`) que fijan asuntos, formato de números, datos de facturación, firma y escapado de HTML en el nombre.
 
@@ -720,6 +720,6 @@ Un test existente (`BookServiceTests.reserve_stock_non_positive_rejected`) fijab
 
 - **Unit tests: 118/118 verdes** (`./mvnw test`, excluyendo integración) — 15 del motor de comisiones, 19 del motor PREMA (5 contra la planilla real), 12 del motor de horas docentes, 12 de las plantillas de mail, 4 del filtro de notificaciones, 2 del handler de errores y 5 de Personal Académico.
 - `ImedbaApplicationTests` y los `*ApiIntegrationTests` no corren en este entorno: necesitan Testcontainers y Maven corre dentro de un contenedor sin socket Docker (limitación conocida, ya registrada en el DIARIO el 2026-04-20). **Los tests de integración del módulo nuevo quedan pendientes** de correrse con Java 21 en el host.
-- Migraciones validadas aplicando **V001→V039** en orden sobre un Postgres 16 limpio, más inserts de humo que confirman defaults (`0.005 / 0.010 / 0.005 / 30` en comisiones; `paid_by_hours=true` en staff), CHECKs, uniques (`(seller, year, month)` y `uk_staff_dni_active`) y el trigger `set_updated_at`.
+- Migraciones validadas aplicando **V001→V042** en orden sobre un Postgres 16 limpio, más inserts de humo que confirman defaults (`0.005 / 0.010 / 0.005 / 30` en comisiones; `paid_by_hours=true` en staff), CHECKs, uniques (`(seller, year, month)` y `uk_staff_dni_active`) y el trigger `set_updated_at`.
 - El host tiene Java 17 y el proyecto pide 21: correr con
   `MSYS_NO_PATHCONV=1 docker run --rm -v "/c/…/backend:/work" -v "/c/Users/<user>/.m2:/root/.m2" -w /work eclipse-temurin:21-jdk ./mvnw test`

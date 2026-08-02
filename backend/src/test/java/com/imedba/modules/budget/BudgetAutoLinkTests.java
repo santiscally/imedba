@@ -22,6 +22,7 @@ import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.payment.entity.Payment;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,7 +45,7 @@ class BudgetAutoLinkTests {
     @BeforeEach
     void setUp() {
         service = new BudgetService(repository, mapper, contactRepository, enrollmentRepository);
-        lenient().when(repository.save(any(BudgetEntry.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(repository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -61,9 +62,14 @@ class BudgetAutoLinkTests {
 
         service.linkFromPayment(p);
 
-        ArgumentCaptor<BudgetEntry> cap = ArgumentCaptor.forClass(BudgetEntry.class);
-        verify(repository).save(cap.capture());
-        BudgetEntry saved = cap.getValue();
+        // `saveAll` y no `save`: desde V033 un pago puede generar más de un asiento
+        // (curso+matrícula por un lado, libros por otro), que es lo que hizo falta
+        // para el índice único (payment_id, category). Sin libros sale uno solo.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<BudgetEntry>> cap = ArgumentCaptor.forClass(List.class);
+        verify(repository).saveAll(cap.capture());
+        assertThat(cap.getValue()).hasSize(1);
+        BudgetEntry saved = cap.getValue().get(0);
         assertThat(saved.getEntryType()).isEqualTo(EntryType.INCOME);
         assertThat(saved.getCategory()).isEqualTo(BudgetCategory.INCOME_ENROLLMENT);
         assertThat(saved.getAmount()).isEqualByComparingTo("1500.00");

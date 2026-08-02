@@ -1,5 +1,5 @@
 -- =============================================================================
--- V036 — Respuestas de Nico del 2026-07-30.
+-- V039 — Respuestas de Nico del 2026-07-30.
 --
 -- 1) TUTORA deja de ser un rol y pasa a ser una casilla.
 --    «Las tutoras son docentes que también hacen la parte de seguimiento […]
@@ -55,8 +55,16 @@ ALTER TABLE collections ADD CONSTRAINT ck_collections_business_unit CHECK (
     business_unit IS NULL OR business_unit IN (
         'RESIDENCIAS', 'FORMACION_SUPERIOR', 'EDITORIAL', 'GENERAL'));
 
--- Los 7 libros cargados por V029 son todos de Residencias (confirmado por Nico).
--- El de PREMA todavía no está cargado; va a entrar como FORMACION_SUPERIOR.
+-- Los libros cargados por V029 son todos de Residencias (confirmado por Nico), y las
+-- copias «(Anillada)» que genera V034 heredan esa unidad.
+--
+-- EXCEPCIÓN: el libro «PREMA» que siembra V035. Es de Formación Superior y viene
+-- incluido en la matrícula (`courses.includes_prema_book`). Si cayera en el backfill
+-- de abajo quedaría marcado RESIDENCIAS y volvería a aparecer en el selector de las
+-- inscripciones de Residencias — justo el bug que este cambio viene a arreglar.
+UPDATE books SET business_unit = 'FORMACION_SUPERIOR'
+ WHERE business_unit IS NULL AND name = 'PREMA' AND deleted_at IS NULL;
+
 UPDATE books       SET business_unit = 'RESIDENCIAS' WHERE business_unit IS NULL;
 UPDATE collections SET business_unit = 'RESIDENCIAS' WHERE business_unit IS NULL;
 

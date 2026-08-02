@@ -174,7 +174,15 @@ export default function Libros() {
                     <div className="ed-cell">
                       <div className="ed-cell__icon"><BookIcon size={20} strokeWidth={1.5} /></div>
                       <div>
-                        <div className="ed-cell__name">{b.name}</div>
+                        <div className="ed-cell__name">
+                          {b.name}
+                          {b.format && (
+                            <span className={`badge badge--${b.format === 'ANILLADO' ? 'suspendida' : 'activo'}`}
+                                  style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>
+                              {b.format === 'ANILLADO' ? 'Anillado' : 'Tradicional'}
+                            </span>
+                          )}
+                        </div>
                         {b.code && <div className="ed-cell__sub"><Tag size={12} strokeWidth={1.8} /> {b.code}</div>}
                       </div>
                     </div>

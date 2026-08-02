@@ -1,5 +1,5 @@
 -- =============================================================================
--- V034 — Personal Académico: extensión de `staff`.
+-- V037 — Personal Académico: extensión de `staff`.
 --
 -- Pedido escrito (`correcciones-imedba-20260723.docx`):
 --   "Incluir una pestaña que sea DOCENTES y ahí cargar los datos de cada docente

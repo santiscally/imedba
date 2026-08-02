@@ -47,7 +47,7 @@ export const COURSE_TYPE_LABELS: Record<CourseType, string> = {
   CHOICE:    'Choice',
 }
 
-/** Modalidad de cursado (V038): por su cuenta o con clases en vivo. */
+/** Modalidad de cursado (V041): por su cuenta o con clases en vivo. */
 export type Modality = 'LIBRE' | 'VIVO'
 
 export const MODALITIES: Modality[] = ['LIBRE', 'VIVO']
@@ -58,13 +58,25 @@ export const MODALITY_LABELS: Record<Modality, string> = {
 }
 
 /**
- * Antes de V038 `modality` era texto libre y mezclaba tres conceptos: la
+ * Label de modalidad para mostrar. Se conserva como función —y no sólo el
+ * Record— porque la usan CourseDetail, CourseForm y Cursos.
+ *
+ * Antes de V041 `modality` era texto libre y mezclaba tres conceptos: la
  * modalidad real, el tipo de curso (TRADICIONAL, SUPER_INTENSIVO, MIX_FEBRERO…)
  * y el producto de Formación Superior («Diplomatura Prematuros», «Curso PAF»).
  * Por eso no se podía agrupar por tipo ni por modalidad, que es justo lo que el
  * cliente pidió. Los productos de FS se identifican por el NOMBRE del curso;
  * Reválida y banco de preguntas, también.
+ *
+ * La migración dejó la columna en LIBRE | VIVO | NULL, así que los overrides que
+ * traducían los valores viejos ya no tienen a qué aplicarse. El fallback queda
+ * igual por si sobrevive alguna fila cargada a mano.
  */
+export function formatModality(m: string | null | undefined): string {
+  if (!m) return '—'
+  return MODALITY_LABELS[m as Modality] ?? m
+}
+
 
 // Refleja com.imedba.modules.course.dto.CourseResponse
 export interface Course {
@@ -82,6 +94,7 @@ export interface Course {
   commission:           number | null   // nro de comisión (solo Formación Superior)
   contractTemplatePath: string | null
   moodleCourseId:       number | null
+  includesPremaBook:    boolean | null   // V035: al inscribir alumno se auto-descuenta libro PREMA
   active:               boolean | null
   createdAt:            Instant
   updatedAt:            Instant
@@ -102,6 +115,7 @@ export interface CourseCreateRequest {
   commission?:           number | null            // nro de comisión (solo Formación Superior)
   contractTemplatePath?: string | null            // max 500
   moodleCourseId?:       number | null
+  includesPremaBook?:    boolean | null           // V035: auto-descuento libro PREMA al inscribir
   active?:               boolean
 }
 

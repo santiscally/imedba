@@ -1,5 +1,5 @@
 -- =============================================================================
--- V037 — Liquidación de horas docentes y preceptoras.
+-- V040 — Liquidación de horas docentes y preceptoras.
 --
 -- Modela la hoja «HS DOCENTE» de `liquidaciones-planilla-completa-20260730.xlsx`
 -- y la liquidación que sale de ella. Fórmulas confirmadas por Nico el 2026-07-30

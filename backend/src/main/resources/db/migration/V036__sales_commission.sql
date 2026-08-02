@@ -1,5 +1,5 @@
 -- =============================================================================
--- V033 — Liquidación de comisiones de vendedora.
+-- V036 — Liquidación de comisiones de vendedora.
 --
 -- Reunión 2026-07-24 + `liquidaciones-especificacion-20260724.docx`. Fórmula
 -- verificada contra `liquidacion-comisiones-junio2026.csv` (ver doc 17, §3.1):

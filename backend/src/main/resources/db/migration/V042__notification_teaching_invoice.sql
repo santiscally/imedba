@@ -1,5 +1,5 @@
 -- =============================================================================
--- V039 — Tipo de notificación para el pedido de factura por horas docentes.
+-- V042 — Tipo de notificación para el pedido de factura por horas docentes.
 --
 -- Nico mandó las dos plantillas el 2026-07-31:
 --   1) «Imedba - Honorarios docentes»            → a docentes y preceptoras, con el
@@ -30,4 +30,4 @@ ALTER TABLE notifications ADD CONSTRAINT ck_notifications_related_entity CHECK (
 );
 
 COMMENT ON COLUMN notifications.type IS
-    'Tipo funcional. TEACHING_INVOICE_REQUEST (V039) = pedido de factura por horas docentes o de preceptoría.';
+    'Tipo funcional. TEACHING_INVOICE_REQUEST (V042) = pedido de factura por horas docentes o de preceptoría.';

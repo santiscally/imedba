@@ -14,6 +14,7 @@ import type {
 import {
   ENTRY_TYPES, ENTRY_TYPE_LABELS,
   BUDGET_CATEGORIES, BUDGET_CATEGORY_LABELS,
+  INCOME_CATEGORIES, EXPENSE_CATEGORIES,
   BUDGET_BUSINESS_UNIT_LABELS,
 } from '../types/budget'
 import { PAYMENT_METHOD_LABELS } from '../types/enrollment'
@@ -258,6 +259,21 @@ export default function Presupuesto() {
   const totalPages = data?.totalPages ?? 0
   const periodLabel = periodRange(period, year, month).label
 
+  // El dropdown de categoría se acota al tipo elegido en los chips:
+  // Ingreso → solo INCOME_CATEGORIES · Egreso → solo EXPENSE_CATEGORIES · Todos → todas.
+  const availableCategories: BudgetCategory[] =
+    typeFilter === 'INCOME'  ? INCOME_CATEGORIES  :
+    typeFilter === 'EXPENSE' ? EXPENSE_CATEGORIES :
+    BUDGET_CATEGORIES
+
+  // Si el user cambia el tipo y la categoría actual queda huérfana, reseteo a "Todas".
+  useEffect(() => {
+    if (catFilter !== 'TODAS' && !availableCategories.includes(catFilter)) {
+      setCatFilter('TODAS')
+      setPage(0)
+    }
+  }, [typeFilter, catFilter, availableCategories])
+
   function changePeriod(next: Period) {
     setPeriod(next)
     setPage(0)
@@ -388,8 +404,12 @@ export default function Presupuesto() {
             value={catFilter}
             onChange={e => { setCatFilter(e.target.value as CategoryFilter); setPage(0) }}
           >
-            <option value="TODAS">Todas las categorías</option>
-            {BUDGET_CATEGORIES.map(c => (
+            <option value="TODAS">
+              {typeFilter === 'INCOME'  ? 'Todos los conceptos de ingreso' :
+               typeFilter === 'EXPENSE' ? 'Todos los conceptos de egreso'  :
+                                          'Todas las categorías'}
+            </option>
+            {availableCategories.map(c => (
               <option key={c} value={c}>{BUDGET_CATEGORY_LABELS[c]}</option>
             ))}
           </select>

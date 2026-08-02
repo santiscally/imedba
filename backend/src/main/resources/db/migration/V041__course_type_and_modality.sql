@@ -1,5 +1,5 @@
 -- =============================================================================
--- V038 — Separar «tipo de curso» de «modalidad» (correcciones 2026-07-23, 5.3).
+-- V041 — Separar «tipo de curso» de «modalidad» (correcciones 2026-07-23, 5.3).
 --
 -- Pedido de Nico:
 --   «Tenemos que reordenar la diferenciación de cursos. […] Nosotros tenemos 3
@@ -62,4 +62,4 @@ CREATE INDEX idx_courses_modality    ON courses (modality)    WHERE deleted_at I
 COMMENT ON COLUMN courses.course_type IS
     'NORMAL (anual clásico) | INTENSIVO | CHOICE. Preestablecido; NULL = sin especificar.';
 COMMENT ON COLUMN courses.modality IS
-    'LIBRE | VIVO. Antes de V038 era texto libre y mezclaba modalidad, tipo de curso y producto de FS.';
+    'LIBRE | VIVO. Antes de V041 era texto libre y mezclaba modalidad, tipo de curso y producto de FS.';

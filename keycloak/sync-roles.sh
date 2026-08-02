@@ -124,12 +124,17 @@ grant VIEWER \
 # en cada `up` para que login/logout funcionen detrás de cualquier proxy/túnel SIN editar
 # la consola a mano (`--import-realm` no re-importa un realm existente). Incluye:
 #   - localhost (dev)
-#   - https://*.trycloudflare.com/*  (quick tunnels de Cloudflare: hostname random cada vez)
+#   - https://*.trycloudflare.com/*  (ver OJO abajo: NO matchea, es solo placeholder)
 #   - https://$SERVER_NAME/*         (dominio público fijo, si está seteado y != localhost)
 #   - $FRONTEND_REDIRECT_URIS_EXTRA  (lista extra separada por coma)
 # webOrigins="+" y post.logout.redirect.uris="+" => heredan de redirectUris (no hay que
-# listar el logout aparte). OJO: el wildcard trycloudflare es cómodo para test/demo pero
-# NO es para prod real; con dominio fijo, sacalo y dejá solo https://$SERVER_NAME/*.
+# listar el logout aparte).
+# OJO IMPORTANTE: Keycloak NO soporta comodín en el HOST — "https://*.trycloudflare.com/*"
+# NO valida contra "https://loquesea.trycloudflare.com/" (el `*` solo funciona al final de
+# la URI, no en el subdominio). Consecuencia: con quick-tunnels (hostname random cada `up`)
+# el LOGOUT da 400 hasta que se lista la URL EXACTA. Por eso hay que setear la URL del túnel
+# actual en FRONTEND_REDIRECT_URIS_EXTRA (o SERVER_NAME) del .env. El login ROPC anda igual
+# sin esto (no usa redirect_uri). Para prod con dominio fijo: usar solo https://$SERVER_NAME/*.
 FRONTEND_CLIENT="imedba-frontend"
 FID=$("$KCADM" get clients -r "$REALM" -q clientId="$FRONTEND_CLIENT" \
         --fields id --format csv --noquotes 2>/dev/null | tr -d '\r\n')

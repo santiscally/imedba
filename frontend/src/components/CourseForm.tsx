@@ -32,10 +32,11 @@ interface FormState {
   courseType:      CourseType | ''
   modality:        Modality | ''
   country:         string
-  enrollmentPrice: string
-  coursePrice:     string
-  academicYear:    string
-  commission:      string
+  enrollmentPrice:   string
+  coursePrice:       string
+  academicYear:      string
+  commission:        string
+  includesPremaBook: boolean
 }
 
 function initialState(c?: Course): FormState {
@@ -51,6 +52,7 @@ function initialState(c?: Course): FormState {
     coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
     academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
     commission:      c?.commission      != null ? String(c.commission)      : '',
+    includesPremaBook: c?.includesPremaBook === true,
   }
 }
 
@@ -104,10 +106,11 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       courseType:      state.courseType || null,
       modality:        state.modality   || null,
       country:         state.country            || null,
-      enrollmentPrice: state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
-      coursePrice:     state.coursePrice        ? Number(state.coursePrice)     : null,
-      academicYear:    state.academicYear       ? Number(state.academicYear)    : null,
-      commission:      showCommission && state.commission ? Number(state.commission) : null,
+      enrollmentPrice:   state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
+      coursePrice:       state.coursePrice        ? Number(state.coursePrice)     : null,
+      academicYear:      state.academicYear       ? Number(state.academicYear)    : null,
+      commission:        showCommission && state.commission ? Number(state.commission) : null,
+      includesPremaBook: state.includesPremaBook,
     }
 
     try {
@@ -256,6 +259,22 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
                 onChange={e => setField('coursePrice', e.target.value)}
                 placeholder="1020000"
               />
+            </Field>
+
+            <Field label="Extras" fullWidth>
+              <label className="checkbox-row__opt" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  checked={state.includesPremaBook}
+                  onChange={e => setField('includesPremaBook', e.target.checked)}
+                />
+                <span>
+                  <strong>Incluye libro PREMA en la matrícula</strong>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+                    Al inscribir un alumno, se descuenta 1 ejemplar del stock automáticamente (sin cargo extra).
+                  </div>
+                </span>
+              </label>
             </Field>
 
           </div>

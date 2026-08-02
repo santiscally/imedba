@@ -4,7 +4,7 @@ import {
   Users, BookOpen, FileText,
   CreditCard, Tag, Wallet,
   Book, ShoppingBag, Library,
-  GraduationCap, Calculator,
+  GraduationCap, Calculator, Presentation,
   UserCog, CalendarDays,
   ChevronLeft, LogOut,
 } from 'lucide-react'
@@ -40,23 +40,23 @@ const NAV: NavGroup[] = [
   {
     title: 'Académico',
     items: [
-      { to: '/alumnos',            icon: Users,         label: 'Alumnos'       },
-      { to: '/cursos',             icon: BookOpen,      label: 'Cursos'        },
-      { to: '/inscripciones',      icon: FileText,      label: 'Inscripciones' },
+      { to: '/alumnos',            icon: Users,          label: 'Alumnos'       },
+      { to: '/cursos',             icon: BookOpen,       label: 'Cursos'        },
+      { to: '/inscripciones',      icon: FileText,       label: 'Inscripciones' },
+      { to: '/diplomaturas',       icon: GraduationCap,  label: 'Diplomaturas'  },
       // Docentes/tutoras/preceptoras/directoras. OJO: distinto de /personal,
       // que son los usuarios de Keycloak (abajo, "Usuarios").
-      { to: '/personal-academico', icon: GraduationCap, label: 'Personal Académico' },
-      { to: '/clases',             icon: CalendarDays,  label: 'Clases'             },
+      { to: '/personal-academico', icon: Presentation,   label: 'Personal Académico' },
+      { to: '/clases',             icon: CalendarDays,   label: 'Clases'             },
     ],
   },
   {
     title: 'Finanzas',
     items: [
-      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos' },
-      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'     },
-      { to: '/diplomaturas',  icon: GraduationCap, label: 'Diplomaturas'   },
-      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones'  },
-      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'    },
+      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos'    },
+      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'        },
+      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones'      },
+      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'       },
     ],
   },
   {

@@ -19,6 +19,10 @@ import com.imedba.modules.enrollment.entity.PaymentGroup;
 import com.imedba.modules.enrollment.mapper.EnrollmentMapper;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.enrollment.repository.EnrollmentSpecs;
+import com.imedba.modules.book.entity.Book;
+import com.imedba.modules.book.repository.BookRepository;
+import com.imedba.modules.booksale.entity.BookSale;
+import com.imedba.modules.booksale.repository.BookSaleRepository;
 import com.imedba.modules.installment.entity.Installment;
 import com.imedba.modules.installment.entity.InstallmentStatus;
 import com.imedba.modules.installment.repository.InstallmentRepository;
@@ -68,7 +72,12 @@ public class EnrollmentService {
     private final DiscountCampaignRepository discountCampaignRepository;
     private final NotificationService notificationService;
     private final ContractPdfRenderer contractPdfRenderer;
+    private final BookRepository bookRepository;
+    private final BookSaleRepository bookSaleRepository;
     private final EnrollmentMapper mapper;
+
+    /** Nombre del libro que se auto-agrega en cursos con includes_prema_book (V035). */
+    private static final String PREMA_BOOK_NAME = "PREMA";
 
     @Transactional(readOnly = true)
     public Page<EnrollmentResponse> list(
@@ -135,6 +144,9 @@ public class EnrollmentService {
         BigDecimal finalPrice = computeFinalPrice(listPrice, discount);
         BigDecimal totalPrice = finalPrice.add(bookPrice);
 
+        InstallmentDistribution mode = req.distributionMode() != null
+                ? req.distributionMode() : InstallmentDistribution.SEPARATE;
+
         Enrollment e = Enrollment.builder()
                 .student(student)
                 .course(course)
@@ -149,20 +161,55 @@ public class EnrollmentService {
                 .enrollmentFee(req.enrollmentFee())
                 .numInstallments(req.numInstallments() != null ? req.numInstallments() : 1)
                 .paymentGroup(req.paymentGroup() != null ? req.paymentGroup() : PaymentGroup.GROUP_1)
+                .distributionMode(mode)
                 .contractFilePath(req.contractFilePath())
                 .status(EnrollmentStatus.ACTIVE)
                 .notes(req.notes())
                 .build();
 
         Enrollment saved = repository.save(e);
-        InstallmentDistribution mode = req.distributionMode() != null
-                ? req.distributionMode() : InstallmentDistribution.SEPARATE;
         List<Installment> schedule = InstallmentGenerator.generate(saved, mode);
         if (!schedule.isEmpty()) {
             installmentRepository.saveAll(schedule);
         }
+        autoRegisterPremaBook(saved);
         enqueueEnrollmentNotifications(saved);
         return mapper.toResponse(saved);
+    }
+
+    /**
+     * Docx Jaque 2026-07-20 §Editorial: si el curso tiene includes_prema_book en true,
+     * se genera automáticamente una BookSale del libro PREMA (qty=1, unitPrice=0,
+     * studentSale=true) para descontar del stock. Si el libro no está en el catálogo
+     * (V035 aún no corrió, o se lo eliminó) → log y sigo, no bloqueo el alta.
+     */
+    private void autoRegisterPremaBook(Enrollment enrollment) {
+        Course c = enrollment.getCourse();
+        if (c == null || !Boolean.TRUE.equals(c.getIncludesPremaBook())) return;
+
+        Optional<Book> premaOpt = bookRepository.findFirstByNameAndActiveTrue(PREMA_BOOK_NAME);
+        if (premaOpt.isEmpty()) {
+            log.warn("Curso {} tiene includes_prema_book=true pero no existe el libro '{}' — se omite auto-descuento",
+                    c.getId(), PREMA_BOOK_NAME);
+            return;
+        }
+        Book prema = premaOpt.get();
+        BookSale sale = BookSale.builder()
+                .book(prema)
+                .student(enrollment.getStudent())
+                .enrollment(enrollment)
+                .quantity(1)
+                .unitPrice(BigDecimal.ZERO)
+                .studentSale(Boolean.TRUE)
+                .totalAmount(BigDecimal.ZERO)
+                .saleDate(Instant.now())
+                .soldBy(AuthUtils.currentUserId().orElse(null))
+                .notes("Auto-descuento por inscripción a curso PREMA")
+                .build();
+        bookSaleRepository.save(sale);
+        // Descontar stock (append-only, sin ir por BookSaleService.register que valida stock >0)
+        Integer stock = prema.getStockQuantity() != null ? prema.getStockQuantity() : 0;
+        prema.setStockQuantity(stock - 1);
     }
 
     private void enqueueEnrollmentNotifications(Enrollment saved) {
@@ -236,8 +283,28 @@ public class EnrollmentService {
 
     public EnrollmentResponse update(UUID id, EnrollmentUpdateRequest req) {
         Enrollment e = findVisible(id);
+
+        // Snapshot pre-mapping — si alguno de los campos que definen el cronograma
+        // cambia, hay que regenerar las cuotas PENDING/OVERDUE (Jaque, docx 07-2026).
+        BigDecimal   prevListPrice     = e.getListPrice();
+        BigDecimal   prevDiscount      = e.getDiscountPercentage();
+        BigDecimal   prevBookPrice     = e.getBookPrice();
+        BigDecimal   prevEnrollmentFee = e.getEnrollmentFee();
+        Integer      prevNumInst       = e.getNumInstallments();
+
         mapper.updateEntity(req, e);
         recalculatePrices(e);
+
+        boolean scheduleChanged =
+                !Objects.equals(prevListPrice,     e.getListPrice())
+             || !Objects.equals(prevDiscount,      e.getDiscountPercentage())
+             || !Objects.equals(prevBookPrice,     e.getBookPrice())
+             || !Objects.equals(prevEnrollmentFee, e.getEnrollmentFee())
+             || !Objects.equals(prevNumInst,       e.getNumInstallments());
+        if (scheduleChanged) {
+            regenerateInstallments(e);
+        }
+
         return mapper.toResponse(e);
     }
 
@@ -258,6 +325,89 @@ public class EnrollmentService {
             e.setContractSignedAt(null);
         }
         return mapper.toResponse(e);
+    }
+
+    /**
+     * Regenera el cronograma de cuotas al editar una inscripción existente.
+     * Preserva las cuotas ya pagadas (PAID) y las canceladas (CANCELLED) — el
+     * cambio de cronograma sólo afecta el saldo pendiente.
+     *
+     * Reglas:
+     *  - Si hay cuotas PAID, se conservan y se descuenta lo ya pagado del monto total.
+     *    Las cuotas PENDING/OVERDUE se eliminan y se regeneran para cubrir el remanente.
+     *  - Si no hay PAID, se borran todas las cuotas (excepto CANCELLED por historial)
+     *    y se regenera desde cero.
+     *  - Numeración: la nueva secuencia arranca en (mayor number existente + 1) para
+     *    no reciclar IDs de negocio.
+     */
+    private void regenerateInstallments(Enrollment e) {
+        List<Installment> current = installmentRepository.findByEnrollmentIdOrderByNumberAsc(e.getId());
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        int maxKeptNumber = 0;
+        List<Installment> toDelete = new java.util.ArrayList<>();
+        for (Installment i : current) {
+            if (i.getStatus() == InstallmentStatus.PAID) {
+                paidAmount = paidAmount.add(i.getAmount() != null ? i.getAmount() : BigDecimal.ZERO);
+                if (i.getNumber() != null && i.getNumber() > maxKeptNumber) {
+                    maxKeptNumber = i.getNumber();
+                }
+            } else if (i.getStatus() == InstallmentStatus.CANCELLED) {
+                if (i.getNumber() != null && i.getNumber() > maxKeptNumber) {
+                    maxKeptNumber = i.getNumber();
+                }
+            } else {
+                toDelete.add(i);
+            }
+        }
+
+        // Al regenerar el cronograma post-cambio, si algún pago ya se aplicó (matrícula
+        // paga, primera cuota paga) hay que descontar ese monto del nuevo total y
+        // dividir el remanente entre las cuotas restantes. Ajusto una copia efímera de
+        // la inscripción para no modificar los campos persistidos.
+        BigDecimal remainingTotal = nullToZero(e.getTotalPrice()).subtract(paidAmount);
+        if (remainingTotal.signum() < 0) remainingTotal = BigDecimal.ZERO;
+
+        int remainingInst = Math.max(1,
+                (e.getNumInstallments() != null ? e.getNumInstallments() : 1) - countPaidNonZero(current));
+        if (remainingTotal.signum() == 0 || remainingInst == 0) {
+            if (!toDelete.isEmpty()) installmentRepository.deleteAll(toDelete);
+            return;
+        }
+
+        // Recompute cronograma usando un enrollment "efectivo" con los remanentes.
+        Enrollment ghost = Enrollment.builder()
+                .student(e.getStudent())
+                .course(e.getCourse())
+                .enrollmentDate(e.getEnrollmentDate())
+                .listPrice(remainingTotal)
+                .discountPercentage(BigDecimal.ZERO)
+                .finalPrice(remainingTotal)
+                .bookPrice(BigDecimal.ZERO)
+                .totalPrice(remainingTotal)
+                .enrollmentFee(BigDecimal.ZERO)
+                .numInstallments(remainingInst)
+                .paymentGroup(e.getPaymentGroup())
+                .build();
+        List<Installment> fresh = InstallmentGenerator.generate(ghost, InstallmentDistribution.TOTAL);
+
+        // Renumerar desde maxKeptNumber+1 para no colisionar con las que preservamos.
+        int nextNumber = maxKeptNumber + 1;
+        for (Installment ni : fresh) {
+            ni.setEnrollment(e);
+            ni.setNumber(nextNumber++);
+        }
+
+        if (!toDelete.isEmpty()) installmentRepository.deleteAll(toDelete);
+        if (!fresh.isEmpty())    installmentRepository.saveAll(fresh);
+    }
+
+    private static int countPaidNonZero(List<Installment> installments) {
+        int n = 0;
+        for (Installment i : installments) {
+            if (i.getStatus() == InstallmentStatus.PAID
+                    && i.getNumber() != null && i.getNumber() > 0) n++;
+        }
+        return n;
     }
 
     public EnrollmentResponse suspend(UUID id) {

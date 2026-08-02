@@ -6,6 +6,7 @@ import {
   CheckCircle2, Circle, FileDown,
 } from 'lucide-react'
 import { enrollmentsApi } from '../api/enrollments'
+import { ApiError } from '../api/client'
 import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import type { PageResponse } from '../types/common'
 import type {
@@ -158,8 +159,13 @@ export default function Inscripciones() {
     try {
       await enrollmentsApi.downloadContract(en.id, en.student.lastName)
     } catch (err) {
+      // El 404 tiene causa conocida y accionable, así que se explica en vez de
+      // mostrar el «HTTP 404» crudo (redacción de Fran, del feature de mail).
+      const notFound = err instanceof ApiError && err.status === 404
       alertError('No se pudo generar el contrato',
-        err instanceof Error ? err.message : undefined)
+        notFound
+          ? 'El contrato aún no fue generado. Se genera al enviar el mail de bienvenida.'
+          : err instanceof Error ? err.message : undefined)
     } finally { setBusyContract(null) }
   }
 

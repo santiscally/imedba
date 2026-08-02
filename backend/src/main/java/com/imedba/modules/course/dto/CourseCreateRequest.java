@@ -27,5 +27,6 @@ public record CourseCreateRequest(
         @Positive Integer commission,
         @Size(max = 500) String contractTemplatePath,
         Integer moodleCourseId,
+        Boolean includesPremaBook,
         Boolean active
 ) {}

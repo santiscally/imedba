@@ -1,5 +1,5 @@
 -- =============================================================================
--- V035 — Liquidación de diplomatura (PREMA): fórmula correcta.
+-- V038 — Liquidación de diplomatura (PREMA): fórmula correcta.
 --
 -- El motor anterior NO coincidía con cómo IMEDBA liquida realmente. Fuente:
 -- `liquidaciones-especificacion-20260724.docx` + reunión 2026-07-24 (16:10-17:18).
@@ -31,7 +31,7 @@
 --     (decisión 2026-05-22 §2.6, reconfirmada el 2026-07-23: "al crear la
 --     diplomatura pide el % de la directora, eso habría que sacarlo").
 --   - Las directoras salen de Personal Académico (`staff` con staff_type
---     DIRECTORA, V034) vía la tabla nueva `diploma_directors`.
+--     DIRECTORA, V037) vía la tabla nueva `diploma_directors`.
 --
 -- NOTA SOBRE DATOS EXISTENTES: las liquidaciones ya cargadas se calcularon con
 -- la fórmula equivocada, así que sus importes no significan nada bajo el modelo

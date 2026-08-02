@@ -103,6 +103,17 @@ public class Enrollment extends BaseEntity {
     @Column(name = "payment_group", nullable = false, length = 20)
     private PaymentGroup paymentGroup = PaymentGroup.GROUP_1;
 
+    /**
+     * Cómo se distribuyen los ítems del enrollment en el cronograma de cuotas.
+     * Se persiste (V033) para que el auto-link a Presupuesto pueda separar el
+     * pago en asientos por concepto (docx Jaque 2026-07-20 §Presupuesto).
+     * Default SEPARATE (matrícula aparte, curso a cuotas, libros a book_sales).
+     */
+    @Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "distribution_mode", nullable = false, length = 20)
+    private InstallmentDistribution distributionMode = InstallmentDistribution.SEPARATE;
+
     @Column(name = "moodle_status", length = 20)
     private String moodleStatus;
 

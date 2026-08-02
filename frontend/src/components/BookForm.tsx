@@ -150,8 +150,8 @@ export default function BookForm({ mode, initial, onClose, onSaved, onSubmit }: 
             <Field label="Formato" error={errors.format}>
               <select value={state.format} onChange={e => setField('format', e.target.value)}>
                 <option value="">—</option>
-                <option value="Impreso">Impreso</option>
-                <option value="Digital">Digital</option>
+                <option value="TRADICIONAL">Tradicional</option>
+                <option value="ANILLADO">Anillado</option>
               </select>
             </Field>
             <Field label="Edición" error={errors.edition}>
