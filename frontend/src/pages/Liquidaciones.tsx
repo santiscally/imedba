@@ -11,6 +11,7 @@ import type { DiplomaSettlement, SettlementStatus } from '../types/diploma-settl
 import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
 import EmptyState from '../components/EmptyState'
 import SettlementForm from '../components/SettlementForm'
+import NewSettlementDialog from '../components/NewSettlementDialog'
 import SettlementDetail from '../components/SettlementDetail'
 import SalesCommissionPanel from '../components/SalesCommissionPanel'
 import TeachingSettlementPanel from '../components/TeachingSettlementPanel'
@@ -27,7 +28,8 @@ type StatusFilter = SettlementStatus | 'TODAS'
 
 type PanelState =
   | { kind: 'closed' }
-  | { kind: 'create' }
+  | { kind: 'choose' }
+  | { kind: 'create'; diploma: Diploma }
   | { kind: 'detail'; settlement: DiplomaSettlement }
 
 const MONTHS = [
@@ -172,37 +174,36 @@ export default function Liquidaciones() {
         <div className="liquidaciones__header-text">
           <h2 className="liquidaciones__title">
             <span className="liquidaciones__title-icon"><FileSpreadsheet size={22} strokeWidth={2} /></span>
-            Liquidaciones PREMA
+            Liquidaciones
           </h2>
           <p className="liquidaciones__subtitle">
             {kind === 'COMISIONES'
-              ? 'Comisión de la vendedora sobre lo cobrado en el mes'
-              : selectedDiploma
-                ? (total > 0
-                    ? `${total} ${total === 1 ? 'liquidación' : 'liquidaciones'} de ${selectedDiploma.name}`
-                    : `Sin liquidaciones para ${selectedDiploma.name}`)
-                : 'Liquidaciones mensuales por diplomatura — reparto entre directoras, universidad e IMEDBA'}
+              ? 'Comisión de la vendedora sobre lo cobrado en el mes — cursos y libros'
+              : kind === 'HORAS'
+                ? 'Docentes y preceptoras, según las clases cargadas en el mes'
+                : selectedDiploma
+                  ? (total > 0
+                      ? `${total} ${total === 1 ? 'liquidación' : 'liquidaciones'} de ${selectedDiploma.name}`
+                      : `Sin liquidaciones para ${selectedDiploma.name}`)
+                  : 'Reparto mensual entre directoras, universidad e IMEDBA'}
           </p>
         </div>
-        {kind === 'DIPLOMATURA' && (
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {kind === 'DIPLOMATURA' && (
             <button className="btn-ghost" type="button" onClick={handleExport}
               disabled={!visible.length || !selectedDiploma}>
               <Download size={16} strokeWidth={2} /> Exportar
             </button>
-            {canWrite('/liquidaciones') && (
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={() => setPanel({ kind: 'create' })}
-                disabled={!selectedDiploma}
-                title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
-              >
-                <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
-              </button>
-            )}
-          </div>
-        )}
+          )}
+          {canWrite('/liquidaciones') && (
+            // Un solo punto de entrada para las tres. El tipo se elige DENTRO del
+            // diálogo y el formulario cambia — ya no hace falta preseleccionar
+            // una diplomatura en la pantalla (llamada 2026-07-24, 24:38).
+            <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'choose' })}>
+              <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="liquidaciones__kinds" role="tablist" aria-label="Tipo de liquidación">
@@ -406,9 +407,27 @@ export default function Liquidaciones() {
       </div>
       )}
 
-      {panel.kind === 'create' && selectedDiploma && (
+      {panel.kind === 'choose' && (
+        <NewSettlementDialog
+          diplomas={diplomas}
+          onClose={() => setPanel({ kind: 'closed' })}
+          onPickDiploma={d => {
+            // Al elegir la diplomatura acá también se sincroniza el listado de
+            // abajo, así el resultado queda a la vista al guardar.
+            setSelectedDiplomaId(d.id)
+            setKind('DIPLOMATURA')
+            setPanel({ kind: 'create', diploma: d })
+          }}
+          onCreated={k => {
+            setKind(k === 'HORAS' ? 'HORAS' : 'COMISIONES')
+            setPanel({ kind: 'closed' })
+            setReload(r => r + 1)
+          }}
+        />
+      )}
+      {panel.kind === 'create' && (
         <SettlementForm
-          diploma={selectedDiploma}
+          diploma={panel.diploma}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload) => diplomaSettlementsApi.create(payload)}
