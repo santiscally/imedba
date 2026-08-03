@@ -29,6 +29,24 @@
 
 ## Entradas
 
+## 2026-08-03 — Santi — backend/frontend (comprobante PDF por liquidación + rework de la pantalla + 2 bugs)
+
+**Qué:** (1) comprobante en PDF de cada liquidación, (2) la pantalla de Liquidaciones pasó a ser general con un solo alta que cambia de formulario según el tipo, (3) dos bugs encontrados cargando datos de prueba.
+
+**PDF (§9.15).** `GET /{diploma-settlements|teaching/settlements|sales-commissions}/{id}/pdf`, **sólo en estado PAGADA** (409 con el estado actual en cualquier otro). No recalcula: lee los importes congelados al liquidar. **Un solo template** (`SettlementDoc` + `SettlementDocs` con los tres mapeos) en vez de tres HTML casi iguales; renderiza con openhtmltopdf, el mismo motor del contrato, sin dependencia nueva. **⚠️ Bug de XHTML que sólo se ve corriendo:** usé `&middot;` y el render explotó — openhtmltopdf parsea XHTML estricto, que declara **sólo** las 5 entidades de XML; cualquier otra con nombre lo rompe entero. Va la numérica `&#183;`, con un control de que no queden otras.
+
+**⚠️ BUG 1 — los tokens no traían el claim `sub`.** Desde Keycloak 24 el `sub` lo emite el client scope `basic`, y nuestro realm JSON declara su propia lista de `clientScopes` que **reemplaza** las built-in → `basic` nunca se creaba. `AuthUtils.currentUserId()` devolvía vacío y **todo lo que depende de quién hizo la acción quedaba NULL**: `enrollments.enrolled_by` (la liquidación de comisiones no encontraba vendedoras y el filtro «la vendedora ve sólo lo suyo» no filtraba), `budget_entries.registered_by`, los `created_by`. Agregado el mapper `sub` al client en el realm JSON **y** en `sync-roles.sh` (idempotente, verificado).
+
+**⚠️ BUG 2 — `POST /courses` daba 500** si no venía `includesPremaBook`. La columna es NOT NULL, la entidad tiene `@Default`, pero **MapStruct lo pisa**: genera `.includesPremaBook(null)` sobre el builder y el default de Lombok no se aplica. `active` tenía el mismo problema latente. Resuelto con `defaultValue` en el mapper. **Lección: `@Builder.Default` no protege de un mapper que pasa el null explícito.**
+
+**Pantalla de Liquidaciones.** El `<h1>` seguía diciendo «Liquidaciones PREMA» (leftover del merge: había arreglado menú y topbar). Y «Nueva liquidación» existía **sólo** para PREMA y estaba bloqueado hasta elegir una diplomatura — justo lo que se marcó como innecesario en la llamada del 24-jul (24:38). Ahora hay un `NewSettlementDialog` con las tres opciones y el formulario cambia según cuál se elija, con preview de los números antes de confirmar; para PREMA la diplomatura es un campo del flujo, no un requisito de la pantalla. **Los paneles arrancaban en el mes anterior y por eso se veían vacíos**: ahora retroceden hasta el último mes con datos (máx. 6).
+
+**Datos de prueba:** ene→jul 2026 cargados para las tres liquidaciones vía API (189 alumnos, 187 inscripciones, 255 pagos, 43 clases). Mayo y junio cruzan el umbral de 30 ventas para ver los dos tramos. **Ojo:** los alumnos de PREMA los cargué con el usuario admin, así que admin aparece como vendedora en la lista junto a la vendedora real — es el comportamiento correcto (quien registra la inscripción cobra la comisión), pero sorprende.
+
+**Verificación:** 118/118 unit tests · `tsc`+`build` limpios · los tres PDF verificados end-to-end (PREMA reproduce la planilla de junio: cobrado $8.369.134, subtotal 1 $6.268.481,37, UNTREF $383.041,03, cada directora $657.602,57; horas de Ana 4 clases/8,5 h/$637.500 con el detalle clase por clase).
+
+**Refs:** `common/pdf/{SettlementDoc,SettlementDocs,SettlementPdfRenderer,PdfFile,SettlementPdfException}.java`; los 3 controllers + services (`renderPdf`); `keycloak/{sync-roles.sh,realms/imedba-realm.json}` (mapper `sub`); `course/mapper/CourseMapper.java`; front `components/NewSettlementDialog.{tsx,scss}`, `pages/Liquidaciones.tsx`, `components/{SettlementDetail,SalesCommissionPanel,TeachingSettlementPanel}.tsx`, `api/{diploma-settlements,teaching,sales-commissions}.ts`; doc 17 §9.15.
+
 ## 2026-08-01 — Santi — merge (traer `origin/main`: colisión de Flyway + dos soluciones al mismo pedido)
 
 **Qué:** al pushear lo de jul-2026 apareció que `origin/main` estaba 4 commits adelante (3 míos del 20-jul desde el server de demo + uno de Fran que toca backend y frontend). El merge trajo 10 archivos en conflicto, pero **el problema serio no era textual y ningún merge lo iba a marcar**.

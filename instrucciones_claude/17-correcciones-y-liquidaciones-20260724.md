@@ -21,6 +21,7 @@
 | 5.3 Tipos y modalidad de curso | ✅ **Hecho, back + front.** `V041` + filtros combinables. Ver §9.12. |
 | Plantillas de mail de pedido de factura | ✅ **Hecho.** `V042` + las 2 plantillas de Nico + 12 tests. Ver §9.13. |
 | Errores de cliente que salían como 500 | ✅ **Hecho.** `BadRequestException` + 404 para paths inexistentes (§9.14). |
+| Comprobante PDF por liquidación | ✅ **Hecho, back + front.** Sólo en estado PAGADA (§9.15). |
 
 > **Actualización 2026-07-30.** Santi mandó las preguntas a Nico recortadas a 6, descartando *"todo lo que implicaba cosas ya cargadas, porque se carga de vuelta y listo"*. Eso **resuelve §7.4 y §7.5**: no hay que migrar liquidaciones viejas ni mapear los cursos MIX / Super Intensivo. Con eso PREMA v2 quedó desbloqueado y se hizo. **Más tarde ese mismo día Nico contestó todo y mandó la planilla completa** (había exportado una sola hoja): §7.1, §7.2, §7.7 y §7.10 resueltos → ver §3.2 y §9.9. **Ya no queda nada bloqueado.**
 
@@ -715,6 +716,26 @@ Salió del barrido final de endpoints, no de un pedido: **tres llamadas devolví
 **Por qué no se mapea `IllegalArgumentException` en bloque:** la tiran también los `valueOf` de enums y los parsers internos. Un 400 con el mensaje crudo de esos casos filtraría detalle interno. Se agregó `BadRequestException` siguiendo el patrón que el repo ya tenía con `NotFoundException`/`ConflictException`, y su handler.
 
 Un test existente (`BookServiceTests.reserve_stock_non_positive_rejected`) fijaba el tipo viejo, o sea **fijaba el bug**: actualizado para exigir 400. Más `GlobalExceptionHandlerTests` con los dos mapeos nuevos.
+
+### 9.15 Comprobante en PDF por liquidación (2026-08-03)
+
+Pedido: *«que se genere un PDF por cada liquidación con la info, cuando ya se pagó»*.
+
+`GET /diploma-settlements/{id}/pdf` · `GET /teaching/settlements/{id}/pdf` · `GET /sales-commissions/{id}/pdf`.
+
+**Sólo si está PAGADA.** Es el respaldo de un pago hecho, no un borrador: en cualquier otro estado devuelve 409 con el estado actual en el mensaje. El comprobante **no recalcula nada** — lee los importes congelados en la entidad al momento de liquidar, así que reimprimirlo un año después da lo mismo aunque hayan cambiado las tarifas o las directoras.
+
+**Un solo template para los tres.** `SettlementDoc` es el modelo de vista (título, sujeto, período, metadatos, tabla de detalle, cálculo paso a paso, total, nota al pie) y `SettlementDocs` tiene los tres mapeos. La alternativa —tres HTML casi iguales— se desincroniza sola. Renderiza `SettlementPdfRenderer` con openhtmltopdf, el mismo motor del contrato de matrícula, así que no entró ninguna dependencia nueva.
+
+Cada uno muestra su detalle: PREMA lista las directoras con su importe y el cálculo completo (impuestos → 4 gastos fijos → split 50/50 → grabaciones → IMEDBA/UNTREF); horas docentes lista clase por clase con las horas; comisiones lista cada operación con su orden en el mes, la tasa aplicada, lo cobrado y la comisión.
+
+**Un bug de XHTML que sólo se ve corriendo:** usé `&middot;` como separador y el render explotó con *«The entity "middot" was referenced, but not declared»* — openhtmltopdf parsea XHTML estricto, que declara **sólo** `&amp; &lt; &gt; &quot; &apos;`. Cualquier otra entidad con nombre lo rompe entero. Reemplazado por la numérica `&#183;`, y hay un control que verifica que no queden entidades con nombre fuera de esas cinco. Todo el texto variable pasa por `esc()` por lo mismo: un apellido con `&` tiraba el PDF abajo.
+
+Nombre del archivo: `liquidacion-<tipo>-<sujeto>-<AAAA-MM>.pdf`, con el sujeto normalizado a ASCII (`PdfFile.slug`) — un `Content-Disposition` con «Álvarez» obliga a codificar según RFC 6266 y hay clientes que lo muestran mal.
+
+**Front:** botón «Descargar comprobante» en el detalle de PREMA y «Comprobante» en la fila de las otras dos, visibles sólo en estado PAGADA. Usa `apiGetFile`/`saveFile`, igual que el contrato — el endpoint exige Bearer, un `<a href>` da 401.
+
+**Verificado end-to-end:** 409 en DRAFT con el mensaje correcto; en PAGADA baja un PDF real que reproduce la planilla de junio (cobrado `$8.369.134,00`, subtotal 1 `$6.268.481,37`, UNTREF `$383.041,03`, cada directora `$657.602,57`).
 
 ### 9.4 Verificación
 
