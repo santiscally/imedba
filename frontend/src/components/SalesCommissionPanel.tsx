@@ -314,7 +314,10 @@ export default function SalesCommissionPanel() {
                       </td>
                       <td className="col-rate">{formatRate(l.rateApplied)}</td>
                       <td className="col-precio">{formatPrice(l.collectedAmount)}</td>
-                      <td className="col-precio price">{formatPrice(l.commissionAmount)}</td>
+                      {/* `.price` es inline-flex: va en un span ADENTRO de la celda.
+                          Puesto en el <td> lo saca del layout de tabla y su borde
+                          inferior deja de alinear con el de las otras columnas. */}
+                      <td className="col-precio"><span className="price">{formatPrice(l.commissionAmount)}</span></td>
                     </tr>
                   ))}
                 </tbody>
