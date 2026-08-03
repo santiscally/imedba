@@ -33,6 +33,9 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.imedba.common.pdf.PdfFile;
+import com.imedba.common.pdf.SettlementDocs;
+import com.imedba.common.pdf.SettlementPdfRenderer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,6 +66,7 @@ public class TeachingSettlementService {
     private final ActivityTypeRepository activityTypeRepository;
     private final TeachingMapper mapper;
     private final NotificationService notificationService;
+    private final SettlementPdfRenderer pdfRenderer;
 
     // ─── Comandos ────────────────────────────────────────────────────────────
 
@@ -370,5 +374,23 @@ public class TeachingSettlementService {
     private TeachingSettlement find(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("TeachingSettlement", id));
+    }
+
+    /**
+     * Comprobante en PDF de la liquidación (pedido 2026-08-03). Sólo cuando está
+     * <b>pagada</b>: es el respaldo de un pago hecho, no un borrador. No recalcula
+     * nada — muestra los importes congelados al liquidar.
+     */
+    public PdfFile renderPdf(UUID id) {
+        var s = find(id);
+        if (s.getStatus() != TeachingSettlementStatus.PAID) {
+            throw new ConflictException(
+                    "El comprobante se genera cuando la liquidación está pagada (actual: "
+                    + s.getStatus() + ")");
+        }
+        String who = PdfFile.slug(s.getStaffName());
+        String name = "liquidacion-horas-" + who + "-"
+                + s.getPeriodYear() + "-" + String.format("%02d", s.getPeriodMonth()) + ".pdf";
+        return new PdfFile(name, pdfRenderer.render(SettlementDocs.ofTeaching(s)));
     }
 }

@@ -4,7 +4,7 @@ import type {
   SalesCommissionCreateRequest,
   SalesCommissionSummary,
 } from '../types/sales-commission'
-import { apiGet, apiPost, apiPut } from './client'
+import { apiGet, apiPost, apiPut, apiGetFile, saveFile } from './client'
 
 // Comisiones de vendedora — refleja SalesCommissionController
 // (/api/v1/sales-commissions). Authorities: sales_commissions:read / :write.
@@ -67,5 +67,16 @@ export const salesCommissionsApi = {
   },
   markPaid(id: string): Promise<SalesCommission> {
     return apiPut<SalesCommission, undefined>(`/sales-commissions/${id}/mark-paid`, undefined)
+  },
+
+  /**
+   * Comprobante de la liquidación. El backend sólo lo emite si está PAGADA
+   * (409 si no), y manda el nombre en el Content-Disposition — el fallback de
+   * acá es por si un proxy lo recorta.
+   */
+  async downloadPdf(id: string, label?: string): Promise<void> {
+    const file = await apiGetFile(`/sales-commissions/${id}/pdf`)
+    const slug = (label ?? 'comisiones').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    saveFile(file, `liquidacion-comisiones-${slug || 'comisiones'}.pdf`)
   },
 }

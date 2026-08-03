@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Calculator, RefreshCw, BadgeCheck, CircleDollarSign, Save,
-  Download, Info, User,
-} from 'lucide-react'
+import { BadgeCheck, Calculator, CircleDollarSign, Download, Info, RefreshCw, Save, User } from 'lucide-react'
 import { salesCommissionsApi } from '../api/sales-commissions'
 import type {
   CommissionSeller, SalesCommission, SalesCommissionSummary,
@@ -131,6 +128,14 @@ export default function SalesCommissionPanel() {
       setReload(r => r + 1)
     } catch (err) {
       alertError('No se pudo completar', err instanceof Error ? err.message : undefined)
+    }
+  }
+
+  async function handlePdf(id: string) {
+    try {
+      await salesCommissionsApi.downloadPdf(id, preview?.sellerName ?? undefined)
+    } catch (err) {
+      alertError('No se pudo generar el comprobante', err instanceof Error ? err.message : undefined)
     }
   }
 
@@ -267,6 +272,12 @@ export default function SalesCommissionPanel() {
                     <button className="btn-primary" type="button"
                       onClick={() => handleAction(alreadySettled.id, 'mark-paid')}>
                       <CircleDollarSign size={15} /> Marcar pagada
+                    </button>
+                  )}
+                  {alreadySettled.status === 'PAID' && (
+                    <button className="btn-ghost" type="button"
+                      onClick={() => handlePdf(alreadySettled.id)}>
+                      <Download size={15} /> Comprobante
                     </button>
                   )}
                 </div>

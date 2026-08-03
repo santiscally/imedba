@@ -12,6 +12,7 @@ import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.service.DiplomaService;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementCreateRequest;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementResponse;
+import com.imedba.common.pdf.SettlementPdfRenderer;
 import com.imedba.modules.diplomasettlement.entity.DiplomaSettlement;
 import com.imedba.modules.diplomasettlement.entity.SettlementStatus;
 import com.imedba.modules.diplomasettlement.mapper.DiplomaSettlementMapper;
@@ -46,7 +47,8 @@ class DiplomaSettlementServiceTests {
     @BeforeEach
     void setUp() {
         service = new DiplomaSettlementService(repository, mapper, diplomaService,
-                notificationService, paymentRepository, budgetEntryRepository);
+                notificationService, paymentRepository, budgetEntryRepository,
+                new SettlementPdfRenderer());
         lenient().when(repository.save(any(DiplomaSettlement.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(mapper.toResponse(any(DiplomaSettlement.class)))

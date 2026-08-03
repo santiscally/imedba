@@ -9,7 +9,7 @@ import type {
   TeachingSettlementCreateRequest,
   TeachingSettlementSummary,
 } from '../types/teaching'
-import { apiGet, apiPost, apiPut, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiDelete, apiGetFile, saveFile } from './client'
 
 // Grilla de clases + liquidación docente — refleja TeachingController
 // (/api/v1/teaching). Authorities: hour_logs:* para la grilla, settlements:* para
@@ -113,5 +113,16 @@ export const teachingApi = {
   },
   markPaid(id: string): Promise<TeachingSettlement> {
     return apiPut<TeachingSettlement, undefined>(`/teaching/settlements/${id}/mark-paid`, undefined)
+  },
+
+  /**
+   * Comprobante de la liquidación. El backend sólo lo emite si está PAGADA
+   * (409 si no), y manda el nombre en el Content-Disposition — el fallback de
+   * acá es por si un proxy lo recorta.
+   */
+  async downloadPdf(id: string, label?: string): Promise<void> {
+    const file = await apiGetFile(`/teaching/settlements/${id}/pdf`)
+    const slug = (label ?? 'horas').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    saveFile(file, `liquidacion-horas-${slug || 'horas'}.pdf`)
   },
 }

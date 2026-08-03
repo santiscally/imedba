@@ -1,11 +1,10 @@
-import {
-  X, FileSpreadsheet, Calendar, Hash, GraduationCap,
-  CircleDollarSign, Percent, Building2, University, Users,
-  Mail, Check, RefreshCw, BadgeCheck,
-} from 'lucide-react'
+import { useState } from 'react'
+import { BadgeCheck, Building2, Calendar, Check, CircleDollarSign, Download, FileSpreadsheet, GraduationCap, Hash, Mail, Percent, RefreshCw, University, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { DiplomaSettlement } from '../types/diploma-settlement'
 import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
+import { diplomaSettlementsApi } from '../api/diploma-settlements'
+import { alertError } from '../lib/confirm'
 import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 import './SettlementDetail.scss'
@@ -36,6 +35,16 @@ export default function SettlementDetail({
   const isDraft    = settlement.status === 'DRAFT'
   const isApproved = settlement.status === 'APPROVED'
   const isPaid     = settlement.status === 'PAID'
+  const [downloading, setDownloading] = useState(false)
+
+  async function handlePdf() {
+    setDownloading(true)
+    try {
+      await diplomaSettlementsApi.downloadPdf(settlement.id, settlement.diplomaName ?? undefined)
+    } catch (err) {
+      alertError('No se pudo generar el comprobante', err instanceof Error ? err.message : undefined)
+    } finally { setDownloading(false) }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -199,9 +208,15 @@ export default function SettlementDetail({
             </button>
           )}
           {isPaid && (
-            <span className="detail__locked">
-              <Check size={14} strokeWidth={2.2} /> Liquidación cerrada
-            </span>
+            <>
+              {/* El comprobante sólo existe una vez pagada — es el respaldo del pago. */}
+              <button type="button" className="btn-ghost" onClick={handlePdf} disabled={downloading}>
+                <Download size={15} /> {downloading ? 'Generando…' : 'Descargar comprobante'}
+              </button>
+              <span className="detail__locked">
+                <Check size={14} strokeWidth={2.2} /> Liquidación cerrada
+              </span>
+            </>
           )}
         </footer>
       </div>

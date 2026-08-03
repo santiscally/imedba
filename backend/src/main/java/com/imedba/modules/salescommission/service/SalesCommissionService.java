@@ -32,6 +32,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.imedba.common.pdf.PdfFile;
+import com.imedba.common.pdf.SettlementDocs;
+import com.imedba.common.pdf.SettlementPdfRenderer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,7 @@ public class SalesCommissionService {
     private final CommissionSourceRepository sourceRepository;
     private final SalesCommissionMapper mapper;
     private final KeycloakAdminClient keycloakAdminClient;
+    private final SettlementPdfRenderer pdfRenderer;
 
     // ─── Comandos ────────────────────────────────────────────────────────────
 
@@ -312,5 +316,23 @@ public class SalesCommissionService {
     private SalesCommissionSettlement find(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("SalesCommissionSettlement", id));
+    }
+
+    /**
+     * Comprobante en PDF de la liquidación (pedido 2026-08-03). Sólo cuando está
+     * <b>pagada</b>: es el respaldo de un pago hecho, no un borrador. No recalcula
+     * nada — muestra los importes congelados al liquidar.
+     */
+    public PdfFile renderPdf(UUID id) {
+        var s = find(id);
+        if (s.getStatus() != SalesCommissionStatus.PAID) {
+            throw new ConflictException(
+                    "El comprobante se genera cuando la liquidación está pagada (actual: "
+                    + s.getStatus() + ")");
+        }
+        String who = PdfFile.slug(s.getSellerName() == null ? "vendedora" : s.getSellerName());
+        String name = "liquidacion-comisiones-" + who + "-"
+                + s.getPeriodYear() + "-" + String.format("%02d", s.getPeriodMonth()) + ".pdf";
+        return new PdfFile(name, pdfRenderer.render(SettlementDocs.ofCommission(s)));
     }
 }

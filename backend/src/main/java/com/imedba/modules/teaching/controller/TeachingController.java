@@ -22,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import com.imedba.common.pdf.PdfFile;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -176,5 +179,20 @@ public class TeachingController {
     @PreAuthorize("hasAuthority('settlements:write')")
     public Response markPaid(@PathVariable UUID id) {
         return settlementService.markPaid(id);
+    }
+
+    /**
+     * Comprobante en PDF. Sólo sale si la liquidación está pagada — es el respaldo
+     * del pago, no un borrador (pedido 2026-08-03).
+     */
+    @GetMapping("/settlements/{id}/pdf")
+    @PreAuthorize("hasAuthority('teaching:read')")
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id) {
+        PdfFile f = settlementService.renderPdf(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
     }
 }
