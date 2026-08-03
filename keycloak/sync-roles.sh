@@ -167,6 +167,41 @@ EOF
   else
     log "! no pude actualizar redirectUris de $FRONTEND_CLIENT"
   fi
+
+  # --- 4) Claim `sub` en el access token (idempotente) -----------------------
+  # Desde Keycloak 24 el `sub` NO está hardcodeado: lo emite el client scope
+  # `basic`. Nuestro realm JSON declara su propia lista de `clientScopes`, que
+  # REEMPLAZA las built-in, así que `basic` nunca se crea y los tokens salían SIN
+  # `sub`. Consecuencia: `AuthUtils.currentUserId()` devolvía vacío y todo lo que
+  # depende de quién hizo la acción quedaba en NULL — `enrollments.enrolled_by`
+  # (o sea la liquidación de comisiones no encontraba vendedoras y el filtro
+  # "la vendedora ve sólo lo suyo" no filtraba), `budget_entries.registered_by`
+  # y los `created_by` de auditoría.
+  # Se agrega el mapper al client en vez de crear el scope `basic`: es puntual y
+  # no toca la lista de scopes del realm.
+  if "$KCADM" get "clients/$FID/protocol-mappers/models" -r "$REALM" \
+        --fields name --format csv --noquotes 2>/dev/null | tr -d '\r' | grep -qx "sub"; then
+    log "= mapper 'sub' de $FRONTEND_CLIENT ya estaba"
+  else
+    cat > /tmp/sub-mapper.json <<'EOF'
+{
+  "name": "sub",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-sub-mapper",
+  "consentRequired": false,
+  "config": {
+    "access.token.claim": "true",
+    "introspection.token.claim": "true"
+  }
+}
+EOF
+    if "$KCADM" create "clients/$FID/protocol-mappers/models" -r "$REALM" \
+          -f /tmp/sub-mapper.json >/dev/null 2>&1; then
+      log "+ mapper 'sub' agregado a $FRONTEND_CLIENT (sin esto enrolled_by queda NULL)"
+    else
+      log "! no pude agregar el mapper 'sub' a $FRONTEND_CLIENT"
+    fi
+  fi
 fi
 
 log "OK — roles y permisos sincronizados."
