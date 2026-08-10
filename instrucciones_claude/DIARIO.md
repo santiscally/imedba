@@ -29,6 +29,22 @@
 
 ## Entradas
 
+## 2026-08-10 — Santi — infra (URL FIJA del demo sin túnel: `https://vps-4740477-x.dattaweb.com`)
+
+**Qué:** El demo dejó de depender de cloudflared. URL estable y definitiva: **`https://vps-4740477-x.dattaweb.com`**, con cert propio de Let's Encrypt (vence 2026-11-08, renovación por `certbot.timer` ya activo). `imedba-tunnel.service` quedó **disabled**.
+
+**Por qué ese hostname y no `imedba.simpleapps.com.ar`:** el A record del subdominio sigue sin crearse en DonWeb. El hostname que DonWeb ya le asigna al VPS **resuelve solo** a `149.50.147.54` → sirve como URL fija sin depender de ningún cambio de DNS. El vhost soporta los dos nombres; cuando exista el A record, `scripts/setup-tls-demo.sh` emite el cert del subdominio y ese pasa a ser el bueno.
+
+**Piezas:** vhost `imedba.simpleapps.com.ar` (server_name = subdominio + hostname DonWeb) terminando TLS y proxeando a `127.0.0.1:8090`, donde el `nginx-demo` de compose hace el ruteo fino. Hubo que **sacar `vps-4740477-x.dattaweb.com` del `server_name` del vhost de simpleapps**: un nombre no puede vivir en dos bloques (nginx tira "conflicting server name" e ignora el duplicado). Verificado que `simpleapps.com.ar` sigue sirviendo 200.
+
+**⚠️ Por qué el túnel quedó DISABLED y no sólo parado:** `tunnel-demo.sh` compara la URL del túnel contra `APP_CORS_ALLOWED_ORIGINS` y, si difieren, **pisa el `.env`**. Con el origen fijo ya escrito, un reboot con el servicio activo lo habría sobreescrito con la URL del quick tunnel → CORS roto (403 en los POST) y logout 400. Si algún día se reactiva el túnel, entender que compite por el `.env` con el vhost.
+
+**Verificado end-to-end sobre HTTPS real:** front 200, `/api` 401 sin token y **200 con token**, `/auth` 200, preflight CORS 200, login `admin@imedba.dev` OK.
+
+**Impacto para el otro:** el link del demo ya **no cambia nunca más** — no hace falta volver a pasarlo ni tocar el `.env` en cada arranque. Olvidarse de las URLs `*.trycloudflare.com`.
+
+**Refs:** `/etc/nginx/sites-available/imedba.simpleapps.com.ar` (copia en `nginx/imedba.simpleapps.com.ar.conf`), `/etc/letsencrypt/live/vps-4740477-x.dattaweb.com/`, `.env` (gitignored).
+
 ## 2026-08-10 — Santi — infra (el túnel del demo pasa a systemd + auto-resync de la URL)
 
 **Qué:** El demo "se caía" tras cada reboot. Los contenedores nunca eran el problema (`unless-stopped`, llevaban días arriba): lo que faltaba era **cloudflared**, que corría por `nohup` y no sobrevive un reboot. Sin túnel el stack sólo escucha en `127.0.0.1:8090` → inalcanzable desde afuera. Ahora corre como `imedba-tunnel.service` (`enabled`, `Restart=always`, `After=docker.service`).
