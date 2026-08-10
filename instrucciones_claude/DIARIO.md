@@ -29,6 +29,18 @@
 
 ## Entradas
 
+## 2026-08-10 — Santi — infra/ci (el `backend-ci` fallaba desde siempre: `mvnw` sin bit de ejecución)
+
+**Qué:** `backend/mvnw` estaba commiteado con modo `100644`. El workflow corre `./mvnw -B -ntp -DskipTests compile`, que da `Permission denied` → el paso **Maven compile** falla y **Maven test queda skipped**. Arreglado con `git update-index --chmod=+x backend/mvnw` (ahora `100755`).
+
+**Por qué no lo vio nadie:** el `backend/Dockerfile` hace `RUN chmod +x mvnw` antes de compilar, así que el build de Docker y todo el ciclo de dev local andaban perfecto. El único que ejecuta `./mvnw` directo desde el checkout es el CI. Resultado: **el CI venía en rojo y nunca llegó a correr un solo test** — el commit anterior (`d76e18e`) falla igual, mismo paso.
+
+**Cómo apareció:** al correr Maven adentro de `eclipse-temurin:21-jdk-alpine` para probar el guard, saltó `./mvnw: Permission denied` (exit 126); el workaround local fue `sh ./mvnw`. Después el push mostró el mismo fallo en Actions.
+
+**Impacto para el otro:** el CI recién ahora corre los tests de verdad. Ojo que en `ubuntu-latest` sí hay socket de Docker, así que los tests de integración con Testcontainers (los 16 que localmente no se pueden correr por la versión de API del docker-java) **se ejecutan por primera vez**. Si aparecen fallas ahí, son reales, no ruido de entorno.
+
+**Refs:** `.github/workflows/backend-ci.yml`, `backend/Dockerfile` (línea del `chmod +x`), `backend/mvnw`.
+
 ## 2026-08-10 — Santi — backend/auth (guard en `requireCurrentUserId` + revisión de `budget_entries`)
 
 **Qué:** Nuevo `AuthUtils.requireCurrentUserId()`: devuelve el UUID o **falla** (`AuthenticationCredentialsNotFoundException` → 401 por el `GlobalExceptionHandler`, que ya la mapeaba) con un `log.error` que dice qué pasó. Reemplaza `currentUserId().orElse(null)` en **21 call sites** de 10 servicios (booksale, enrollment, budget, payment, installment, hourlog, teaching ×2, salescommission, diplomasettlement). El `currentUserId()` con `Optional` queda para los casos donde la ausencia de usuario es legítima.
