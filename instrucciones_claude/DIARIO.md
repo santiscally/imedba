@@ -29,6 +29,24 @@
 
 ## Entradas
 
+## 2026-08-10 — Santi — infra (el túnel del demo pasa a systemd + auto-resync de la URL)
+
+**Qué:** El demo "se caía" tras cada reboot. Los contenedores nunca eran el problema (`unless-stopped`, llevaban días arriba): lo que faltaba era **cloudflared**, que corría por `nohup` y no sobrevive un reboot. Sin túnel el stack sólo escucha en `127.0.0.1:8090` → inalcanzable desde afuera. Ahora corre como `imedba-tunnel.service` (`enabled`, `Restart=always`, `After=docker.service`).
+
+**El servicio no sólo levanta el túnel: resincroniza la config que depende de la URL.** El quick tunnel sortea hostname random en cada arranque, y hay dos valores del `.env` clavados a esa URL (el dolor recurrente de las entradas 07-20 y 07-23): `APP_CORS_ALLOWED_ORIGINS` (si no, el POST del browser da 403 `Invalid CORS request`) y `FRONTEND_REDIRECT_URIS_EXTRA` (si no, el logout da 400). `scripts/tunnel-demo.sh` detecta la URL, hace upsert de ambas, recrea `backend` + `keycloak-config` y **reinicia `nginx-demo`** (el backend recreado toma IP nueva y nginx la tiene cacheada → 502 en `/api`, ya visto el 07-23). Sólo actúa si la URL cambió, así un `restart` del servicio no reinicia medio stack al pedo. Verificado end-to-end en el cambio de URL real: front 200, `/api` 401 sin token y 200 con token, `/auth` 200, preflight CORS con el `allow-origin` correcto, login `admin@imedba.dev` OK.
+
+**El script ya soporta named tunnel:** si existe el tunnel `imedba-demo` en las credenciales, hace `cloudflared tunnel run` y se saltea todo el resync (URL fija, no hay nada que resincronizar). O sea que migrar a URL fija es sólo autenticarse y crear el túnel — el servicio cambia de modo solo, sin tocar el unit.
+
+**Por qué no quedó la URL fija todavía:** el named tunnel necesita (a) cuenta de Cloudflare autenticada — `cloudflared tunnel login` es **interactivo**, no hay `cert.pem` en el server — y (b) el dominio como **zona en Cloudflare**. `simpleapps.com.ar` está en **DonWeb** (`ns1/ns2.donweb.com`), no en Cloudflare. Ninguna de las dos la puede hacer un Claude solo.
+
+**⚠️ Ojo con `pkill -f`:** `pkill -f 'cloudflared tunnel --url'` **se mató a sí mismo** — el patrón matchea la propia línea de comando del shell que lo ejecuta. Dejó el túnel muerto y el servicio sin habilitar (demo caído unos minutos). Usar `pgrep`+`kill` por PID, o un patrón que no matchee al shell.
+
+**Corrección a la entrada del 07-03:** decía que los puertos 80/443 del host estaban "ocupados por otro contenedor ajeno (`simpleapps-web`)". Hoy **80/443 los tiene el nginx del host** (systemd, `sites-enabled/simpleapps.com.ar`), que es justamente lo que podría hacer de reverse proxy — y ya hay `certbot` con cert vivo para el dominio. Es decir: **existe una alternativa sin túnel** — A record `imedba.simpleapps.com.ar` → `149.50.147.54` en DonWeb + vhost con `proxy_pass` a `127.0.0.1:8090` + `certbot --nginx`. URL fija y permanente, sin proceso de túnel ni dependencia de Cloudflare. Pendiente de decisión del usuario.
+
+**Impacto para el otro:** la URL del demo sigue cambiando en cada arranque **pero ya no hay que tocar el `.env` a mano ni recrear contenedores** — el servicio lo hace. Para saber la URL vigente: `systemctl status imedba-tunnel` o `grep trycloudflare /var/log/imedba-tunnel.log`.
+
+**Refs:** `scripts/tunnel-demo.sh` (nuevo), `/etc/systemd/system/imedba-tunnel.service` (fuera del repo, copia versionada en `scripts/imedba-tunnel.service`), `/var/log/imedba-tunnel.log`, `.env` (gitignored, backups `.env.bak-*`).
+
 ## 2026-08-03 — Santi — backend/frontend (comprobante PDF por liquidación + rework de la pantalla + 2 bugs)
 
 **Qué:** (1) comprobante en PDF de cada liquidación, (2) la pantalla de Liquidaciones pasó a ser general con un solo alta que cambia de formulario según el tipo, (3) dos bugs encontrados cargando datos de prueba.
