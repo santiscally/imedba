@@ -63,14 +63,17 @@ public class SalesCommissionController {
     }
 
     /**
-     * Vendedores con ventas en el período, con el nombre ya resuelto — para poblar el
-     * selector. {@code name} puede venir null si Keycloak admin está apagado; en ese
-     * caso mostrar el id.
+     * A quién se puede liquidar: <b>todos</b> los usuarios, con los que tuvieron
+     * movimientos en el período (<code>hasActivity</code>) primero. Se ofrecen todos
+     * porque {@code enrolled_by}/{@code sold_by} guardan quién cargó la venta, que no
+     * siempre es la vendedora — hay que poder liquidar también al admin que cargó por
+     * ella. {@code name} puede venir null si Keycloak admin está apagado; en ese caso
+     * mostrar el id.
      */
     @GetMapping("/sellers")
     @PreAuthorize("hasAuthority('sales_commissions:read')")
     public List<SellerResponse> sellers(@RequestParam int year, @RequestParam int month) {
-        return service.sellersWithActivity(year, month);
+        return service.sellers(year, month);
     }
 
     /** Calcula sin persistir: deja ver el número antes de crear el borrador. */

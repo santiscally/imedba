@@ -107,14 +107,46 @@ public interface CommissionSourceRepository extends JpaRepository<Enrollment, UU
             @Param("from") Instant from,
             @Param("to") Instant to);
 
-    /** Vendedores con actividad en el período — para ofrecer a quién liquidar. */
+    /**
+     * Vendedores que <b>vendieron</b> en el período.
+     *
+     * <p>No alcanza por sí sola para poblar el selector: una vendedora que no vendió
+     * nada este mes igual cobra comisión por las cuotas de sus ventas viejas. Ver
+     * {@link #findSellersCollectingBetween} y {@link #findSellersSellingBooksBetween}.
+     */
     @Query("""
            SELECT DISTINCT e.enrolledBy FROM Enrollment e
             WHERE e.enrolledBy IS NOT NULL
               AND e.enrollmentDate >= :from
               AND e.enrollmentDate <  :to
            """)
-    List<UUID> findSellersWithActivity(
+    List<UUID> findSellersEnrollingBetween(
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    /**
+     * Vendedores que <b>cobraron</b> algo en el período, sin importar cuándo vendieron.
+     * Es el caso normal a partir del segundo mes de cualquier venta en cuotas.
+     */
+    @Query("""
+           SELECT DISTINCT p.enrollment.enrolledBy FROM Payment p
+            WHERE p.enrollment.enrolledBy IS NOT NULL
+              AND p.paymentDate >= :from
+              AND p.paymentDate <  :to
+           """)
+    List<UUID> findSellersCollectingBetween(
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    /** Vendedores con ventas de libros sueltos en el período (mismo filtro que el cálculo). */
+    @Query("""
+           SELECT DISTINCT bs.soldBy FROM BookSale bs
+            WHERE bs.soldBy IS NOT NULL
+              AND bs.enrollment IS NULL
+              AND bs.saleDate >= :from
+              AND bs.saleDate <  :to
+           """)
+    List<UUID> findSellersSellingBooksBetween(
             @Param("from") Instant from,
             @Param("to") Instant to);
 

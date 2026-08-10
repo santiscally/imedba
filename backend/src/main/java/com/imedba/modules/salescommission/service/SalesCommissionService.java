@@ -29,6 +29,8 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -147,24 +149,73 @@ public class SalesCommissionService {
     }
 
     /**
-     * Vendedores con ventas en el período, con el nombre ya resuelto — para poblar el
-     * selector de la pantalla sin que el front necesite {@code admin:manage}.
+     * A quién se puede liquidar, con el nombre ya resuelto — para poblar el selector de
+     * la pantalla sin que el front necesite {@code admin:manage}.
+     *
+     * <p><b>Se devuelven todos los usuarios del realm</b>, no sólo los que registran
+     * movimientos en el período. Dos razones, las dos vistas en producción:
+     * <ul>
+     *   <li>{@code enrolled_by}/{@code sold_by} guardan <b>quién cargó</b> la venta, que
+     *       no siempre es la vendedora: si el admin carga por ella, la comisión queda a
+     *       nombre del admin y hay que poder liquidarlo igual.</li>
+     *   <li>Filtrar por inscripciones del mes escondía a cualquiera que ese mes no
+     *       hubiera cargado una inscripción nueva, aunque hubiera cobrado cuotas de
+     *       ventas anteriores — el caso normal de toda venta en cuotas.</li>
+     * </ul>
+     *
+     * <p>{@code hasActivity} marca quién tuvo movimiento en el período (vendió, cobró o
+     * vendió libros) para que el selector lo muestre primero. Es una ayuda visual: no
+     * filtra.
      */
     @Transactional(readOnly = true)
-    public List<SellerResponse> sellersWithActivity(int year, int month) {
+    public List<SellerResponse> sellers(int year, int month) {
         YearMonth period = YearMonth.of(year, month);
-        List<UUID> ids = sourceRepository.findSellersWithActivity(
-                startOf(period), startOf(period.plusMonths(1)));
-        if (ids.isEmpty()) {
-            return List.of();
-        }
+        Instant from = startOf(period);
+        Instant to = startOf(period.plusMonths(1));
+
+        LinkedHashSet<UUID> active = new LinkedHashSet<>();
+        active.addAll(sourceRepository.findSellersEnrollingBetween(from, to));
+        active.addAll(sourceRepository.findSellersCollectingBetween(from, to));
+        active.addAll(sourceRepository.findSellersSellingBooksBetween(from, to));
+
+        // Mapa vacío si la integración admin está apagada: en ese caso la lista queda
+        // sólo con quienes tienen movimientos, como antes.
         Map<String, String> names = keycloakAdminClient.displayNamesById();
-        return ids.stream()
-                .map(id -> new SellerResponse(id, names.get(id.toString())))
-                .sorted(Comparator.comparing(
-                        s -> s.name() == null ? s.id().toString() : s.name(),
-                        String.CASE_INSENSITIVE_ORDER))
-                .toList();
+
+        Map<UUID, SellerResponse> out = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : names.entrySet()) {
+            UUID id = parseUuid(e.getKey());
+            if (id == null || isServiceAccount(e.getValue())) {
+                continue;
+            }
+            out.put(id, new SellerResponse(id, e.getValue(), active.contains(id)));
+        }
+        // Quien tuvo movimientos pero Keycloak no devolvió (usuario borrado, admin
+        // apagado) no puede desaparecer: su liquidación existe igual.
+        for (UUID id : active) {
+            out.putIfAbsent(id, new SellerResponse(id, names.get(id.toString()), true));
+        }
+
+        // Los del período primero, y dentro de cada grupo por nombre.
+        Comparator<SellerResponse> byActivity =
+                Comparator.comparing(SellerResponse::hasActivity).reversed();
+        Comparator<SellerResponse> byName =
+                Comparator.comparing(s -> s.name() == null ? s.id().toString() : s.name(),
+                        String.CASE_INSENSITIVE_ORDER);
+        return out.values().stream().sorted(byActivity.thenComparing(byName)).toList();
+    }
+
+    private static UUID parseUuid(String raw) {
+        try {
+            return raw == null ? null : UUID.fromString(raw);
+        } catch (IllegalArgumentException e) {
+            return null;   // Keycloak podría no usar UUID como id; ese usuario no aplica
+        }
+    }
+
+    /** Las cuentas de servicio del realm no son personas: no se liquidan. */
+    private static boolean isServiceAccount(String displayName) {
+        return displayName != null && displayName.startsWith("service-account-");
     }
 
     /**

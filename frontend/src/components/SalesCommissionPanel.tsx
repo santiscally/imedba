@@ -47,15 +47,50 @@ export default function SalesCommissionPanel() {
 
   const canWrite = hasAuthority('sales_commissions:write')
 
-  // Vendedores con actividad en el período
+  const [probed, setProbed] = useState(false)
+
+  // Vendedores con actividad en el período.
+  //
+  // La primera vez sondea varios meses en vez de creerle al default: abrir siempre
+  // en el mes cerrado hacía que un cobro registrado hoy no apareciera en ningún lado
+  // y la pantalla dijera «no hay nada», que es como se vio roto. El orden respeta la
+  // regla de negocio (primero el mes cerrado) pero mira el mes en curso antes de
+  // rendirse.
   useEffect(() => {
+    let alive = true
     setSellers(null); setSellerId(''); setPreview(null)
-    salesCommissionsApi.sellers(year, month)
-      .then(s => {
-        setSellers(s)
-        if (s.length === 1) setSellerId(s[0].id)   // caso real de IMEDBA: una sola vendedora
-      })
-      .catch(() => setSellers([]))
+    void (async () => {
+      const probe: [number, number][] = probed
+        ? [[year, month]]
+        : candidatePeriods(year, month)
+      let fallback: CommissionSeller[] = []
+
+      for (let i = 0; i < probe.length; i++) {
+        const [y, m] = probe[i]
+        let got: CommissionSeller[] = []
+        try { got = await salesCommissionsApi.sellers(y, m) } catch { got = [] }
+        if (!alive) return
+        if (i === 0) fallback = got
+        // El selector trae a TODOS los usuarios, así que "hay datos" se mide por quién
+        // tuvo movimientos, no por el largo de la lista.
+        const withActivity = got.filter(s => s.hasActivity)
+        if (withActivity.length) {
+          setProbed(true)
+          if (y !== year || m !== month) { setYear(y); setMonth(m); return }
+          setSellers(got)
+          if (withActivity.length === 1) setSellerId(withActivity[0].id)   // caso real de IMEDBA: una sola vendedora
+          return
+        }
+      }
+      // Ningún período del sondeo tuvo movimientos: se queda en el elegido y muestra
+      // igual la lista de usuarios, para poder verificarlo a mano.
+      setProbed(true)
+      setSellers(fallback)
+    })()
+    return () => { alive = false }
+    // `probed` fuera de deps a propósito: una vez que el usuario vio un período,
+    // cambiarlo a mano no debe volver a disparar la búsqueda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month])
 
   // Preview + liquidaciones ya cargadas de esa vendedora
@@ -79,6 +114,9 @@ export default function SalesCommissionPanel() {
     () => sellers?.find(s => s.id === sellerId)?.name ?? null,
     [sellers, sellerId],
   )
+
+  const active = useMemo(() => sellers?.filter(s => s.hasActivity) ?? [], [sellers])
+  const idle   = useMemo(() => sellers?.filter(s => !s.hasActivity) ?? [], [sellers])
 
   async function handleCreate() {
     if (!preview || !sellerId) return
@@ -174,14 +212,22 @@ export default function SalesCommissionPanel() {
             disabled={!sellers?.length}>
             <option value="">
               {sellers === null ? 'Cargando…'
-                : sellers.length === 0 ? '— Sin ventas en el período —'
+                : sellers.length === 0 ? '— Sin usuarios —'
                 : '— Seleccionar —'}
             </option>
-            {sellers?.map(s => (
-              // Si Keycloak admin está apagado el backend manda name null: se
-              // muestra el id recortado antes que una fila en blanco.
-              <option key={s.id} value={s.id}>{s.name ?? s.id.slice(0, 8)}</option>
-            ))}
+            {/* Se listan todos los usuarios, no sólo quien tenga movimientos: la venta
+                queda a nombre de quien la CARGÓ, así que a veces hay que liquidarle al
+                admin. Los del período van primero, en su propio grupo. */}
+            {active.length > 0 && (
+              <optgroup label={`Con movimientos en ${MONTHS[month - 1]}`}>
+                {active.map(s => <SellerOption key={s.id} seller={s} />)}
+              </optgroup>
+            )}
+            {idle.length > 0 && (
+              <optgroup label={active.length > 0 ? 'Resto de los usuarios' : 'Usuarios'}>
+                {idle.map(s => <SellerOption key={s.id} seller={s} />)}
+              </optgroup>
+            )}
           </select>
         </div>
 
@@ -193,13 +239,17 @@ export default function SalesCommissionPanel() {
       </div>
 
       {!sellerId && (
-        <EmptyState
-          icon={Calculator}
-          message={sellers?.length === 0 ? 'Sin ventas en el período' : 'Elegí una vendedora'}
-          hint={sellers?.length === 0
-            ? `No hay inscripciones cargadas por nadie en ${MONTHS[month - 1]} ${year}.`
-            : 'La comisión se calcula sobre lo cobrado en el mes, no sobre lo facturado.'}
-        />
+        <>
+          <EmptyState
+            icon={Calculator}
+            message={sellers && active.length === 0 ? 'Sin movimientos en el período' : 'Elegí a quién liquidar'}
+            hint={sellers && active.length === 0
+              ? `En ${MONTHS[month - 1]} ${year} nadie registró ventas ni entró ningún pago. `
+                + 'Podés elegir igual a cualquier usuario de la lista para verificarlo.'
+              : 'La comisión se calcula sobre lo cobrado en el mes, no sobre lo facturado.'}
+          />
+          <BaseExplainer />
+        </>
       )}
 
       {sellerId && loading && <div className="comisiones__loading">Calculando…</div>}
@@ -291,8 +341,13 @@ export default function SalesCommissionPanel() {
           </div>
 
           {preview.lines.length === 0 ? (
-            <EmptyState icon={Calculator} message="Sin cobros en el período"
-              hint="No entró plata de ninguna venta de esta vendedora en el mes elegido." />
+            <>
+              <EmptyState icon={Calculator} message="Sin cobros en el período"
+                hint={'No hay ventas ni cobros a nombre de esta persona en el mes elegido. '
+                    + 'Ojo: la venta queda a nombre de quien la cargó en el sistema — si la '
+                    + 'cargó otra persona, probá seleccionándola a ella.'} />
+              <BaseExplainer />
+            </>
           ) : (
             <div className="comisiones__detalle">
               <h4 className="comisiones__detalle-title">
@@ -336,6 +391,8 @@ export default function SalesCommissionPanel() {
             </div>
           )}
 
+          <BaseExplainer />
+
           <p className="comisiones__nota">
             <Info size={13} strokeWidth={1.8} />
             La base es lo <strong>cobrado</strong> en el mes, no lo facturado. La alícuota de cada
@@ -347,6 +404,40 @@ export default function SalesCommissionPanel() {
       )}
     </div>
   )
+}
+
+/**
+ * Qué entra y qué no en la base. Va tanto en el vacío como al pie del detalle:
+ * la pregunta de IMEDBA (2026-08-10) fue exactamente ésta —«¿qué gastos, qué
+ * ingresos me tomás?»— y sin el listado el número no es auditable de un vistazo.
+ */
+function BaseExplainer() {
+  // <div> y no <p>: un <p> no puede contener una <ul> y el browser lo cierra solo,
+  // rompiendo el layout flex de la nota.
+  return (
+    <div className="comisiones__nota">
+      <Info size={13} strokeWidth={1.8} />
+      <span>
+        <strong>Qué toma este cálculo.</strong> Sólo <strong>ingresos</strong>: no se descuenta
+        ningún gasto.
+        <ul>
+          <li>Los <strong>pagos cobrados dentro del mes elegido</strong> (por fecha de pago, no
+            de vencimiento) de inscripciones cuya vendedora es ella.</li>
+          <li>Las <strong>ventas de libros sueltos</strong> que haya hecho en el mes. Un libro
+            incluido en una inscripción ya viaja en el precio del curso y no se cuenta aparte.</li>
+        </ul>
+        No entran los <strong>recargos por mora</strong> ni lo facturado y todavía no cobrado.
+        La venta se le atribuye a <strong>quien la cargó en el sistema</strong>: si la carga el
+        admin por la vendedora, la liquidación aparece bajo el admin.
+      </span>
+    </div>
+  )
+}
+
+/** Si Keycloak admin está apagado el backend manda `name` null: se muestra el id
+ *  recortado antes que una fila en blanco. */
+function SellerOption({ seller }: { seller: CommissionSeller }) {
+  return <option value={seller.id}>{seller.name ?? seller.id.slice(0, 8)}</option>
 }
 
 function BucketRow(props: {
@@ -377,6 +468,23 @@ function statusBadgeClass(s: string): string {
     case 'PAID':     return 'badge--activo'
     default:         return ''
   }
+}
+
+/**
+ * Meses a sondear en el arranque, en orden: el mes cerrado (el default del negocio),
+ * después el mes en curso —donde caen los cobros de hoy— y recién ahí hacia atrás.
+ */
+function candidatePeriods(year: number, month: number): [number, number][] {
+  const out: [number, number][] = [[year, month]]
+  const next = month === 12 ? [year + 1, 1] : [year, month + 1]
+  out.push([next[0], next[1]])
+  let y = year, m = month
+  for (let i = 0; i < 5; i++) {
+    m -= 1
+    if (m === 0) { m = 12; y -= 1 }
+    out.push([y, m])
+  }
+  return out
 }
 
 /** Años ofrecidos: desde 2 atrás hasta el actual. */

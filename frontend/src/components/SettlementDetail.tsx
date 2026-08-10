@@ -116,9 +116,11 @@ export default function SettlementDetail({
             <dl className="detail__grid">
               <Row icon={CircleDollarSign} label="Cada mitad"
                 value={formatPrice(settlement.halfAmount)} highlight />
-              <Row icon={GraduationCap} label="Ganancia IMEDBA"
+              {/* El % va en el label: si se cargó al revés (80 a UNTREF), con sólo
+                  los importes a la vista no hay forma de darse cuenta. */}
+              <Row icon={GraduationCap} label={`Ganancia IMEDBA (${formatPct(settlement.inputImedbaPct, 80)})`}
                 value={formatPrice(settlement.imedbaAmount)} />
-              <Row icon={University} label="Acumulado UNTREF"
+              <Row icon={University} label={`Acumulado UNTREF (${formatPct(settlement.inputUntrefPct, 20)})`}
                 value={formatPrice(settlement.untrefAmount)} />
             </dl>
             <p className="detail__note">
@@ -256,6 +258,12 @@ function formatPrice(n: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n)
+}
+
+/** Porcentaje del reparto. Si la liquidación no lo guardó, se aplicó el default. */
+function formatPct(v: number | null, fallback: number): string {
+  const n = v ?? fallback
+  return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}%`
 }
 
 function formatInstant(iso: string): string {

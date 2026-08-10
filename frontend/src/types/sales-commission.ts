@@ -25,6 +25,12 @@ export const COMMISSION_SOURCE_LABELS: Record<CommissionSourceType, string> = {
 export interface CommissionSeller {
   id:   UUID
   name: string | null
+  /**
+   * Tuvo movimientos en el período (vendió, cobró o vendió libros). El selector ofrece
+   * igual a todos: `enrolled_by`/`sold_by` guardan quién CARGÓ la venta, que no siempre
+   * es la vendedora, así que hay que poder liquidar también a quien cargó por ella.
+   */
+  hasActivity: boolean
 }
 
 export interface SalesCommissionLine {

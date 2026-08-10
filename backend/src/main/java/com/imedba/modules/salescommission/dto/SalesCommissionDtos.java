@@ -87,7 +87,13 @@ public final class SalesCommissionDtos {
      * <p>{@code name} puede venir null si la integración admin de Keycloak está apagada
      * o no responde; en ese caso mostrar el id.
      */
-    public record SellerResponse(UUID id, String name) {}
+    /**
+     * Candidato a liquidar. Se ofrecen <b>todos</b> los usuarios, no sólo los que
+     * tuvieron movimientos: quien carga las ventas no siempre es la vendedora (en
+     * IMEDBA hoy carga el admin), así que restringir la lista escondía liquidaciones
+     * que existían. {@code hasActivity} es sólo una ayuda visual del período elegido.
+     */
+    public record SellerResponse(UUID id, String name, boolean hasActivity) {}
 
     /** Resumen sin el detalle — para listados. */
     public record SummaryResponse(

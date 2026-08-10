@@ -47,8 +47,12 @@ public final class SettlementDocs {
         breakdown.add(new Row("Grabaciones docentes", "- " + money(s.getRecordingsAmount()),
                 "sale sólo de la mitad de las directoras"));
         breakdown.add(new Row("A repartir entre directoras", money(s.getDirectorsBaseAmount())));
-        breakdown.add(new Row("IMEDBA", money(s.getImedbaAmount())));
-        breakdown.add(new Row("Universidad (UNTREF)", money(s.getUntrefAmount())));
+        // El % aplicado va como hint: con sólo los importes, un reparto cargado al
+        // revés (80 a UNTREF) no se distingue de uno correcto.
+        breakdown.add(new Row("IMEDBA", money(s.getImedbaAmount()),
+                pct(safeDiv(s.getInputImedbaPct())) + " de la mitad de la empresa"));
+        breakdown.add(new Row("Universidad (UNTREF)", money(s.getUntrefAmount()),
+                pct(safeDiv(s.getInputUntrefPct())) + " de la mitad de la empresa"));
 
         List<List<String>> rows = new ArrayList<>();
         List<DirectorDistribution> dist = s.getDirectorsDistribution();
