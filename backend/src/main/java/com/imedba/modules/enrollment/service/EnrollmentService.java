@@ -95,8 +95,7 @@ public class EnrollmentService {
 
     @Transactional(readOnly = true)
     public Page<EnrollmentResponse> listMine(EnrollmentStatus status, Pageable pageable) {
-        UUID me = AuthUtils.currentUserId().orElseThrow(
-                () -> new NotFoundException("Usuario autenticado no resuelto"));
+        UUID me = AuthUtils.requireCurrentUserId();
         Specification<Enrollment> spec = Specification
                 .where(EnrollmentSpecs.byEnrolledBy(me))
                 .and(EnrollmentSpecs.byStatus(status));
@@ -151,7 +150,7 @@ public class EnrollmentService {
                 .student(student)
                 .course(course)
                 .discountCampaignId(rd.campaignId())
-                .enrolledBy(AuthUtils.currentUserId().orElse(null))
+                .enrolledBy(AuthUtils.requireCurrentUserId())
                 .enrollmentDate(enrollDate)
                 .listPrice(listPrice)
                 .discountPercentage(discount)
@@ -203,7 +202,7 @@ public class EnrollmentService {
                 .studentSale(Boolean.TRUE)
                 .totalAmount(BigDecimal.ZERO)
                 .saleDate(Instant.now())
-                .soldBy(AuthUtils.currentUserId().orElse(null))
+                .soldBy(AuthUtils.requireCurrentUserId())
                 .notes("Auto-descuento por inscripción a curso PREMA")
                 .build();
         bookSaleRepository.save(sale);
@@ -475,7 +474,7 @@ public class EnrollmentService {
             throw NotFoundException.of("Enrollment", id);
         }
         if (AuthUtils.isVendedoraOnly()) {
-            UUID me = AuthUtils.currentUserId().orElse(null);
+            UUID me = AuthUtils.requireCurrentUserId();
             if (!Objects.equals(me, e.getEnrolledBy())) {
                 throw NotFoundException.of("Enrollment", id);
             }
@@ -487,7 +486,7 @@ public class EnrollmentService {
         if (!AuthUtils.isVendedoraOnly()) {
             return null;
         }
-        UUID me = AuthUtils.currentUserId().orElse(null);
+        UUID me = AuthUtils.requireCurrentUserId();
         return EnrollmentSpecs.byEnrolledBy(me);
     }
 

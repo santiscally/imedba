@@ -20,10 +20,12 @@ import com.imedba.modules.budget.service.BudgetService;
 import com.imedba.modules.contact.repository.ContactRepository;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.payment.entity.Payment;
+import com.imedba.test.TestAuth;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,8 +44,14 @@ class BudgetAutoLinkTests {
 
     private BudgetService service;
 
+    @AfterEach
+    void clearAuth() {
+        TestAuth.clear();
+    }
+
     @BeforeEach
     void setUp() {
+        TestAuth.login();
         service = new BudgetService(repository, mapper, contactRepository, enrollmentRepository);
         lenient().when(repository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
     }

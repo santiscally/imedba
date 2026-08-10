@@ -79,7 +79,7 @@ public class HourLogService {
                 .invoiceReceived(Boolean.FALSE)
                 .paymentStatus(PaymentStatus.PENDING)
                 .notes(req.notes())
-                .createdBy(AuthUtils.currentUserId().orElse(null))
+                .createdBy(AuthUtils.requireCurrentUserId())
                 .build();
         return mapper.toResponse(repository.save(entry));
     }

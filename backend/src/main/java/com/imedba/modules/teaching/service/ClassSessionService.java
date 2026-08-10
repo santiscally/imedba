@@ -81,7 +81,7 @@ public class ClassSessionService {
                 .hoursToPay(req.hoursToPay())
                 .notes(req.notes())
                 .build();
-        c.setCreatedBy(AuthUtils.currentUserId().orElse(null));
+        c.setCreatedBy(AuthUtils.requireCurrentUserId());
         return mapper.toResponse(repository.save(c));
     }
 

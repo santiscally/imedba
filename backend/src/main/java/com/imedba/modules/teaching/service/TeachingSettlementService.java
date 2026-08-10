@@ -91,7 +91,7 @@ public class TeachingSettlementService {
                 .hourlyRate(resolveRate(req.hourlyRate(), staff, req.role()))
                 .status(TeachingSettlementStatus.DRAFT)
                 .notes(req.notes())
-                .createdBy(AuthUtils.currentUserId().orElse(null))
+                .createdBy(AuthUtils.requireCurrentUserId())
                 .build();
 
         applyComputation(settlement);

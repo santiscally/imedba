@@ -19,10 +19,12 @@ import com.imedba.modules.hourlog.service.HourLogService;
 import com.imedba.modules.staff.entity.Staff;
 import com.imedba.modules.staff.entity.StaffType;
 import com.imedba.modules.staff.service.StaffService;
+import com.imedba.test.TestAuth;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,8 +42,14 @@ class HourLogServiceTests {
 
     private HourLogService service;
 
+    @AfterEach
+    void clearAuth() {
+        TestAuth.clear();
+    }
+
     @BeforeEach
     void setUp() {
+        TestAuth.login();
         service = new HourLogService(repository, mapper, staffService, activityTypeService);
         lenient().when(repository.save(any(HourLog.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(mapper.toResponse(any(HourLog.class))).thenAnswer(inv -> {

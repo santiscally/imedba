@@ -21,10 +21,12 @@ import com.imedba.modules.diplomasettlement.service.DiplomaSettlementService;
 import com.imedba.modules.budget.repository.BudgetEntryRepository;
 import com.imedba.modules.notification.service.NotificationService;
 import com.imedba.modules.payment.repository.PaymentRepository;
+import com.imedba.test.TestAuth;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,8 +46,14 @@ class DiplomaSettlementServiceTests {
 
     private DiplomaSettlementService service;
 
+    @AfterEach
+    void clearAuth() {
+        TestAuth.clear();
+    }
+
     @BeforeEach
     void setUp() {
+        TestAuth.login();
         service = new DiplomaSettlementService(repository, mapper, diplomaService,
                 notificationService, paymentRepository, budgetEntryRepository,
                 new SettlementPdfRenderer());

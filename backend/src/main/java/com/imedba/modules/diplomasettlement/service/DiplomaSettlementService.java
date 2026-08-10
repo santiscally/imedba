@@ -76,7 +76,7 @@ public class DiplomaSettlementService {
         DiplomaSettlement settlement = SettlementEngine.compute(
                 d, req.periodYear(), req.periodMonth(), total, d.getDirectors(), inputs);
         settlement.setStatus(SettlementStatus.DRAFT);
-        settlement.setCreatedBy(AuthUtils.currentUserId().orElse(null));
+        settlement.setCreatedBy(AuthUtils.requireCurrentUserId());
         return mapper.toResponse(repository.save(settlement));
     }
 
@@ -247,7 +247,7 @@ public class DiplomaSettlementService {
                 .periodMonth(s.getPeriodMonth())
                 .periodYear(s.getPeriodYear())
                 .referenceNumber("LIQ-" + s.getId())
-                .registeredBy(AuthUtils.currentUserId().orElse(null))
+                .registeredBy(AuthUtils.requireCurrentUserId())
                 .build());
         return 1;
     }

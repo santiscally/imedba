@@ -73,7 +73,7 @@ public class BudgetService {
                 .contact(contact)
                 .enrollment(enrollment)
                 .notes(req.notes())
-                .registeredBy(AuthUtils.currentUserId().orElse(null))
+                .registeredBy(AuthUtils.requireCurrentUserId())
                 .build();
         return mapper.toResponse(repository.save(entry));
     }
@@ -160,7 +160,7 @@ public class BudgetService {
                     .periodYear(date.getYear())
                     .paymentMethod(payment.getPaymentMethod())
                     .payment(payment)
-                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .registeredBy(AuthUtils.requireCurrentUserId())
                     .build());
             toSave.add(BudgetEntry.builder()
                     .entryType(EntryType.INCOME)
@@ -174,7 +174,7 @@ public class BudgetService {
                     .periodYear(date.getYear())
                     .paymentMethod(payment.getPaymentMethod())
                     .payment(payment)
-                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .registeredBy(AuthUtils.requireCurrentUserId())
                     .build());
         } else {
             toSave.add(BudgetEntry.builder()
@@ -189,7 +189,7 @@ public class BudgetService {
                     .periodYear(date.getYear())
                     .paymentMethod(payment.getPaymentMethod())
                     .payment(payment)
-                    .registeredBy(AuthUtils.currentUserId().orElse(null))
+                    .registeredBy(AuthUtils.requireCurrentUserId())
                     .build());
         }
 

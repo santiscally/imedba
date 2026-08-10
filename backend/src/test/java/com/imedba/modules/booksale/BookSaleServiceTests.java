@@ -20,10 +20,12 @@ import com.imedba.modules.booksale.service.BookSaleService;
 import com.imedba.modules.budget.service.BudgetService;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.student.repository.StudentRepository;
+import com.imedba.test.TestAuth;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,8 +46,14 @@ class BookSaleServiceTests {
 
     private BookSaleService service;
 
+    @AfterEach
+    void clearAuth() {
+        TestAuth.clear();
+    }
+
     @BeforeEach
     void setUp() {
+        TestAuth.login();
         service = new BookSaleService(
                 repository, mapper, bookService,
                 studentRepository, enrollmentRepository, bookAuthorRepository,

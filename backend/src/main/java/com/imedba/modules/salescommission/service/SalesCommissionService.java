@@ -90,7 +90,7 @@ public class SalesCommissionService {
                 .tierThreshold(params.tierThreshold())
                 .status(SalesCommissionStatus.DRAFT)
                 .notes(req.notes())
-                .createdBy(AuthUtils.currentUserId().orElse(null))
+                .createdBy(AuthUtils.requireCurrentUserId())
                 .build();
 
         applyComputation(settlement);

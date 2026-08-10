@@ -29,6 +29,56 @@
 
 ## Entradas
 
+## 2026-08-10 — Santi — backend/auth (guard en `requireCurrentUserId` + revisión de `budget_entries`)
+
+**Qué:** Nuevo `AuthUtils.requireCurrentUserId()`: devuelve el UUID o **falla** (`AuthenticationCredentialsNotFoundException` → 401 por el `GlobalExceptionHandler`, que ya la mapeaba) con un `log.error` que dice qué pasó. Reemplaza `currentUserId().orElse(null)` en **21 call sites** de 10 servicios (booksale, enrollment, budget, payment, installment, hourlog, teaching ×2, salescommission, diplomasettlement). El `currentUserId()` con `Optional` queda para los casos donde la ausencia de usuario es legítima.
+
+**Por qué:** cierra el modo de falla del incidente de hoy (ver entrada de abajo). El `.orElse(null)` convertía un token mal configurado en NULL silencioso; con el guard, la misma condición corta el request y queda en el log.
+
+**Lo que apareció revisando, y era peor que la comisión:** los sitios de scope también hacían `.orElse(null)`. En `EnrollmentService.vendedoraScope()` el `me` null iba a `EnrollmentSpecs.byEnrolledBy(null)`, que devuelve `null` = **Specification sin restricción**. O sea: durante las tres semanas sin `sub`, una vendedora **veía todas las inscripciones**, no las suyas. No era sólo un bug de liquidación, era un leak. Mismo patrón en `PaymentService` e `InstallmentService`. Todos guardados.
+
+**`budget_entries`:** mismo daño y misma causa — 25 filas de julio con `registered_by` NULL, las 3 de agosto OK. **Nada calcula sobre esa columna** (sólo se persiste y se expone en el response), así que no afectaba plata. Backfill **derivado, no inventado**: 21 filas tienen `book_sale_id`, así que tomaron el autor de la venta que espejan (`UPDATE ... FROM book_sales WHERE be.book_sale_id = bs.id`). Quedan 4 en NULL a propósito: 2 `MANUAL` (OFFICE/SALARIES, sin origen trazable) y 2 ligadas a pagos cuyo `payments.registered_by` también es NULL. Inventarles autor sería fabricar auditoría. Igual criterio para los 2 pagos de julio.
+
+**Tests:** el guard rompió 6 tests unitarios que llamaban servicios de escritura sin `SecurityContext` (antes recibían null, ahora tiran). Nuevo helper `src/test/java/com/imedba/test/TestAuth.java` (`login()`/`clear()`, arma un `JwtAuthenticationToken` con `sub`) cableado en BookSaleServiceTests, BudgetAutoLinkTests, HourLogServiceTests y DiplomaSettlementServiceTests. **Ojo: `clear()` en `@AfterEach` es obligatorio** — el SecurityContext es un ThreadLocal y JUnit reusa el thread. Resultado: 22 errores → 16, y los 16 son el baseline de Testcontainers, no del cambio.
+
+**Sobre esos 16 (para no reintentar a ciegas):** corriendo Maven dentro de `eclipse-temurin:21-jdk-alpine` con el socket montado, el error real ya no es Ryuk sino **`client version 1.32 is too old. Minimum supported API version is 1.40`** — el docker-java que trae Testcontainers negocia una API vieja contra el daemon del host. Probado `DOCKER_API_VERSION=1.44` + `TESTCONTAINERS_RYUK_DISABLED=true` + `--network host`: **no lo toma**, siguen los mismos 16. Queda pendiente de verdad correrlos con Java 21 en el host. Dos de ellos (`EnrollmentApiIntegrationTests.create_computes_prices_and_sets_enrolled_by` y `.vendedora_sees_only_own`) son justo los que cubren este cambio, así que se compensó verificando ambos comportamientos a mano contra el server de demo (Keycloak + Postgres reales).
+
+**Verificado en el server de demo:** alta de inscripción y registro de pago como `vendedora@imedba.dev` por la URL pública → `enrolled_by`, `payments.registered_by` y la `budget_entries` auto-generada, los tres con el UUID correcto. Artefactos de prueba borrados; la DB volvió a 4 inscripciones / 4 pagos / 28 filas de presupuesto.
+
+**Impacto para el otro:** si un token viejo no trae `sub`, las escrituras ahora dan **401 con mensaje "cerrá sesión y volvé a entrar"** en vez de guardar mal en silencio. Es el comportamiento buscado; si aparece un 401 raro al crear algo, es eso.
+
+**Refs:** `backend/src/main/java/com/imedba/common/auth/AuthUtils.java`; `backend/src/test/java/com/imedba/test/TestAuth.java`; `EnrollmentSpecs.java:31-33`.
+
+## 2026-08-10 — Santi — db/auth (backfill de autoría: las ventas e inscripciones pre-`1ec4049` no liquidaban)
+
+**Qué:** La liquidación de comisiones daba vacío para julio con **todos** los usuarios. No era bug del motor: los datos no tenían a quién atribuirse. En la DB del demo, 21 ventas de libros ($799.000) con `sold_by` NULL y 4 inscripciones con `enrolled_by` NULL. Backfill de ambas columnas a **Vendedora Test** (`40d231c6-1635-4ce8-8447-776857a1b0a8`), 21 + 4 filas, en transacción con control previo al commit.
+
+**Por qué pasó:** todo lo cargado entre el 20 y el 23-jul es anterior al fix `1ec4049` (03-ago 13:59), que agregó el claim `sub` faltante en el access token. Sin `sub`, `AuthUtils.currentUserId()` devolvía vacío, y tanto `BookSaleService` (líneas 96 y 123) como `EnrollmentService` (línea 154) hacen `.orElse(null)` → **guardaban NULL en silencio**. El motor filtra por `bs.soldBy = :seller` y `e.enrolledBy = :seller`, así que esas filas eran invisibles para cualquier vendedor. Se notaba sólo en la liquidación porque la pantalla de Ventas no filtra por autoría — de ahí el "veo las ventas cargadas pero no me liquida".
+
+**Lo que casi se pasa por alto:** el daño no era sólo de julio. Los 2 pagos del 09-ago ($129.333,34) cuelgan de inscripciones de julio, y el motor liquida pagos por `p.enrollment.enrolledBy` → tampoco generaban comisión. Post-backfill aparecen correctamente como `priorMonthsBase` = $129.333,34 → $646,67.
+
+**Verificado end-to-end (no sólo por SQL):** login como `vendedora@imedba.dev` → el token ahora sí trae `sub` = `40d231c6…`; alta de alumno + inscripción por la API pública → `enrolledBy` persistido OK en la respuesta y en la DB. Artefactos de esa prueba borrados (2 notificaciones, 3 cuotas, 1 inscripción, 1 alumno). **Borrado físico y no soft delete a propósito**: `installments` no tiene `deleted_at`, así que un soft delete de la inscripción dejaba 3 cuotas huérfanas inflando cualquier conteo de pendientes. Eran filas de prueba de 2 minutos antes, no dato de negocio. Preview post-fix: julio = $4.318,60 (tier1 $323,60 + libros $3.995,00).
+
+**Impacto para el otro:** no hay `created_by` en `book_sales` ni en `enrollments`, así que la autoría real de julio **no se puede reconstruir** — el backfill es una decisión de negocio (se asignó todo a Vendedora Test), no una recuperación de dato. Si aparecen más registros viejos sin autoría, mismo criterio.
+
+**Pendiente sugerido (no aplicado):** que `currentUserId()` vacío falle o loguee en vez de escribir NULL. Ese silencio dejó pasar tres semanas de datos sin autoría, y también afectaba `budget_entries.registered_by` y el filtro "la vendedora ve sólo lo suyo" (que durante ese período **no filtraba nada**).
+
+**Refs:** commit `1ec4049`; `backend/src/main/java/com/imedba/common/auth/AuthUtils.java`; `BookSaleService.java:96,123`; `EnrollmentService.java:154`; `CommissionSourceRepository.java`.
+
+## 2026-08-10 — Santi — infra (deploy de `d76e18e` + el reinicio de `nginx-demo` quedó huérfano al sacar el túnel)
+
+**Qué:** Pull de `5c4ed9b..d76e18e` (fix de liquidaciones: selector de comisiones ofrece todos los usuarios + % del reparto PREMA) y redeploy con `docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build`. Backend y frontend recreados. URL sin tocar.
+
+**Problemas:** 502 en `/` y `/api` después del rebuild — el mismo gotcha de las entradas del 07-23 y 07-31: `nginx-demo` **no se recrea** en el `up --build` (su config no cambió), así que se queda con las IPs viejas cacheadas de los upstreams. Esta vez el cruce fue confuso porque el backend viejo era `.7` y esa IP se la quedó el **frontend** nuevo. Fix: `docker restart imedba-nginx-demo`.
+
+**Lo nuevo — y por qué va a volver a pasar:** hasta ahora ese restart lo hacía solo `scripts/tunnel-demo.sh`. Desde que pasamos a URL fija (entrada de abajo, mismo día) **`imedba-tunnel.service` está disabled → ese script ya no corre nunca**. O sea: el reinicio de `nginx-demo` dejó de ser automático y nadie lo cubre. **Todo rebuild de backend o frontend necesita ahora un `docker restart imedba-nginx-demo` a mano**, o el demo queda en 502. Candidato a arreglar de raíz: `resolver 127.0.0.11 valid=10s` + upstreams por variable en `nginx/demo.conf`, para que nginx resuelva en runtime en vez de al arrancar.
+
+**Verificado end-to-end por la URL pública:** front 200, `/api` 401 sin token, `/auth/.well-known` 200, cert OK (CN correcto, vence 08-11-2026), login `admin@imedba.dev` OK, y el fix vivo: `GET /api/v1/sales-commissions/sellers?year=2026&month=6` devuelve los 6 usuarios con flag `hasActivity` (antes filtraba solo los que tenían actividad).
+
+**Impacto para el otro:** si levantás el stack de demo y ves 502, no es tu código — reiniciá `imedba-nginx-demo`.
+
+**Refs:** commit `d76e18e`; `nginx/demo.conf`; `scripts/tunnel-demo.sh` (ya no se ejecuta); `docker-compose.demo.yml`.
+
 ## 2026-08-10 — Santi — infra (URL FIJA del demo sin túnel: `https://vps-4740477-x.dattaweb.com`)
 
 **Qué:** El demo dejó de depender de cloudflared. URL estable y definitiva: **`https://vps-4740477-x.dattaweb.com`**, con cert propio de Let's Encrypt (vence 2026-11-08, renovación por `certbot.timer` ya activo). `imedba-tunnel.service` quedó **disabled**.
