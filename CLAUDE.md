@@ -91,6 +91,7 @@ Reglas duras:
 - `instrucciones_claude/12-notificaciones-mail-whatsapp.md` — mail (provider-agnostic, proveedor pendiente) + WhatsApp (SIEMPRE manual)
 - `instrucciones_claude/13-preguntas-reunion-20260612.md` — preguntas abiertas para la demo del 12-jun
 - `instrucciones_claude/14-requerimientos-reunion-20260612.md` — cambios/decisiones de la reunión 12-jun (demo completa) + reprioridad para cerrar; transcripción cruda en `transcripcion-reunion-20260612.pdf`
+- `instrucciones_claude/17-correcciones-y-liquidaciones-20260724.md` — correcciones jul-2026 + rework de las 3 liquidaciones (PREMA, docentes/preceptoras, comisiones de vendedora) con las fórmulas verificadas; qué queda fuera de alcance y por qué. Insumos crudos: `transcripcion-reunion-20260724.pdf`, `correcciones-imedba-20260723.docx`, `liquidaciones-especificacion-20260724.docx`, `liquidacion-comisiones-junio2026.csv`
 
 ## Comandos comunes
 

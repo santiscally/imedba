@@ -1,4 +1,5 @@
 import type { Instant, UUID } from './common'
+import type { BusinessUnit } from './course'
 
 // Refleja com.imedba.modules.collection.entity.CollectionVariant
 export type CollectionVariant = 'TRADICIONAL' | 'ANILLADA'
@@ -22,6 +23,8 @@ export interface CollectionBookSummary {
 export interface Collection {
   id:                 UUID
   name:               string
+  /** Unidad en la que se ofrece (V036). null = todas. */
+  businessUnit:       BusinessUnit | null
   variant:            CollectionVariant
   price:              number
   studentDiscountPct: number

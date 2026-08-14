@@ -116,7 +116,7 @@ public class PaymentService {
                 .receiptNumber(receiptGenerator.generate())
                 .receiptFilePath(req.receiptFilePath())
                 .notes(req.notes())
-                .registeredBy(AuthUtils.currentUserId().orElse(null))
+                .registeredBy(AuthUtils.requireCurrentUserId())
                 .build();
         payment = repository.save(payment);
 
@@ -191,7 +191,7 @@ public class PaymentService {
         Payment p = repository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Payment", id));
         if (AuthUtils.isVendedoraOnly()) {
-            UUID me = AuthUtils.currentUserId().orElse(null);
+            UUID me = AuthUtils.requireCurrentUserId();
             Enrollment e = p.getEnrollment();
             if (e == null || !Objects.equals(me, e.getEnrolledBy())) {
                 throw NotFoundException.of("Payment", id);
@@ -202,7 +202,7 @@ public class PaymentService {
 
     private Specification<Payment> vendedoraScope() {
         if (!AuthUtils.isVendedoraOnly()) return null;
-        UUID me = AuthUtils.currentUserId().orElse(null);
+        UUID me = AuthUtils.requireCurrentUserId();
         return PaymentSpecs.byEnrolledBy(me);
     }
 }

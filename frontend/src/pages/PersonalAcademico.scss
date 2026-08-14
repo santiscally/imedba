@@ -1,0 +1,71 @@
+@use '../styles/variables' as *;
+
+// Personal Académico — reusa el layout de Editorial.scss y los átomos globales
+// (.badge, .chip, .search, .pager, .row-actions, .muted) que ya definen otras
+// páginas. Acá van SOLO las piezas que no existían.
+
+// Barra de filtros: chips de rol + selects. Va debajo del buscador cuando no entra.
+.editorial__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.filter-select {
+  padding: 0.42rem 0.7rem;
+  border: 1px solid $gris-borde;
+  border-radius: $radio-md;
+  background: $blanco;
+  color: $texto-oscuro;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: $transicion;
+
+  &:hover { border-color: $verde-petroleo-light; }
+  &:focus { outline: none; border-color: $verde-petroleo; box-shadow: 0 0 0 3px $verde-petroleo-overlay; }
+}
+
+.filter-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: $texto-medio;
+  cursor: pointer;
+  user-select: none;
+
+  input { cursor: pointer; accent-color: $verde-petroleo; }
+}
+
+// Dos líneas de info en una misma celda (ej. rol + unidad, email + teléfono).
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.small { font-size: 0.76rem; }
+
+// Badge sin semántica de estado: acá el rol no es "bueno" ni "malo", sólo una
+// etiqueta. Los badge--activo/inactivo de las otras páginas sí llevan color.
+.badge--neutro {
+  background: $fondo-app;
+  color: $texto-medio;
+  border: 1px solid $gris-borde-sutil;
+}
+
+// Marca de tutora: va junto al rol porque no lo reemplaza — una tutora es una
+// docente que ADEMÁS hace seguimiento (V036).
+.badge--tutora {
+  background: $violeta-bg;
+  color: $violeta;
+}

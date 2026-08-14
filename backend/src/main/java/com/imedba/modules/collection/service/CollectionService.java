@@ -12,6 +12,7 @@ import com.imedba.modules.collection.dto.CollectionCreateRequest;
 import com.imedba.modules.collection.dto.CollectionResponse;
 import com.imedba.modules.collection.dto.CollectionSellRequest;
 import com.imedba.modules.collection.entity.Collection;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.collection.repository.CollectionRepository;
 import com.imedba.modules.enrollment.entity.Enrollment;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
@@ -39,9 +40,14 @@ public class CollectionService {
     private final EnrollmentRepository enrollmentRepository;
 
     @Transactional(readOnly = true)
-    public List<CollectionResponse> list(Boolean activeOnly) {
+    public List<CollectionResponse> list(Boolean activeOnly, BusinessUnit businessUnit) {
         return repository.findAll().stream()
                 .filter(c -> !Boolean.TRUE.equals(activeOnly) || Boolean.TRUE.equals(c.getActive()))
+                // Sin unidad = se ofrece en todas (V036): no clasificarla no debe
+                // hacerla desaparecer del selector de la inscripción.
+                .filter(c -> businessUnit == null
+                        || c.getBusinessUnit() == null
+                        || c.getBusinessUnit() == businessUnit)
                 .map(CollectionService::toResponse)
                 .toList();
     }
@@ -54,6 +60,7 @@ public class CollectionService {
     public CollectionResponse create(CollectionCreateRequest req) {
         Collection c = Collection.builder()
                 .name(req.name().trim())
+                .businessUnit(req.businessUnit())
                 .variant(req.variant())
                 .price(req.price())
                 .studentDiscountPct(req.studentDiscountPct() != null
@@ -157,7 +164,7 @@ public class CollectionService {
                         b.getId(), b.getName(), b.getCode(), b.getSalePrice()))
                 .toList();
         return new CollectionResponse(
-                c.getId(), c.getName(), c.getVariant(), c.getPrice(),
+                c.getId(), c.getName(), c.getBusinessUnit(), c.getVariant(), c.getPrice(),
                 c.getStudentDiscountPct(), c.getActive(), books,
                 c.getCreatedAt(), c.getUpdatedAt());
     }

@@ -41,8 +41,26 @@ public class Course extends BaseEntity {
     @Column(name = "business_unit", nullable = false, length = 50)
     private BusinessUnit businessUnit;
 
-    @Column(name = "modality", length = 50)
-    private String modality;
+    /**
+     * Tipo de curso (V038): NORMAL (anual clásico) / INTENSIVO / CHOICE.
+     *
+     * <p>Junto con el {@code name} —que es el eje editable: Tucumán, Córdoba,
+     * Junio/Julio…— y la {@link #modality}, son las tres variables con las que el
+     * cliente diferencia y agrupa sus cursos.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "course_type", length = 20)
+    private CourseType courseType;
+
+    /**
+     * Modalidad de cursado (V038): LIBRE o VIVO.
+     *
+     * <p>Antes era texto libre y mezclaba modalidad, tipo de curso y producto de
+     * Formación Superior en la misma columna.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modality", length = 20)
+    private Modality modality;
 
     /** ISO 3166-1 alpha-2. Fase 9.a (V015): default 'AR'. */
     @Default

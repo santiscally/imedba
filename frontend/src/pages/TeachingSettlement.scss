@@ -1,0 +1,103 @@
+@use '../styles/variables' as *;
+
+// Liquidación de horas docentes. Reusa el layout de SalesCommission.scss
+// (.comisiones, .buckets-table, .detalle-table) y agrega la lista lateral de
+// a quién liquidar, que sale sola de la grilla de clases.
+
+.docentes {
+  &__layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: 1.1rem;
+    align-items: start;
+  }
+
+  &__side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    background: $blanco;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-lg;
+    padding: 0.7rem;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+  }
+
+  &__side-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $gris-texto;
+    margin: 0 0 0.4rem 0.3rem;
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    min-width: 0;
+  }
+}
+
+// Cada persona con clases en el mes. Una misma puede aparecer dos veces, como
+// docente y como preceptora: son dos liquidaciones distintas.
+.cand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: $radio-md;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: $transicion;
+
+  &:hover:not(:disabled) { background: $verde-petroleo-overlay; }
+
+  &--active {
+    background: $verde-petroleo-suave;
+    border-color: $verde-petroleo-light;
+  }
+
+  // Sueldo fijo: se muestra pero no se puede liquidar por horas. Esconderla haría
+  // que el usuario no entienda por qué falta alguien que sí dio clases.
+  &--fixed {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &__name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: $texto-oscuro;
+  }
+
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  &__flag {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $gris-texto-sutil;
+
+    &--done { color: $verde; font-weight: 600; }
+  }
+}
+
+@media (max-width: 900px) {
+  .docentes__layout { grid-template-columns: 1fr; }
+  .docentes__side   { position: static; max-height: none; }
+}

@@ -21,37 +21,42 @@ const MONTHS = [
   'Septiembre','Octubre','Noviembre','Diciembre',
 ]
 
+/**
+ * Inputs de la liquidación (fórmula V035, doc 17 §3.3). Todos se cargan acá, no en
+ * la diplomatura. Los cuatro gastos administrativos son MONTOS FIJOS, no porcentajes
+ * — administración era un % antes de V035 y por eso el cálculo daba mal.
+ */
 interface FormState {
-  periodMonth:       number
-  periodYear:        number
-  totalCollected:    string
-  // Inputs por liquidación (vacío = usa el valor de la diplomatura).
-  taxCommissionPct:  string
-  secretarySalary:   string
-  advertisingAmount: string
-  adminPct:          string
-  universityPct:     string
-  imedbaPct:         string
+  periodMonth:          number
+  periodYear:           number
+  totalCollected:       string
+  taxPct:               string   // impuestos y gastos bancarios (PRIMER descuento)
+  secretaryAmount:      string
+  advertisingAmount:    string
+  administrationAmount: string
+  miscExpensesAmount:   string   // GASTOS VARIOS
+  recordingsAmount:     string   // grabaciones docentes (sale de la mitad de directoras)
+  imedbaPct:            string   // default 80
+  untrefPct:            string   // default 20
 }
 
 function initialState(): FormState {
-  const today = new Date()
+  // Se liquida el mes cerrado, así que el default es el mes anterior.
+  const prev = new Date()
+  prev.setMonth(prev.getMonth() - 1)
   return {
-    periodMonth:       today.getMonth() + 1,
-    periodYear:        today.getFullYear(),
-    totalCollected:    '',
-    taxCommissionPct:  '',
-    secretarySalary:   '',
-    advertisingAmount: '',
-    adminPct:          '',
-    universityPct:     '',
-    imedbaPct:         '',
+    periodMonth:          prev.getMonth() + 1,
+    periodYear:           prev.getFullYear(),
+    totalCollected:       '',
+    taxPct:               '',
+    secretaryAmount:      '',
+    advertisingAmount:    '',
+    administrationAmount: '',
+    miscExpensesAmount:   '',
+    recordingsAmount:     '',
+    imedbaPct:            '',
+    untrefPct:            '',
   }
-}
-
-// Placeholder con el valor de la diplomatura (el fallback) o un genérico.
-function ph(v: number | null | undefined, fallback: string): string {
-  return v != null ? `${v} (diplomatura)` : fallback
 }
 
 export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: Props) {
@@ -83,12 +88,23 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
       if (!v) return
       if (Number.isNaN(Number(v))) e[f] = 'No es un número válido'
     }
-    checkNum('taxCommissionPct')
-    checkNum('secretarySalary')
+    checkNum('taxPct')
+    checkNum('secretaryAmount')
     checkNum('advertisingAmount')
-    checkNum('adminPct')
-    checkNum('universityPct')
+    checkNum('administrationAmount')
+    checkNum('miscExpensesAmount')
+    checkNum('recordingsAmount')
     checkNum('imedbaPct')
+    checkNum('untrefPct')
+
+    // El reparto de la mitad no-directoras tiene que sumar 100: si no, hay plata
+    // que no va a ningún lado y el usuario no se entera.
+    const imedba = state.imedbaPct ? Number(state.imedbaPct) : 80
+    const untref = state.untrefPct ? Number(state.untrefPct) : 20
+    if (!Number.isNaN(imedba) && !Number.isNaN(untref) && imedba + untref !== 100) {
+      e.imedbaPct = `IMEDBA + UNTREF debe dar 100 (ahora da ${imedba + untref})`
+    }
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -100,16 +116,18 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
 
     const numOrNull = (v: string) => (v ? Number(v) : null)
     const payload: DiplomaSettlementCreateRequest = {
-      diplomaId:         diploma.id,
-      periodMonth:       state.periodMonth,
-      periodYear:        state.periodYear,
-      totalCollected:    state.totalCollected ? Number(state.totalCollected) : null,
-      taxCommissionPct:  numOrNull(state.taxCommissionPct),
-      secretarySalary:   numOrNull(state.secretarySalary),
-      advertisingAmount: numOrNull(state.advertisingAmount),
-      adminPct:          numOrNull(state.adminPct),
-      universityPct:     numOrNull(state.universityPct),
-      imedbaPct:         numOrNull(state.imedbaPct),
+      diplomaId:            diploma.id,
+      periodMonth:          state.periodMonth,
+      periodYear:           state.periodYear,
+      totalCollected:       state.totalCollected ? Number(state.totalCollected) : null,
+      taxPct:               numOrNull(state.taxPct),
+      secretaryAmount:      numOrNull(state.secretaryAmount),
+      advertisingAmount:    numOrNull(state.advertisingAmount),
+      administrationAmount: numOrNull(state.administrationAmount),
+      miscExpensesAmount:   numOrNull(state.miscExpensesAmount),
+      recordingsAmount:     numOrNull(state.recordingsAmount),
+      imedbaPct:            numOrNull(state.imedbaPct),
+      untrefPct:            numOrNull(state.untrefPct),
     }
 
     try {
@@ -141,10 +159,15 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
 
         <form onSubmit={handleSubmit} className="form">
           <div className="form__hint">
-            Liquidación de <strong>{diploma.name}</strong>. Los costos fijos y el reparto se cargan
-            <strong> por liquidación</strong> (no en la diplomatura). Lo que dejes vacío toma el valor
-            de la diplomatura. El reparto entre directoras, universidad, IMEDBA y administración se
-            calcula automáticamente — queda en <em>Borrador</em> hasta aprobarse.
+            Liquidación de <strong>{diploma.name}</strong>. Se descuentan primero los impuestos,
+            después los cuatro gastos fijos, y lo que queda se parte <strong>50/50</strong>: una
+            mitad para las directoras (menos las grabaciones) y la otra 80% IMEDBA / 20% UNTREF.
+            {diploma.directors?.length
+              ? <> Reparte entre <strong>{diploma.directors.length}</strong> directora
+                  {diploma.directors.length === 1 ? '' : 's'} en partes iguales.</>
+              : <> <strong>Ojo:</strong> esta diplomatura no tiene directoras cargadas, así que esa
+                  mitad va a quedar sin repartir.</>}
+            {' '}Queda en <em>Borrador</em> hasta aprobarse.
           </div>
 
           <h4 className="form-section">Período</h4>
@@ -186,22 +209,29 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
             </Field>
           </div>
 
-          <h4 className="form-section">Costos fijos del período</h4>
+          <h4 className="form-section">1 · Impuestos y gastos bancarios</h4>
           <div className="form__grid">
-            <Field label="Comisión impuestos (%)" error={errors.taxCommissionPct}>
+            <Field label="Impuestos (%)" error={errors.taxPct} fullWidth>
               <input
                 type="number" step="0.01"
-                value={state.taxCommissionPct}
-                onChange={e => setField('taxCommissionPct', e.target.value)}
-                placeholder={ph(diploma.taxCommissionPct, '15')}
+                value={state.taxPct}
+                onChange={e => setField('taxPct', e.target.value)}
+                placeholder="15"
               />
+              <span className="field__hint">
+                Es el primer descuento y se aplica sobre lo cobrado.
+              </span>
             </Field>
-            <Field label="Sueldo secretaria (ARS)" error={errors.secretarySalary}>
+          </div>
+
+          <h4 className="form-section">2 · Gastos administrativos (montos fijos)</h4>
+          <div className="form__grid">
+            <Field label="Secretaría (ARS)" error={errors.secretaryAmount}>
               <input
                 type="number" step="any"
-                value={state.secretarySalary}
-                onChange={e => setField('secretarySalary', e.target.value)}
-                placeholder={ph(diploma.secretarySalary, '180000')}
+                value={state.secretaryAmount}
+                onChange={e => setField('secretaryAmount', e.target.value)}
+                placeholder="180000"
               />
             </Field>
             <Field label="Publicidad (ARS)" error={errors.advertisingAmount}>
@@ -209,36 +239,58 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
                 type="number" step="any"
                 value={state.advertisingAmount}
                 onChange={e => setField('advertisingAmount', e.target.value)}
-                placeholder={ph(diploma.advertisingAmount, '90000')}
+                placeholder="90000"
+              />
+            </Field>
+            <Field label="Administración (ARS)" error={errors.administrationAmount}>
+              <input
+                type="number" step="any"
+                value={state.administrationAmount}
+                onChange={e => setField('administrationAmount', e.target.value)}
+                placeholder="50000"
+              />
+            </Field>
+            <Field label="Gastos varios (ARS)" error={errors.miscExpensesAmount}>
+              <input
+                type="number" step="any"
+                value={state.miscExpensesAmount}
+                onChange={e => setField('miscExpensesAmount', e.target.value)}
+                placeholder="20000"
               />
             </Field>
           </div>
 
-          <h4 className="form-section">Reparto institucional (%)</h4>
+          <h4 className="form-section">3 · Reparto del subtotal (50/50)</h4>
           <div className="form__grid">
-            <Field label="Administración (%)" error={errors.adminPct}>
+            <Field label="Grabaciones docentes (ARS)" error={errors.recordingsAmount} fullWidth>
               <input
-                type="number" step="0.01"
-                value={state.adminPct}
-                onChange={e => setField('adminPct', e.target.value)}
-                placeholder={ph(diploma.adminPct, '10')}
+                type="number" step="any"
+                value={state.recordingsAmount}
+                onChange={e => setField('recordingsAmount', e.target.value)}
+                placeholder="0"
               />
-            </Field>
-            <Field label="Universidad (%)" error={errors.universityPct}>
-              <input
-                type="number" step="0.01"
-                value={state.universityPct}
-                onChange={e => setField('universityPct', e.target.value)}
-                placeholder={ph(diploma.universityPct, '30')}
-              />
+              <span className="field__hint">
+                Se descuenta <strong>sólo de la mitad de las directoras</strong>, no del total.
+              </span>
             </Field>
             <Field label="IMEDBA (%)" error={errors.imedbaPct}>
               <input
                 type="number" step="0.01"
                 value={state.imedbaPct}
                 onChange={e => setField('imedbaPct', e.target.value)}
-                placeholder={ph(diploma.imedbaPct, '15')}
+                placeholder="80 (por defecto)"
               />
+            </Field>
+            <Field label="UNTREF (%)" error={errors.untrefPct}>
+              <input
+                type="number" step="0.01"
+                value={state.untrefPct}
+                onChange={e => setField('untrefPct', e.target.value)}
+                placeholder="20 (por defecto)"
+              />
+              <span className="field__hint">
+                Se acumula: no se paga este mes, se salda al cerrar la comisión.
+              </span>
             </Field>
           </div>
 

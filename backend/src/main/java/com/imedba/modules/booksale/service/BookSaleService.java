@@ -93,7 +93,7 @@ public class BookSaleService {
                 .studentSale(isStudentSale)
                 .totalAmount(total)
                 .saleDate(Instant.now())
-                .soldBy(AuthUtils.currentUserId().orElse(null))
+                .soldBy(AuthUtils.requireCurrentUserId())
                 .notes(req.notes())
                 .build();
         BookSale saved = repository.save(sale);
@@ -120,7 +120,7 @@ public class BookSaleService {
                 .studentSale(studentSale)
                 .totalAmount(price)
                 .saleDate(Instant.now())
-                .soldBy(AuthUtils.currentUserId().orElse(null))
+                .soldBy(AuthUtils.requireCurrentUserId())
                 .notes(notes)
                 .build();
         BookSale saved = repository.save(sale);

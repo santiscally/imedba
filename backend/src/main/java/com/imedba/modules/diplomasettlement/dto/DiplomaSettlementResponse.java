@@ -6,29 +6,45 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Liquidación de diplomatura. Los campos van en el <b>orden de la fórmula</b>
+ * (doc 17 §3.3) para que la UI pueda mostrarla como la planilla de IMEDBA:
+ * cobrado → impuestos → subtotal 1 → 4 gastos fijos → subtotal 2 → mitad →
+ * (directoras − grabaciones) y (IMEDBA 80 / UNTREF 20).
+ */
 public record DiplomaSettlementResponse(
         UUID id,
         UUID diplomaId,
         String diplomaName,
         Integer periodMonth,
         Integer periodYear,
-        BigDecimal totalCollected,
-        // Inputs persistidos (V018): permiten recompute estable y mostrar en UI
+
+        // Inputs persistidos: permiten recompute estable y mostrarlos en la UI
         BigDecimal inputTaxCommissionPct,
         BigDecimal inputSecretarySalary,
         BigDecimal inputAdvertisingAmount,
-        BigDecimal inputAdminPct,
-        BigDecimal inputUniversityPct,
+        BigDecimal inputAdministrationAmount,
+        BigDecimal inputMiscExpensesAmount,
+        BigDecimal inputRecordingsAmount,
         BigDecimal inputImedbaPct,
-        // Outputs calculados
+        BigDecimal inputUntrefPct,
+
+        // Cálculo, paso por paso
+        BigDecimal totalCollected,
         BigDecimal taxCommissionAmount,
+        BigDecimal subtotal1,
         BigDecimal secretaryAmount,
         BigDecimal advertisingAmount,
-        BigDecimal adminAmount,
-        BigDecimal universityAmount,
+        BigDecimal administrationAmount,
+        BigDecimal miscExpensesAmount,
+        BigDecimal subtotal2,
+        BigDecimal halfAmount,
+        BigDecimal recordingsAmount,
+        BigDecimal directorsBaseAmount,
+        List<DirectorDistributionDto> directorsDistribution,
         BigDecimal imedbaAmount,
-        BigDecimal partnersTotal,
-        List<PartnerDistributionDto> partnersDistribution,
+        BigDecimal untrefAmount,
+
         SettlementStatus status,
         Instant createdAt,
         Instant updatedAt

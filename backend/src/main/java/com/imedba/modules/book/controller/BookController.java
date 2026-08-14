@@ -1,6 +1,7 @@
 package com.imedba.modules.book.controller;
 
 import com.imedba.common.dto.PageResponse;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.book.dto.BookAuthorRequest;
 import com.imedba.modules.book.dto.BookCreateRequest;
 import com.imedba.modules.book.dto.BookResponse;
@@ -39,8 +40,10 @@ public class BookController {
             @RequestParam(required = false) String specialty,
             @RequestParam(required = false) String branch,
             @RequestParam(required = false) Boolean active,
+            /** Filtra por unidad; incluye los libros sin unidad asignada (V036). */
+            @RequestParam(required = false) BusinessUnit businessUnit,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return PageResponse.of(service.list(q, specialty, branch, active, pageable));
+        return PageResponse.of(service.list(q, specialty, branch, active, businessUnit, pageable));
     }
 
     @GetMapping("/{id}")

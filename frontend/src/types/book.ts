@@ -1,4 +1,5 @@
 import type { Instant, UUID } from './common'
+import type { BusinessUnit } from './course'
 
 // Refleja com.imedba.modules.book.dto.BookAuthorResponse
 export interface BookAuthor {
@@ -12,6 +13,8 @@ export interface BookAuthor {
 export interface Book {
   id:                 UUID
   name:               string
+  /** Unidad en la que se ofrece (V036). null = todas. */
+  businessUnit:       BusinessUnit | null
   code:               string | null
   specialty:          string | null
   format:             string | null

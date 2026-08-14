@@ -1,0 +1,122 @@
+PREGUNTAS PARA NICO - 30/07/2026
+
+
+Hola Nico, ya arranqué con esto. Las comisiones están funcionando y dan los mismos
+números que tu planilla de junio, al centavo, incluidas las proyecciones de julio a
+diciembre. Me quedaron estas dudas para poder cerrar las otras dos liquidaciones.
+
+
+1) PRECEPTORAS: EL 25%  (esta es la que me frena, es la más importante)
+
+Me dijiste que se les paga por hora como a las docentes y que se suma un 25% por cada
+clase, porque tienen que estar 15 minutos antes. ¿Cuál de las dos es?
+
+   a) Se suma un cuarto de hora por clase:
+      (horas + 0,25 x cantidad de clases) x valor hora
+
+   b) Se recarga el total un 25%:
+      horas x valor hora x 1,25
+
+Con 4 clases de 2 horas: la opción (a) paga 9 horas, la (b) paga 10. Las dos solo
+coinciden si las clases duran exactamente 1 hora. Por ahora asumí la (a), porque 15
+minutos son 0,25 de hora y vos dijiste "por cada clase".
+
+Además me falta la planilla de horas docentes. Esa no llegó y es la que despeja esto
+de una.
+
+Y una sub-pregunta: ¿el 25% también aplica a las clases asincrónicas, donde no hay
+que llegar antes?
+
+
+2) VALORES HORA
+
+El de docente ($75.000) me quedó claro.
+¿Cuál es el de preceptora? ¿Y el de tutora (Juana y Tere)?
+¿Se carga un valor único que vale para todas, o cada una puede tener el suyo?
+
+
+3) UNA LIQUIDACIÓN DE PREMA REAL
+
+Mandame un mes ya cerrado con todos los pasos intermedios: lo cobrado, el % de
+impuestos, los 4 gastos fijos, subtotal 1, subtotal 2, grabaciones, lo de cada
+directora, ganancia Imedba y acumulado UNTREF.
+
+Es para testear contra números reales, igual que hice con la de comisiones. Así te
+garantizo que queda bien.
+
+
+4) LAS LIQUIDACIONES DE DIPLOMATURA QUE YA ESTÁN CARGADAS
+
+Revisando el sistema encontré que el cálculo que tiene hoy no coincide con lo que me
+describiste: le falta la división 50/50, le falta GASTOS VARIOS y le falta el
+descuento de grabaciones. O sea que las que ya están cargadas están mal calculadas.
+
+¿Las recalculo, o las dejamos como histórico y el criterio nuevo arranca de la
+próxima?
+
+
+5) CURSOS QUE YA ESTÁN CARGADOS
+
+Al separar "tipo de curso" y "modalidad", ¿a qué corresponden los que hoy figuran
+como "MIX" y como "Super Intensivo"? No entran en Normal/Intensivo/Choice cruzado
+con Libre/Vivo.
+
+
+6) COMISIONES: DOS DETALLES FINOS
+
+6.a) Si un mes pasa de 30 ventas, ¿la venta número 30 paga 0,5% o ya paga 1%?
+     El título de tu planilla dice "del 30 al 49 (1%)" pero el texto dice "a partir
+     de la 31". En junio hubo exactamente 30 y todas fueron 0,5%, así que no se
+     distingue. Asumí que la 30 va al 0,5%.
+
+6.b) Un libro vendido junto con un curso (tu columna "Libros"): en junio va al 0,5%
+     igual que el curso, así que no se nota. Si el mes pasa de 30 ventas y el curso
+     queda al 1%, ¿el libro incluido también va al 1% o siempre 0,5%?
+
+
+7) DIPLOMATURAS Y COMISIÓN
+
+La venta de Diplomatura (la fila de María Elena Brizuela) cuenta para la comisión.
+Hoy las inscripciones a diplomatura no registran quién las vendió.
+¿Las vende la misma vendedora? Si es así, agrego el campo.
+
+
+8) RECARGO POR MORA
+
+Cuando un alumno paga una cuota con el 5% de recargo por atraso, ¿la comisión sale
+del monto con recargo o sin recargo?
+Asumí que sin recargo, porque es una penalidad y no una venta, y en tu planilla no
+aparece separado.
+
+
+9) EL MENÚ
+
+Me dijiste "sacarlo de académico y bajarlo acá", pero Liquidaciones ya está en
+Finanzas. ¿Te referías a Diplomaturas, que sí está en Finanzas y quizás iría en
+Académico?
+
+
+10) EL LIBRO DE PREMA
+
+Pediste que el EXTRA LIBRO PREMA solo aparezca si la unidad de negocio es Formación
+Superior. Esto no lo puedo hacer todavía porque me faltan dos cosas:
+
+   a) Cuál es ese libro. Hoy en el sistema hay 7 libros cargados y son todos de
+      Residencias: Pediatría, Cirugía, Ginecología, Medicina Interna I y II,
+      Medicina Familiar y Especialidades Quirúrgicas. El de PREMA no está cargado.
+      ¿Cuál es y cuánto sale?
+
+   b) Los libros hoy no tienen unidad de negocio en el sistema, así que no hay por
+      dónde filtrarlos. Hay que agregarles ese dato y marcar cada uno. ¿Los 7
+      actuales son todos de Residencias? ¿Hay alguno que se venda en las dos?
+
+Y una tercera: cuando decís "unidad de negocio", ¿te referís al selector de arriba a
+la derecha (el que cambia entre Residencias y Formación Superior), o a la unidad del
+curso que elegiste en esa inscripción? Son dos cosas distintas y el filtro queda
+diferente.
+
+
+---
+
+La 1 y la 3 son las que me desbloquean trabajo. Las demás las puedo asumir y ajustar
+después si vienen distintas.

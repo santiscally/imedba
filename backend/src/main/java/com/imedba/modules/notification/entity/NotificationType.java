@@ -13,5 +13,7 @@ public enum NotificationType {
     PRE_SUSPENSION,
     SUSPENDED,
     /** Email a directoras al aprobar una liquidación (reunión 2026-05-22 §2.6). */
-    SETTLEMENT_APPROVED
+    SETTLEMENT_APPROVED,
+    /** Pedido de factura por horas docentes o de preceptoría (V039, plantilla de Nico). */
+    TEACHING_INVOICE_REQUEST
 }

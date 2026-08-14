@@ -1,6 +1,6 @@
 import {
   X, Pencil, GraduationCap, University, FileText,
-  CircleDollarSign, Percent, Hash, Calendar, Users, Mail,
+  CircleDollarSign, Hash, Calendar, Mail,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Diploma } from '../types/diploma'
@@ -16,12 +16,9 @@ interface Props {
 
 export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
   const canWrite = hasAuthority('diplomas:write')
-  const partners = diploma.partnersConfig ?? []
-  const sumPartners = Math.round(partners.reduce((acc, p) => acc + p.pct, 0) * 100) / 100
-  const totalAssigned = Math.round(
-    ((diploma.adminPct ?? 0) + (diploma.universityPct ?? 0) + (diploma.imedbaPct ?? 0) + sumPartners) * 100,
-  ) / 100
-  const remainder = Math.round((100 - totalAssigned) * 100) / 100
+  // Desde V035 la diplomatura no tiene costos ni porcentajes: sólo quiénes son las
+  // directoras. Todo lo demás se carga al liquidar.
+  const directors = diploma.directors ?? []
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -68,47 +65,25 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
           </section>
 
           <section className="detail__section">
-            <h4 className="detail__section-title">Costos fijos</h4>
-            <dl className="detail__grid">
-              <Row icon={Percent}          label="Comisión impuestos" value={formatPct(diploma.taxCommissionPct)} />
-              <Row icon={CircleDollarSign} label="Sueldo secretaria"  value={formatPrice(diploma.secretarySalary)} />
-              <Row icon={CircleDollarSign} label="Publicidad"         value={formatPrice(diploma.advertisingAmount)} />
-            </dl>
-          </section>
-
-          <section className="detail__section">
             <h4 className="detail__section-title">
-              Reparto
-              <span className={`detail__sum ${remainder < 0 ? 'detail__sum--err' : ''}`}>
-                {totalAssigned}% asignado · {remainder}% libre
-              </span>
+              Directoras
+              <span className="detail__sum">{directors.length}</span>
             </h4>
-            <dl className="detail__grid">
-              <Row icon={Percent} label="Administración" value={formatPct(diploma.adminPct)} />
-              <Row icon={Percent} label="Universidad"    value={formatPct(diploma.universityPct)} />
-              <Row icon={Percent} label="IMEDBA"         value={formatPct(diploma.imedbaPct)} />
-            </dl>
-
             <div className="partners-table">
-              <div className="partners-table__head">
-                <Users size={14} strokeWidth={1.8} /> Directoras ({partners.length})
-              </div>
-              {partners.length === 0 ? (
+              {directors.length === 0 ? (
                 <div className="partners-table__empty">Sin directoras configuradas.</div>
               ) : (
                 <table>
                   <thead>
                     <tr>
                       <th>Nombre</th>
-                      <th className="partners-table__pct">%</th>
                       <th>Email</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {partners.map((p, i) => (
-                      <tr key={i}>
+                    {directors.map(p => (
+                      <tr key={p.id}>
                         <td className="partners-table__name">{p.name}</td>
-                        <td className="partners-table__pct">{p.pct}%</td>
                         <td className="partners-table__email">
                           {p.email
                             ? <span className="cell-inline"><Mail size={12} strokeWidth={1.8} />{p.email}</span>
@@ -120,6 +95,10 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
                 </table>
               )}
             </div>
+            <p className="detail__note">
+              Se reparten en partes iguales la mitad del subtotal menos las grabaciones.
+              Los costos y porcentajes se cargan al liquidar, no acá.
+            </p>
           </section>
 
           <section className="detail__section">
@@ -180,11 +159,6 @@ function formatPrice(n: number | null | undefined): string | null {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n)
-}
-
-function formatPct(n: number | null | undefined): string | null {
-  if (n == null) return null
-  return `${n}%`
 }
 
 function formatInstant(iso: string): string {

@@ -12,6 +12,7 @@ import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.service.DiplomaService;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementCreateRequest;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementResponse;
+import com.imedba.common.pdf.SettlementPdfRenderer;
 import com.imedba.modules.diplomasettlement.entity.DiplomaSettlement;
 import com.imedba.modules.diplomasettlement.entity.SettlementStatus;
 import com.imedba.modules.diplomasettlement.mapper.DiplomaSettlementMapper;
@@ -20,10 +21,12 @@ import com.imedba.modules.diplomasettlement.service.DiplomaSettlementService;
 import com.imedba.modules.budget.repository.BudgetEntryRepository;
 import com.imedba.modules.notification.service.NotificationService;
 import com.imedba.modules.payment.repository.PaymentRepository;
+import com.imedba.test.TestAuth;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,10 +46,17 @@ class DiplomaSettlementServiceTests {
 
     private DiplomaSettlementService service;
 
+    @AfterEach
+    void clearAuth() {
+        TestAuth.clear();
+    }
+
     @BeforeEach
     void setUp() {
+        TestAuth.login();
         service = new DiplomaSettlementService(repository, mapper, diplomaService,
-                notificationService, paymentRepository, budgetEntryRepository);
+                notificationService, paymentRepository, budgetEntryRepository,
+                new SettlementPdfRenderer());
         lenient().when(repository.save(any(DiplomaSettlement.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(mapper.toResponse(any(DiplomaSettlement.class)))
@@ -64,9 +74,7 @@ class DiplomaSettlementServiceTests {
         when(repository.findByDiplomaIdAndPeriodYearAndPeriodMonth(diplomaId, 2026, 4))
                 .thenReturn(Optional.of(existing));
 
-        var req = new DiplomaSettlementCreateRequest(
-                diplomaId, 4, 2026, new BigDecimal("1000.00"),
-                null, null, null, null, null, null);
+        var req = createRequest(diplomaId, null);
 
         assertThatThrownBy(() -> service.createDraft(req))
                 .isInstanceOf(ConflictException.class)
@@ -77,25 +85,30 @@ class DiplomaSettlementServiceTests {
     @DisplayName("createDraft crea con status=DRAFT y aplica motor de liquidación")
     void create_draft_applies_engine_and_sets_status_draft() {
         UUID diplomaId = UUID.randomUUID();
-        Diploma d = Diploma.builder()
-                .name("Dip").taxCommissionPct(new BigDecimal("10.00"))
-                .secretarySalary(BigDecimal.ZERO).advertisingAmount(BigDecimal.ZERO)
-                .adminPct(BigDecimal.ZERO).universityPct(BigDecimal.ZERO)
-                .imedbaPct(BigDecimal.ZERO).partnersConfig(List.of())
-                .build();
+        Diploma d = Diploma.builder().name("Dip").directors(List.of()).build();
         d.setId(diplomaId);
         when(repository.findByDiplomaIdAndPeriodYearAndPeriodMonth(any(UUID.class), anyInt(), anyInt()))
                 .thenReturn(Optional.empty());
         when(diplomaService.findEntity(diplomaId)).thenReturn(d);
 
-        var req = new DiplomaSettlementCreateRequest(
-                diplomaId, 4, 2026, new BigDecimal("1000.00"),
-                null, null, null, null, null, null);
+        // 10% de impuestos sobre 1000 = 100 → subtotal 1 = 900 → mitad = 450
+        var req = createRequest(diplomaId, new BigDecimal("10.00"));
 
         DiplomaSettlementResponse out = service.createDraft(req);
 
         assertThat(out.status()).isEqualTo(SettlementStatus.DRAFT);
         assertThat(out.taxCommissionAmount()).isEqualByComparingTo("100.00");
+        assertThat(out.subtotal1()).isEqualByComparingTo("900.00");
+        assertThat(out.halfAmount()).isEqualByComparingTo("450.00");
+    }
+
+    private static DiplomaSettlementCreateRequest createRequest(UUID diplomaId, BigDecimal taxPct) {
+        return new DiplomaSettlementCreateRequest(
+                diplomaId, 4, 2026, new BigDecimal("1000.00"),
+                taxPct,
+                null, null, null, null,   // los 4 gastos fijos
+                null,                     // grabaciones
+                null, null);              // 80/20 por defecto
     }
 
     @Test
@@ -159,12 +172,7 @@ class DiplomaSettlementServiceTests {
     }
 
     private static DiplomaSettlement settlementFixture(UUID id, SettlementStatus status) {
-        Diploma d = Diploma.builder()
-                .name("Dip").taxCommissionPct(BigDecimal.ZERO)
-                .secretarySalary(BigDecimal.ZERO).advertisingAmount(BigDecimal.ZERO)
-                .adminPct(BigDecimal.ZERO).universityPct(BigDecimal.ZERO)
-                .imedbaPct(BigDecimal.ZERO).partnersConfig(List.of())
-                .build();
+        Diploma d = Diploma.builder().name("Dip").directors(List.of()).build();
         d.setId(UUID.randomUUID());
         DiplomaSettlement s = DiplomaSettlement.builder()
                 .diploma(d)
@@ -181,14 +189,17 @@ class DiplomaSettlementServiceTests {
                 s.getId(),
                 s.getDiploma() == null ? null : s.getDiploma().getId(),
                 s.getDiploma() == null ? null : s.getDiploma().getName(),
-                s.getPeriodMonth(), s.getPeriodYear(), s.getTotalCollected(),
+                s.getPeriodMonth(), s.getPeriodYear(),
                 s.getInputTaxCommissionPct(), s.getInputSecretarySalary(),
-                s.getInputAdvertisingAmount(), s.getInputAdminPct(),
-                s.getInputUniversityPct(), s.getInputImedbaPct(),
-                s.getTaxCommissionAmount(), s.getSecretaryAmount(), s.getAdvertisingAmount(),
-                s.getAdminAmount(), s.getUniversityAmount(), s.getImedbaAmount(),
-                s.getPartnersTotal(),
-                List.of(),
+                s.getInputAdvertisingAmount(), s.getInputAdministrationAmount(),
+                s.getInputMiscExpensesAmount(), s.getInputRecordingsAmount(),
+                s.getInputImedbaPct(), s.getInputUntrefPct(),
+                s.getTotalCollected(), s.getTaxCommissionAmount(), s.getSubtotal1(),
+                s.getSecretaryAmount(), s.getAdvertisingAmount(),
+                s.getAdministrationAmount(), s.getMiscExpensesAmount(),
+                s.getSubtotal2(), s.getHalfAmount(), s.getRecordingsAmount(),
+                s.getDirectorsBaseAmount(), List.of(),
+                s.getImedbaAmount(), s.getUntrefAmount(),
                 s.getStatus(), s.getCreatedAt(), s.getUpdatedAt());
     }
 }

@@ -87,6 +87,54 @@ export function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
   return request<T>('GET', path, undefined, signal)
 }
 
+export interface ApiFile { blob: Blob; filename: string | null }
+
+/**
+ * GET de un archivo binario (PDF de contrato, etc.).
+ *
+ * Va aparte de `apiGet` porque estos endpoints devuelven bytes, no JSON — y sobre
+ * todo porque **necesitan el header Authorization**: un `<a href>` pelado al endpoint
+ * da 401. Por eso el archivo se baja con fetch y se dispara con un object URL.
+ *
+ * El filename sale del `Content-Disposition` que manda el backend; si no viene, el
+ * llamador pone uno.
+ */
+export async function apiGetFile(path: string, signal?: AbortSignal): Promise<ApiFile> {
+  const token = await getAccessToken()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const response = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers, signal })
+  if (!response.ok) throw await toApiError(response)
+
+  return { blob: await response.blob(), filename: filenameOf(response) }
+}
+
+function filenameOf(response: Response): string | null {
+  const cd = response.headers.get('Content-Disposition')
+  if (!cd) return null
+  // filename*=UTF-8''… tiene prioridad sobre filename="…" (RFC 6266)
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cd)
+  if (utf8) {
+    try { return decodeURIComponent(utf8[1]) } catch { /* cae al filename simple */ }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(cd)
+  return plain ? plain[1] : null
+}
+
+/** Baja un {@link ApiFile} al disco del usuario. */
+export function saveFile(file: ApiFile, fallbackName: string): void {
+  const url = URL.createObjectURL(file.blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = file.filename ?? fallbackName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // Sin esto el blob queda retenido en memoria hasta que se recargue la página.
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
 export function apiPost<T, B = unknown>(path: string, body: B): Promise<T> {
   return request<T>('POST', path, body)
 }

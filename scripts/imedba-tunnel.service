@@ -1,0 +1,19 @@
+[Unit]
+Description=IMEDBA demo tunnel (cloudflared) + resync de config dependiente de la URL
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/home/imedba/scripts/tunnel-demo.sh
+Restart=always
+RestartSec=10
+# El script espera a que el stack responda y recrea contenedores: dale aire.
+TimeoutStartSec=300
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=imedba-tunnel
+
+[Install]
+WantedBy=multi-user.target

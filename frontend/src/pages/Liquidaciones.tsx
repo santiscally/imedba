@@ -11,7 +11,10 @@ import type { DiplomaSettlement, SettlementStatus } from '../types/diploma-settl
 import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
 import EmptyState from '../components/EmptyState'
 import SettlementForm from '../components/SettlementForm'
+import NewSettlementDialog from '../components/NewSettlementDialog'
 import SettlementDetail from '../components/SettlementDetail'
+import SalesCommissionPanel from '../components/SalesCommissionPanel'
+import TeachingSettlementPanel from '../components/TeachingSettlementPanel'
 import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
 import { canWrite } from '../lib/access'
 import { exportToCsv, dateStamp } from '../lib/exportCsv'
@@ -25,7 +28,8 @@ type StatusFilter = SettlementStatus | 'TODAS'
 
 type PanelState =
   | { kind: 'closed' }
-  | { kind: 'create' }
+  | { kind: 'choose' }
+  | { kind: 'create'; diploma: Diploma }
   | { kind: 'detail'; settlement: DiplomaSettlement }
 
 const MONTHS = [
@@ -34,7 +38,24 @@ const MONTHS = [
   'septiembre','octubre','noviembre','diciembre',
 ]
 
+/**
+ * Tipos de liquidación (pedido 2026-07-24, 24:48: "que sea liquidaciones general
+ * y que uno elija liquidar la diplomatura PREMA, las horas docentes, las ventas y
+ * comisiones"). Antes esta pantalla obligaba a elegir una diplomatura primero.
+ *
+ * Las tres están operativas: la fórmula de horas docentes se cerró el 2026-07-30
+ * con la planilla completa y las respuestas de Nico (doc 17 §3.2).
+ */
+type SettlementKind = 'DIPLOMATURA' | 'COMISIONES' | 'HORAS'
+
+const KINDS: { key: SettlementKind; label: string; disabled?: boolean; hint?: string }[] = [
+  { key: 'DIPLOMATURA', label: 'Diplomatura (PREMA)' },
+  { key: 'COMISIONES',  label: 'Comisiones de vendedora' },
+  { key: 'HORAS', label: 'Horas docentes' },
+]
+
 export default function Liquidaciones() {
+  const [kind, setKind] = useState<SettlementKind>('DIPLOMATURA')
   const [diplomas,         setDiplomas]         = useState<Diploma[] | null>(null)
   const [selectedDiplomaId, setSelectedDiplomaId] = useState<string>('')
   const [statusFilter,     setStatusFilter]     = useState<StatusFilter>('TODAS')
@@ -99,13 +120,18 @@ export default function Liquidaciones() {
     exportToCsv(`liquidaciones-${slug}-${dateStamp()}`, visible, [
       { label: 'Período',          value: s => `${MONTHS[s.periodMonth - 1]} ${s.periodYear}` },
       { label: 'Total cobrado',    value: s => s.totalCollected ?? '' },
-      { label: 'Comisión impuestos', value: s => s.taxCommissionAmount ?? '' },
-      { label: 'Sueldo secretaria',  value: s => s.secretaryAmount ?? '' },
+      { label: 'Impuestos',          value: s => s.taxCommissionAmount ?? '' },
+      { label: 'Subtotal 1',         value: s => s.subtotal1 ?? '' },
+      { label: 'Secretaría',         value: s => s.secretaryAmount ?? '' },
       { label: 'Publicidad',         value: s => s.advertisingAmount ?? '' },
-      { label: 'Administración',     value: s => s.adminAmount ?? '' },
-      { label: 'Universidad',        value: s => s.universityAmount ?? '' },
+      { label: 'Administración',     value: s => s.administrationAmount ?? '' },
+      { label: 'Gastos varios',      value: s => s.miscExpensesAmount ?? '' },
+      { label: 'Subtotal 2',         value: s => s.subtotal2 ?? '' },
+      { label: 'Mitad',              value: s => s.halfAmount ?? '' },
+      { label: 'Grabaciones',        value: s => s.recordingsAmount ?? '' },
+      { label: 'Directoras (total)', value: s => s.directorsBaseAmount ?? '' },
       { label: 'IMEDBA',             value: s => s.imedbaAmount ?? '' },
-      { label: 'Directoras (total)', value: s => s.partnersTotal ?? '' },
+      { label: 'UNTREF acumulado',   value: s => s.untrefAmount ?? '' },
       { label: 'Estado',             value: s => SETTLEMENT_STATUS_LABELS[s.status] },
     ])
   }
@@ -148,35 +174,60 @@ export default function Liquidaciones() {
         <div className="liquidaciones__header-text">
           <h2 className="liquidaciones__title">
             <span className="liquidaciones__title-icon"><FileSpreadsheet size={22} strokeWidth={2} /></span>
-            Liquidaciones PREMA
+            Liquidaciones
           </h2>
           <p className="liquidaciones__subtitle">
-            {selectedDiploma
-              ? (total > 0
-                  ? `${total} ${total === 1 ? 'liquidación' : 'liquidaciones'} de ${selectedDiploma.name}`
-                  : `Sin liquidaciones para ${selectedDiploma.name}`)
-              : 'Liquidaciones mensuales por diplomatura — reparto entre directoras, universidad e IMEDBA'}
+            {kind === 'COMISIONES'
+              ? 'Comisión de la vendedora sobre lo cobrado en el mes — cursos y libros'
+              : kind === 'HORAS'
+                ? 'Docentes y preceptoras, según las clases cargadas en el mes'
+                : selectedDiploma
+                  ? (total > 0
+                      ? `${total} ${total === 1 ? 'liquidación' : 'liquidaciones'} de ${selectedDiploma.name}`
+                      : `Sin liquidaciones para ${selectedDiploma.name}`)
+                  : 'Reparto mensual entre directoras, universidad e IMEDBA'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn-ghost" type="button" onClick={handleExport}
-            disabled={!visible.length || !selectedDiploma}>
-            <Download size={16} strokeWidth={2} /> Exportar
-          </button>
+          {kind === 'DIPLOMATURA' && (
+            <button className="btn-ghost" type="button" onClick={handleExport}
+              disabled={!visible.length || !selectedDiploma}>
+              <Download size={16} strokeWidth={2} /> Exportar
+            </button>
+          )}
           {canWrite('/liquidaciones') && (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => setPanel({ kind: 'create' })}
-              disabled={!selectedDiploma}
-              title={!selectedDiploma ? 'Seleccioná una diplomatura primero' : undefined}
-            >
+            // Un solo punto de entrada para las tres. El tipo se elige DENTRO del
+            // diálogo y el formulario cambia — ya no hace falta preseleccionar
+            // una diplomatura en la pantalla (llamada 2026-07-24, 24:38).
+            <button className="btn-primary" type="button" onClick={() => setPanel({ kind: 'choose' })}>
               <Plus size={16} strokeWidth={2.2} /> Nueva liquidación
             </button>
           )}
         </div>
       </header>
 
+      <div className="liquidaciones__kinds" role="tablist" aria-label="Tipo de liquidación">
+        {KINDS.map(k => (
+          <button
+            key={k.key}
+            type="button"
+            role="tab"
+            aria-selected={kind === k.key}
+            className={`kind-tab ${kind === k.key ? 'kind-tab--active' : ''}`}
+            onClick={() => !k.disabled && setKind(k.key)}
+            disabled={k.disabled}
+            title={k.hint}
+          >
+            {k.label}
+            {k.disabled && <span className="kind-tab__soon">pendiente</span>}
+          </button>
+        ))}
+      </div>
+
+      {kind === 'COMISIONES' && <SalesCommissionPanel />}
+      {kind === 'HORAS'      && <TeachingSettlementPanel />}
+
+      {kind === 'DIPLOMATURA' && (
       <div className="liquidaciones__toolbar">
         <div className="diploma-select">
           <label className="diploma-select__label">
@@ -211,7 +262,9 @@ export default function Liquidaciones() {
           </div>
         )}
       </div>
+      )}
 
+      {kind === 'DIPLOMATURA' && (
       <div className="liquidaciones__table-wrap">
         {!selectedDiplomaId && (
           <EmptyState
@@ -291,8 +344,8 @@ export default function Liquidaciones() {
                   <td className="col-precio">
                     <span className="cell-inline">
                       <Users size={13} strokeWidth={1.8} />
-                      <span className="price">{formatPrice(s.partnersTotal)}</span>
-                      <span className="muted">·{s.partnersDistribution.length}</span>
+                      <span className="price">{formatPrice(s.directorsBaseAmount)}</span>
+                      <span className="muted">·{s.directorsDistribution.length}</span>
                     </span>
                   </td>
                   <td className="col-estado">
@@ -352,10 +405,29 @@ export default function Liquidaciones() {
           </table>
         )}
       </div>
+      )}
 
-      {panel.kind === 'create' && selectedDiploma && (
+      {panel.kind === 'choose' && (
+        <NewSettlementDialog
+          diplomas={diplomas}
+          onClose={() => setPanel({ kind: 'closed' })}
+          onPickDiploma={d => {
+            // Al elegir la diplomatura acá también se sincroniza el listado de
+            // abajo, así el resultado queda a la vista al guardar.
+            setSelectedDiplomaId(d.id)
+            setKind('DIPLOMATURA')
+            setPanel({ kind: 'create', diploma: d })
+          }}
+          onCreated={k => {
+            setKind(k === 'HORAS' ? 'HORAS' : 'COMISIONES')
+            setPanel({ kind: 'closed' })
+            setReload(r => r + 1)
+          }}
+        />
+      )}
+      {panel.kind === 'create' && (
         <SettlementForm
-          diploma={selectedDiploma}
+          diploma={panel.diploma}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload) => diplomaSettlementsApi.create(payload)}
@@ -406,7 +478,7 @@ function compare(a: DiplomaSettlement, b: DiplomaSettlement, field: SortField): 
   switch (field) {
     case 'period':         return (a.periodYear - b.periodYear) || (a.periodMonth - b.periodMonth)
     case 'totalCollected': return a.totalCollected - b.totalCollected
-    case 'partnersTotal':  return a.partnersTotal  - b.partnersTotal
+    case 'partnersTotal':  return a.directorsBaseAmount - b.directorsBaseAmount
     case 'status':         return a.status.localeCompare(b.status)
   }
 }

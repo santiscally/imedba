@@ -7,6 +7,8 @@ import com.imedba.modules.course.dto.CourseCreateRequest;
 import com.imedba.modules.course.dto.CourseResponse;
 import com.imedba.modules.course.dto.CourseUpdateRequest;
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.mapper.CourseMapper;
 import com.imedba.modules.course.repository.CourseRepository;
@@ -31,13 +33,16 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> list(String q, BusinessUnit businessUnit, String country,
-                                     Boolean active, Integer year, Pageable pageable) {
+                                     Boolean active, Integer year,
+                                     CourseType courseType, Modality modality,
+                                     Pageable pageable) {
         Set<BusinessUnit> allowed = SegmentationFilter.allowedBusinessUnits();
         if (businessUnit != null && !allowed.contains(businessUnit)) {
             return Page.empty(pageable);
         }
         String search = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase();
-        return repository.search(search, businessUnit, allowed, country, active, year, pageable)
+        return repository.search(search, businessUnit, allowed, country, active, year,
+                        courseType, modality, pageable)
                 .map(mapper::toResponse);
     }
 

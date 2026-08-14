@@ -26,6 +26,7 @@ public interface BookMapper {
         return new BookResponse(
                 b.getId(),
                 b.getName(),
+                b.getBusinessUnit(),
                 b.getCode(),
                 b.getSpecialty(),
                 b.getFormat(),

@@ -108,3 +108,45 @@
     justify-self: end;
   }
 }
+
+// ─── Selector de directoras (V035) ──────────────────────────────────────────
+// Reemplaza el editor libre nombre/%/email: ahora las directoras salen de
+// Personal Académico y se reparten en partes iguales, sin porcentaje por cabeza.
+.director-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid $gris-borde-sutil;
+    border-radius: $radio-md;
+    background: $blanco;
+    cursor: pointer;
+    transition: $transicion;
+
+    &:hover { border-color: $verde-petroleo-light; background: $verde-petroleo-overlay; }
+
+    input { cursor: pointer; accent-color: $verde-petroleo; }
+  }
+
+  &__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: $texto-oscuro;
+
+    > svg { color: $gris-texto-sutil; }
+  }
+
+  &__email {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: $gris-texto;
+  }
+}

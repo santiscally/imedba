@@ -1,9 +1,9 @@
 package com.imedba.modules.diploma.mapper;
 
 import com.imedba.modules.diploma.dto.DiplomaResponse;
-import com.imedba.modules.diploma.dto.PartnerConfigDto;
+import com.imedba.modules.diploma.dto.DiplomaResponse.DirectorRefDto;
 import com.imedba.modules.diploma.entity.Diploma;
-import com.imedba.modules.diploma.entity.PartnerConfig;
+import com.imedba.modules.staff.entity.Staff;
 import java.util.List;
 import org.mapstruct.Mapper;
 
@@ -18,23 +18,17 @@ public interface DiplomaMapper {
                 d.getCourse() != null ? d.getCourse().getName() : null,
                 d.getDescription(),
                 d.getEnrollmentPrice(), d.getCoursePrice(),
-                d.getTaxCommissionPct(), d.getSecretarySalary(), d.getAdvertisingAmount(),
-                d.getAdminPct(), d.getUniversityPct(), d.getImedbaPct(),
-                toDtoList(d.getPartnersConfig()),
+                toDirectorDtos(d.getDirectors()),
                 d.getActive(), d.getCreatedAt(), d.getUpdatedAt());
     }
 
-    default List<PartnerConfigDto> toDtoList(List<PartnerConfig> list) {
-        if (list == null) return List.of();
-        return list.stream()
-                .map(p -> new PartnerConfigDto(p.name(), p.pct(), p.email()))
-                .toList();
-    }
-
-    default List<PartnerConfig> fromDtoList(List<PartnerConfigDto> list) {
-        if (list == null) return List.of();
-        return list.stream()
-                .map(p -> new PartnerConfig(p.name(), p.pct(), p.email()))
+    default List<DirectorRefDto> toDirectorDtos(List<Staff> directors) {
+        if (directors == null) return List.of();
+        return directors.stream()
+                .map(s -> new DirectorRefDto(
+                        s.getId(),
+                        (s.getLastName() + ", " + s.getFirstName()).trim(),
+                        s.getEmail()))
                 .toList();
     }
 }

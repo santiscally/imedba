@@ -31,8 +31,10 @@ const TITLES: Record<string, string> = {
   '/ventas':         'Ventas',
   '/autores':        'Autores',
   '/diplomas':       'Diplomas',
-  '/liquidaciones':  'Liquidaciones PREMA',
-  '/personal':       'Personal',
+  '/liquidaciones':  'Liquidaciones',
+  '/personal':       'Usuarios',
+  '/personal-academico': 'Personal Académico',
+  '/clases':         'Clases',
 }
 
 export default function Topbar() {

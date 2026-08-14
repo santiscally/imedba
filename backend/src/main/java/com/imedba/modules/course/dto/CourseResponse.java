@@ -1,6 +1,8 @@
 package com.imedba.modules.course.dto;
 
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,7 +14,8 @@ public record CourseResponse(
         String code,
         String description,
         BusinessUnit businessUnit,
-        String modality,
+        CourseType courseType,
+        Modality modality,
         String country,
         BigDecimal enrollmentPrice,
         BigDecimal coursePrice,

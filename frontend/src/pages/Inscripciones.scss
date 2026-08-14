@@ -73,6 +73,71 @@
   }
 }
 
+// ─── Selector de filtro de contrato (pedido 2026-07-23) ─────────────────────
+.contract-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: $gris-texto;
+    white-space: nowrap;
+  }
+
+  &__input {
+    padding: 0.42rem 0.7rem;
+    border: 1px solid $gris-borde;
+    border-radius: $radio-md;
+    background: $blanco;
+    color: $texto-oscuro;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: $transicion;
+
+    &:hover  { border-color: $verde-petroleo-light; }
+    &:focus  { outline: none; border-color: $verde-petroleo; box-shadow: 0 0 0 3px $verde-petroleo-overlay; }
+  }
+}
+
+// ─── Toggle de contrato firmado en la fila ──────────────────────────────────
+// Es un botón y no un checkbox pelado para poder mostrar el estado con texto:
+// "Sin firmar" es información que el usuario necesita leer, no adivinar.
+.contract-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid $gris-borde;
+  border-radius: 999px;
+  background: $blanco;
+  color: $gris-texto;
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: $transicion;
+
+  &:hover:not(:disabled) {
+    border-color: $verde-petroleo-light;
+    color: $verde-petroleo;
+  }
+
+  &:disabled { opacity: 0.55; cursor: default; }
+
+  &--signed {
+    background: $verde-bg;
+    border-color: transparent;
+    color: $verde;
+  }
+}
+
 // ─── Chips de filtro (status) ────────────────────────────────────────────────
 .chip {
   padding: 0.45rem 0.9rem;
@@ -119,8 +184,9 @@
     color: $gris-texto;
 
     &.col-estado   { width: 130px; }
+    &.col-contrato { width: 130px; }
     &.col-precio   { width: 150px; text-align: right; }
-    &.col-acciones { width: 90px;  text-align: right; }
+    &.col-acciones { width: 120px; text-align: right; }
   }
 
   td {

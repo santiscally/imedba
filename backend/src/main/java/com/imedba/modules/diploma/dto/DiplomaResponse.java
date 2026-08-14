@@ -14,14 +14,13 @@ public record DiplomaResponse(
         String description,
         BigDecimal enrollmentPrice,
         BigDecimal coursePrice,
-        BigDecimal taxCommissionPct,
-        BigDecimal secretarySalary,
-        BigDecimal advertisingAmount,
-        BigDecimal adminPct,
-        BigDecimal universityPct,
-        BigDecimal imedbaPct,
-        List<PartnerConfigDto> partnersConfig,
+        /** Directoras (Personal Académico). Sin porcentaje: reparten en partes iguales. */
+        List<DirectorRefDto> directors,
         Boolean active,
         Instant createdAt,
         Instant updatedAt
-) {}
+) {
+
+    /** Referencia mínima a una directora, para no arrastrar todo el StaffResponse. */
+    public record DirectorRefDto(UUID id, String name, String email) {}
+}

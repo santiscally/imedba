@@ -17,6 +17,8 @@ export const ROUTE_AUTHORITY: Record<string, string> = {
   '/alumnos':        'students:read',
   '/cursos':         'courses:read',
   '/inscripciones':  'enrollments:read',
+  '/personal-academico': 'staff:read',   // docentes/tutoras/preceptoras/directoras (≠ /personal)
+  '/clases':         'hour_logs:read',   // grilla de clases dictadas (alimenta la liquidación)
   '/cuotas':         'installments:read',
   '/descuentos':     'discount_campaigns:read',
   '/diplomaturas':   'diplomas:read',
@@ -49,6 +51,8 @@ export const ROUTE_WRITE_AUTHORITY: Record<string, string> = {
   '/alumnos':       'students:write',
   '/cursos':        'courses:write',
   '/inscripciones': 'enrollments:write',
+  '/personal-academico': 'staff:write',
+  '/clases':        'hour_logs:write',
   '/descuentos':    'discount_campaigns:write',
   '/diplomaturas':  'diplomas:write',
   '/liquidaciones': 'diplomas:write',     // DiplomaSettlementController usa diplomas:write
@@ -71,6 +75,7 @@ export function canWrite(path: string): boolean {
 // primera sección accesible.
 const HOME_ORDER = [
   '/dashboard', '/alumnos', '/inscripciones', '/cuotas', '/cursos',
+  '/personal-academico', '/clases',
   '/diplomaturas', '/liquidaciones', '/descuentos', '/presupuesto',
   '/libros', '/colecciones', '/ventas',
   '/personal',

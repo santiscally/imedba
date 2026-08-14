@@ -52,6 +52,10 @@ public class NotificationController {
             page = repository.findAllByTypeAndStatus(type, status, pageable).map(mapper::toResponse);
         } else if (status != null) {
             page = repository.findAllByStatus(status, pageable).map(mapper::toResponse);
+        } else if (type != null) {
+            // Sin esta rama, `?type=X` sin `status` caía en el findAll de abajo y devolvía
+            // TODO el historial ignorando el filtro que la API publica.
+            page = repository.findAllByType(type, pageable).map(mapper::toResponse);
         } else {
             page = repository.findAll(pageable).map(mapper::toResponse);
         }

@@ -44,6 +44,7 @@ enrollments:read enrollments:write installments:read installments:write \
 payments:read payments:write discount_campaigns:read discount_campaigns:write \
 budget:read budget:write books:read books:write book_sales:read book_sales:write \
 authors:read authors:write diplomas:read diplomas:write staff:read staff:write \
+sales_commissions:read sales_commissions:write \
 hour_logs:read hour_logs:write contacts:read contacts:write \
 notifications:read notifications:write notifications:manage reports:read admin:manage \
 moodle:read moodle:write residencias:read residencias:write \
@@ -93,11 +94,14 @@ grant VENDEDORA \
 grant SECRETARIA_FS \
   students:read enrollments:read settlements:read settlements:write installments:read \
   teaching:read formacion_superior:read formacion_superior:write notifications:manage \
-  diplomas:read diplomas:write notifications:read notifications:write contacts:read
+  diplomas:read diplomas:write sales_commissions:read sales_commissions:write \
+  hour_logs:read hour_logs:write staff:read \
+  notifications:read notifications:write contacts:read
 
 grant SECRETARIA_RM \
   students:read courses:read enrollments:read installments:read teaching:read \
   residencias:read residencias:write notifications:manage notifications:read \
+  hour_logs:read hour_logs:write staff:read \
   notifications:write contacts:read
 
 grant EDITORIAL \
@@ -105,13 +109,15 @@ grant EDITORIAL \
   books:read books:write authors:read authors:write book_sales:read book_sales:write
 
 grant CONTABLE \
-  budget:read budget:write payments:read reports:read book_sales:read contacts:read
+  budget:read budget:write payments:read reports:read book_sales:read contacts:read \
+  sales_commissions:read sales_commissions:write \
+  settlements:read settlements:write hour_logs:read staff:read
 
 grant VIEWER \
   students:read courses:read enrollments:read payments:read installments:read \
   discount_campaigns:read editorial:read stock:read budget:read teaching:read \
   settlements:read reports:read authors:read books:read book_sales:read diplomas:read \
-  staff:read hour_logs:read contacts:read notifications:read
+  sales_commissions:read staff:read hour_logs:read contacts:read notifications:read
 
 # --- 3) Redirect URIs del client público imedba-frontend (idempotente) -------
 # Igual que los roles: el realm JSON los setea en el PRIMER import; esto los RE-APLICA
@@ -160,6 +166,41 @@ EOF
     log "= redirectUris/webOrigins de $FRONTEND_CLIENT re-aplicados"
   else
     log "! no pude actualizar redirectUris de $FRONTEND_CLIENT"
+  fi
+
+  # --- 4) Claim `sub` en el access token (idempotente) -----------------------
+  # Desde Keycloak 24 el `sub` NO está hardcodeado: lo emite el client scope
+  # `basic`. Nuestro realm JSON declara su propia lista de `clientScopes`, que
+  # REEMPLAZA las built-in, así que `basic` nunca se crea y los tokens salían SIN
+  # `sub`. Consecuencia: `AuthUtils.currentUserId()` devolvía vacío y todo lo que
+  # depende de quién hizo la acción quedaba en NULL — `enrollments.enrolled_by`
+  # (o sea la liquidación de comisiones no encontraba vendedoras y el filtro
+  # "la vendedora ve sólo lo suyo" no filtraba), `budget_entries.registered_by`
+  # y los `created_by` de auditoría.
+  # Se agrega el mapper al client en vez de crear el scope `basic`: es puntual y
+  # no toca la lista de scopes del realm.
+  if "$KCADM" get "clients/$FID/protocol-mappers/models" -r "$REALM" \
+        --fields name --format csv --noquotes 2>/dev/null | tr -d '\r' | grep -qx "sub"; then
+    log "= mapper 'sub' de $FRONTEND_CLIENT ya estaba"
+  else
+    cat > /tmp/sub-mapper.json <<'EOF'
+{
+  "name": "sub",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-sub-mapper",
+  "consentRequired": false,
+  "config": {
+    "access.token.claim": "true",
+    "introspection.token.claim": "true"
+  }
+}
+EOF
+    if "$KCADM" create "clients/$FID/protocol-mappers/models" -r "$REALM" \
+          -f /tmp/sub-mapper.json >/dev/null 2>&1; then
+      log "+ mapper 'sub' agregado a $FRONTEND_CLIENT (sin esto enrolled_by queda NULL)"
+    else
+      log "! no pude agregar el mapper 'sub' a $FRONTEND_CLIENT"
+    fi
   fi
 fi
 

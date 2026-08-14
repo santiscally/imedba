@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.enrollment.dto.EnrollmentCreateRequest;
@@ -48,7 +49,7 @@ class EnrollmentApiIntegrationTests extends AbstractIntegrationTest {
 
         Course c = Course.builder()
                 .name("Residencia Cardio").code("RES-CARD")
-                .businessUnit(BusinessUnit.RESIDENCIAS).modality("VIRTUAL")
+                .businessUnit(BusinessUnit.RESIDENCIAS).modality(Modality.LIBRE)
                 .enrollmentPrice(new BigDecimal("10000.00"))
                 .coursePrice(new BigDecimal("50000.00"))
                 .active(Boolean.TRUE)

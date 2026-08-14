@@ -1,11 +1,10 @@
-import {
-  X, FileSpreadsheet, Calendar, Hash, GraduationCap,
-  CircleDollarSign, Percent, Building2, University, Users,
-  Mail, Check, RefreshCw, BadgeCheck,
-} from 'lucide-react'
+import { useState } from 'react'
+import { BadgeCheck, Building2, Calendar, Check, CircleDollarSign, Download, FileSpreadsheet, GraduationCap, Hash, Mail, Percent, RefreshCw, University, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { DiplomaSettlement } from '../types/diploma-settlement'
 import { SETTLEMENT_STATUS_LABELS } from '../types/diploma-settlement'
+import { diplomaSettlementsApi } from '../api/diploma-settlements'
+import { alertError } from '../lib/confirm'
 import { hasAuthority } from '../lib/auth'
 import './StudentDetail.scss'
 import './SettlementDetail.scss'
@@ -36,6 +35,16 @@ export default function SettlementDetail({
   const isDraft    = settlement.status === 'DRAFT'
   const isApproved = settlement.status === 'APPROVED'
   const isPaid     = settlement.status === 'PAID'
+  const [downloading, setDownloading] = useState(false)
+
+  async function handlePdf() {
+    setDownloading(true)
+    try {
+      await diplomaSettlementsApi.downloadPdf(settlement.id, settlement.diplomaName ?? undefined)
+    } catch (err) {
+      alertError('No se pudo generar el comprobante', err instanceof Error ? err.message : undefined)
+    } finally { setDownloading(false) }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -75,49 +84,79 @@ export default function SettlementDetail({
             </dl>
           </section>
 
+          {/* El orden espeja la planilla de IMEDBA: cada paso descuenta del anterior. */}
           <section className="detail__section">
-            <h4 className="detail__section-title">Costos fijos</h4>
+            <h4 className="detail__section-title">1 · Impuestos y gastos bancarios</h4>
             <dl className="detail__grid">
-              <Row icon={Percent}          label="Comisión impuestos" value={formatPrice(settlement.taxCommissionAmount)} />
-              <Row icon={CircleDollarSign} label="Sueldo secretaria"  value={formatPrice(settlement.secretaryAmount)} />
-              <Row icon={CircleDollarSign} label="Publicidad"         value={formatPrice(settlement.advertisingAmount)} />
+              <Row icon={Percent} label="Impuestos"
+                value={`− ${formatPrice(settlement.taxCommissionAmount)}`} />
+              <Row icon={CircleDollarSign} label="Subtotal 1"
+                value={formatPrice(settlement.subtotal1)} highlight />
             </dl>
           </section>
 
           <section className="detail__section">
-            <h4 className="detail__section-title">Reparto institucional</h4>
+            <h4 className="detail__section-title">2 · Gastos administrativos</h4>
             <dl className="detail__grid">
-              <Row icon={Building2}  label="Administración" value={formatPrice(settlement.adminAmount)} />
-              <Row icon={University} label="Universidad"    value={formatPrice(settlement.universityAmount)} />
-              <Row icon={GraduationCap} label="IMEDBA"      value={formatPrice(settlement.imedbaAmount)} />
+              <Row icon={CircleDollarSign} label="Secretaría"
+                value={`− ${formatPrice(settlement.secretaryAmount)}`} />
+              <Row icon={CircleDollarSign} label="Publicidad"
+                value={`− ${formatPrice(settlement.advertisingAmount)}`} />
+              <Row icon={Building2} label="Administración"
+                value={`− ${formatPrice(settlement.administrationAmount)}`} />
+              <Row icon={CircleDollarSign} label="Gastos varios"
+                value={`− ${formatPrice(settlement.miscExpensesAmount)}`} />
+              <Row icon={CircleDollarSign} label="Subtotal 2"
+                value={formatPrice(settlement.subtotal2)} highlight />
             </dl>
+          </section>
+
+          <section className="detail__section">
+            <h4 className="detail__section-title">3 · Reparto 50 / 50</h4>
+            <dl className="detail__grid">
+              <Row icon={CircleDollarSign} label="Cada mitad"
+                value={formatPrice(settlement.halfAmount)} highlight />
+              {/* El % va en el label: si se cargó al revés (80 a UNTREF), con sólo
+                  los importes a la vista no hay forma de darse cuenta. */}
+              <Row icon={GraduationCap} label={`Ganancia IMEDBA (${formatPct(settlement.inputImedbaPct, 80)})`}
+                value={formatPrice(settlement.imedbaAmount)} />
+              <Row icon={University} label={`Acumulado UNTREF (${formatPct(settlement.inputUntrefPct, 20)})`}
+                value={formatPrice(settlement.untrefAmount)} />
+            </dl>
+            <p className="detail__note">
+              El acumulado de UNTREF no se paga este mes: se salda al cerrar la comisión.
+            </p>
           </section>
 
           <section className="detail__section">
             <h4 className="detail__section-title">
               <Users size={14} strokeWidth={1.8} />
               Directoras
-              <span className="detail__sum">Total: {formatPrice(settlement.partnersTotal)}</span>
+              <span className="detail__sum">Total: {formatPrice(settlement.directorsBaseAmount)}</span>
             </h4>
+            <dl className="detail__grid">
+              <Row icon={CircleDollarSign} label="Mitad de directoras"
+                value={formatPrice(settlement.halfAmount)} />
+              <Row icon={CircleDollarSign} label="Grabaciones docentes"
+                value={`− ${formatPrice(settlement.recordingsAmount)}`} />
+            </dl>
             <div className="partners-table">
-              {settlement.partnersDistribution.length === 0 ? (
+              {settlement.directorsDistribution.length === 0 ? (
                 <div className="partners-table__empty">Sin directoras en esta liquidación.</div>
               ) : (
                 <table>
                   <thead>
                     <tr>
                       <th>Nombre</th>
-                      <th className="partners-table__pct">%</th>
                       <th className="partners-table__amount">Monto</th>
                       <th>Email</th>
                       <th className="partners-table__paid">Pagada</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {settlement.partnersDistribution.map((p, i) => (
-                      <tr key={i}>
+                    {settlement.directorsDistribution.map((p, i) => (
+                      <tr key={p.staffId ?? i}>
                         <td className="partners-table__name">{p.name}</td>
-                        <td className="partners-table__pct">{p.pct}%</td>
                         <td className="partners-table__amount">{formatPrice(p.amount)}</td>
                         <td className="partners-table__email">
                           {p.email
@@ -171,9 +210,15 @@ export default function SettlementDetail({
             </button>
           )}
           {isPaid && (
-            <span className="detail__locked">
-              <Check size={14} strokeWidth={2.2} /> Liquidación cerrada
-            </span>
+            <>
+              {/* El comprobante sólo existe una vez pagada — es el respaldo del pago. */}
+              <button type="button" className="btn-ghost" onClick={handlePdf} disabled={downloading}>
+                <Download size={15} /> {downloading ? 'Generando…' : 'Descargar comprobante'}
+              </button>
+              <span className="detail__locked">
+                <Check size={14} strokeWidth={2.2} /> Liquidación cerrada
+              </span>
+            </>
           )}
         </footer>
       </div>
@@ -213,6 +258,12 @@ function formatPrice(n: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n)
+}
+
+/** Porcentaje del reparto. Si la liquidación no lo guardó, se aplicó el default. */
+function formatPct(v: number | null, fallback: number): string {
+  const n = v ?? fallback
+  return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}%`
 }
 
 function formatInstant(iso: string): string {

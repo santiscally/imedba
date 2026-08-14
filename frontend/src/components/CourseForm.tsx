@@ -6,7 +6,11 @@ import type {
   CourseUpdateRequest,
   BusinessUnit,
 } from '../types/course'
-import { BUSINESS_UNITS, BUSINESS_UNIT_LABELS, modalitiesFor, formatModality } from '../types/course'
+import {
+  BUSINESS_UNITS, BUSINESS_UNIT_LABELS,
+  COURSE_TYPES, COURSE_TYPE_LABELS, MODALITIES, MODALITY_LABELS,
+} from '../types/course'
+import type { CourseType, Modality } from '../types/course'
 import { COUNTRIES, COUNTRY_LABELS } from '../types/country'
 import './StudentForm.scss'
 
@@ -25,7 +29,8 @@ interface FormState {
   code:            string
   description:     string
   businessUnit:    BusinessUnit
-  modality:        string
+  courseType:      CourseType | ''
+  modality:        Modality | ''
   country:         string
   enrollmentPrice:   string
   coursePrice:       string
@@ -36,16 +41,17 @@ interface FormState {
 
 function initialState(c?: Course): FormState {
   return {
-    name:              c?.name              ?? '',
-    code:              c?.code              ?? '',
-    description:       c?.description       ?? '',
-    businessUnit:      c?.businessUnit      ?? 'RESIDENCIAS',
-    modality:          c?.modality          ?? '',
-    country:           c?.country           ?? 'AR',
-    enrollmentPrice:   c?.enrollmentPrice   != null ? String(c.enrollmentPrice) : '',
-    coursePrice:       c?.coursePrice       != null ? String(c.coursePrice)     : '',
-    academicYear:      c?.academicYear      != null ? String(c.academicYear)    : '',
-    commission:        c?.commission        != null ? String(c.commission)      : '',
+    name:            c?.name            ?? '',
+    code:            c?.code            ?? '',
+    description:     c?.description     ?? '',
+    businessUnit:    c?.businessUnit    ?? 'RESIDENCIAS',
+    courseType:      c?.courseType      ?? '',
+    modality:        c?.modality        ?? '',
+    country:         c?.country         ?? 'AR',
+    enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
+    coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
+    academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
+    commission:      c?.commission      != null ? String(c.commission)      : '',
     includesPremaBook: c?.includesPremaBook === true,
   }
 }
@@ -62,7 +68,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
   }
 
   // Modalidad en cascada según unidad (reunión 12-jun); comisión sólo para Formación Superior.
-  const modalityOptions = modalitiesFor(state.businessUnit)
   const showCommission  = state.businessUnit === 'FORMACION_SUPERIOR'
 
   function validate(): boolean {
@@ -71,7 +76,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (!state.businessUnit)         e.businessUnit = 'Obligatorio'
     if (state.name.length     > 200) e.name         = 'Máx 200 caracteres'
     if (state.code.length     > 50)  e.code         = 'Máx 50 caracteres'
-    if (state.modality.length > 50)  e.modality     = 'Máx 50 caracteres'
 
     if (state.enrollmentPrice && Number.isNaN(Number(state.enrollmentPrice))) {
       e.enrollmentPrice = 'No es un número válido'
@@ -99,7 +103,8 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       code:            state.code.trim()        || null,
       description:     state.description.trim() || null,
       businessUnit:    state.businessUnit,
-      modality:        state.modality.trim()    || null,
+      courseType:      state.courseType || null,
+      modality:        state.modality   || null,
       country:         state.country            || null,
       enrollmentPrice:   state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
       coursePrice:       state.coursePrice        ? Number(state.coursePrice)     : null,
@@ -168,11 +173,11 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
                 value={state.businessUnit}
                 onChange={e => {
                   const bu = e.target.value as BusinessUnit
+                  // Tipo y modalidad ya no dependen de la unidad (V038): son ejes
+                  // propios y valen para cualquiera. Sólo la comisión es de FS.
                   setState(prev => ({
                     ...prev,
                     businessUnit: bu,
-                    // si la modalidad actual no aplica a la nueva unidad, resetear
-                    modality:   modalitiesFor(bu).includes(prev.modality) ? prev.modality : '',
                     commission: bu === 'FORMACION_SUPERIOR' ? prev.commission : '',
                   }))
                 }}
@@ -183,16 +188,23 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               </select>
             </Field>
 
+            <Field label="Tipo de curso" error={errors.courseType}>
+              <select value={state.courseType}
+                onChange={e => setField('courseType', e.target.value as CourseType | '')}>
+                <option value="">— Sin especificar —</option>
+                {COURSE_TYPES.map(t => (
+                  <option key={t} value={t}>{COURSE_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </Field>
+
             <Field label="Modalidad" error={errors.modality}>
-              <select
-                value={state.modality}
-                onChange={e => setField('modality', e.target.value)}
-              >
-                <option value="">— Elegir —</option>
-                {state.modality && !modalityOptions.includes(state.modality) && (
-                  <option value={state.modality}>{formatModality(state.modality)}</option>
-                )}
-                {modalityOptions.map(m => <option key={m} value={m}>{formatModality(m)}</option>)}
+              <select value={state.modality}
+                onChange={e => setField('modality', e.target.value as Modality | '')}>
+                <option value="">— Sin especificar —</option>
+                {MODALITIES.map(m => (
+                  <option key={m} value={m}>{MODALITY_LABELS[m]}</option>
+                ))}
               </select>
             </Field>
 

@@ -197,7 +197,7 @@ public class InstallmentService {
     private Installment findVisible(UUID id) {
         Installment i = findById(id);
         if (AuthUtils.isVendedoraOnly()) {
-            UUID me = AuthUtils.currentUserId().orElse(null);
+            UUID me = AuthUtils.requireCurrentUserId();
             Enrollment e = i.getEnrollment();
             if (e == null || !Objects.equals(me, e.getEnrolledBy())) {
                 throw NotFoundException.of("Installment", id);
@@ -208,7 +208,7 @@ public class InstallmentService {
 
     private Specification<Installment> vendedoraScope() {
         if (!AuthUtils.isVendedoraOnly()) return null;
-        UUID me = AuthUtils.currentUserId().orElse(null);
+        UUID me = AuthUtils.requireCurrentUserId();
         return InstallmentSpecs.byEnrolledBy(me);
     }
 }

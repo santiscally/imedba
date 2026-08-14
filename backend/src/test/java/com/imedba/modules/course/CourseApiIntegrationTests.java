@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.imedba.modules.course.dto.CourseCreateRequest;
 import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.CourseType;
+import com.imedba.modules.course.entity.Modality;
 import com.imedba.test.AbstractIntegrationTest;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +50,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
     void duplicate_code_is_409() throws Exception {
         createCourse("X", "DUP-01", BusinessUnit.GENERAL, true);
         var dup = new CourseCreateRequest(
-                "Y", "DUP-01", null, BusinessUnit.GENERAL, null, "AR",
+                "Y", "DUP-01", null, BusinessUnit.GENERAL, null, null, "AR",
                 BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, null, null, false, true);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,7 +60,7 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
 
     private void createCourse(String name, String code, BusinessUnit bu, boolean active) throws Exception {
         var req = new CourseCreateRequest(
-                name, code, null, bu, "VIRTUAL", "AR",
+                name, code, null, bu, CourseType.NORMAL, Modality.LIBRE, "AR",
                 new BigDecimal("10000.00"), new BigDecimal("50000.00"),
                 null, null, null, null, null, false, active);
         mockMvc.perform(post("/api/v1/courses").with(writer())
