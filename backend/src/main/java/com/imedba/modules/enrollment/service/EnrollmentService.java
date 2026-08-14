@@ -229,7 +229,7 @@ public class EnrollmentService {
     private MailAttachment contractPdf(Enrollment e) {
         try {
             byte[] pdf = contractPdfRenderer.render(contractDataFrom(e));
-            return MailAttachment.pdf(contractFilename(e), pdf);
+            return MailAttachment.pdf("contrato-imedba.pdf", pdf);
         } catch (RuntimeException ex) {
             log.warn("No se pudo generar el PDF del contrato para enrollment={}: {}",
                     e.getId(), ex.getMessage());
@@ -252,10 +252,6 @@ public class EnrollmentService {
                 null, null);                   // Course no modela inicio/fin de grupo → "A confirmar"
     }
 
-    private static String contractFilename(Enrollment e) {
-        String last = e.getStudent().getLastName() != null ? e.getStudent().getLastName() : "alumno";
-        return ("contrato-" + last).toLowerCase().replaceAll("[^a-z0-9._-]+", "-") + ".pdf";
-    }
 
     public EnrollmentResponse update(UUID id, EnrollmentUpdateRequest req) {
         Enrollment e = findVisible(id);

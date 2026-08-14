@@ -16,13 +16,12 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter SMTP (AWS SES SMTP u otro relay). Activo sólo si {@code spring.mail.host}
- * tiene valor; en caso contrario {@link NoopMailSenderConfig} provee el bean.
+ * Adapter SMTP (Resend u otro relay). Activo sólo si {@code spring.mail.host} tiene valor;
+ * en caso contrario {@link NoopMailSenderConfig} provee el bean.
  *
- * <p>Usa el {@link JavaMailSender} autoconfigurado por Spring (host/port/credenciales
- * en {@code spring.mail.*}). Es el proveedor por default para IMEDBA: STARTTLS 587.
- * El adapter por API ({@link SesMailSender}, HTTPS 443) queda como alternativa para
- * hostings que bloqueen el puerto 587 saliente.
+ * <p>Usa el {@link JavaMailSender} autoconfigurado por Spring (host/port/credenciales en
+ * {@code spring.mail.*}). Provider-agnostic: para Resend, host {@code smtp.resend.com},
+ * usuario {@code resend}, password = API key. STARTTLS 587.
  */
 @Slf4j
 @Component

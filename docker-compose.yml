@@ -101,20 +101,13 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-no-reply@imedba.local}
       SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-IMEDBA}
-      # AWS SES por SMTP (proveedor de mail activo). Sin SES_SMTP_HOST queda el NoopMailSender.
-      SES_SMTP_HOST: ${SES_SMTP_HOST:-}
-      SES_SMTP_PORT: ${SES_SMTP_PORT:-587}
-      SES_SMTP_USERNAME: ${SES_SMTP_USERNAME:-}
-      SES_SMTP_PASSWORD: ${SES_SMTP_PASSWORD:-}
+      # SMTP del proveedor de mail (Resend). Sin MAIL_SMTP_HOST queda el NoopMailSender.
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+      MAIL_SMTP_USERNAME: ${MAIL_SMTP_USERNAME:-}
+      MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@imedba.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-IMEDBA}
-      # Alternativa por API (HTTPS 443) si el hosting bloquea el SMTP saliente. Requiere
-      # credenciales IAM (access key/secret), NO las SMTP. Dormido salvo AWS_SES_FROM_EMAIL.
-      AWS_SES_FROM_EMAIL: ${AWS_SES_FROM_EMAIL:-}
-      AWS_SES_FROM_NAME: ${AWS_SES_FROM_NAME:-IMEDBA}
-      AWS_SES_REGION: ${AWS_SES_REGION:-sa-east-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       # Moodle (LMS) — inerte hasta tener token de David. Activar: MOODLE_ENABLED=true + URL + TOKEN.
       MOODLE_ENABLED: ${MOODLE_ENABLED:-false}
       MOODLE_URL: ${MOODLE_URL:-}

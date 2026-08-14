@@ -7,11 +7,12 @@ spring:
     time-zone: ${TZ:America/Argentina/Buenos_Aires}
     default-property-inclusion: non_null
   mail:
-    # AWS SES por SMTP. Con SES_SMTP_HOST vacío el SmtpMailSender queda inactivo (→ Noop).
-    host: ${SES_SMTP_HOST:}
-    port: ${SES_SMTP_PORT:587}
-    username: ${SES_SMTP_USERNAME:}
-    password: ${SES_SMTP_PASSWORD:}
+    # SMTP del proveedor de mail (Resend: host smtp.resend.com, user 'resend', pass = API key).
+    # Con MAIL_SMTP_HOST vacío el SmtpMailSender queda inactivo (→ Noop).
+    host: ${MAIL_SMTP_HOST:}
+    port: ${MAIL_SMTP_PORT:587}
+    username: ${MAIL_SMTP_USERNAME:}
+    password: ${MAIL_SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -78,21 +79,13 @@ sendgrid:
   from-email: ${SENDGRID_FROM_EMAIL:no-reply@imedba.local}
   from-name: ${SENDGRID_FROM_NAME:IMEDBA}
 
-# Remitente del mail. El dominio de MAIL_FROM_ADDRESS debe estar verificado en SES
-# (hoy: avisos.simpleapps.com.ar). Usado por el adapter SMTP.
+# Remitente del mail. El dominio de MAIL_FROM_ADDRESS debe estar verificado en el proveedor
+# (Resend). Sin dominio verificado sólo se puede mandar desde onboarding@resend.dev al mail
+# de la cuenta. Usado por el adapter SMTP.
 mail:
   from:
     address: ${MAIL_FROM_ADDRESS:no-reply@imedba.local}
     name: ${MAIL_FROM_NAME:IMEDBA}
-
-# Alternativa por API (HTTPS 443) para hostings que bloqueen el SMTP saliente (587/465/25).
-# El SesMailSender se activa SOLO si `aws.ses.from-email` tiene valor; requiere credenciales
-# IAM (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) — NO las SMTP. Dormido por default.
-aws:
-  ses:
-    region: ${AWS_SES_REGION:sa-east-1}
-    from-email: ${AWS_SES_FROM_EMAIL:}
-    from-name: ${AWS_SES_FROM_NAME:IMEDBA}
 
 # Integración Moodle (LMS). Deshabilitada por default: hasta que David pase URL + token,
 # el MoodleClient es inerte (loguea, no llama a la red). Para activar: MOODLE_ENABLED=true

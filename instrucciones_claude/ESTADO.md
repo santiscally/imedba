@@ -224,7 +224,9 @@ Los endpoints usan `@PreAuthorize("hasAuthority('<permiso>')")`. El listado comp
 
 ## Fran / frontend
 
-**Fase actual:** Feature de mail automation (go-live) — todo el backend del feature es de Fran para esta tanda (acuerdo Santi 2026-06-28/30). Proveedor: **AWS SES por SMTP** (sa-east-1, dominio avisos.simpleapps.com.ar).
+**Fase actual:** Feature de mail automation (go-live) — todo el backend del feature es de Fran para esta tanda (acuerdo Santi 2026-06-28/30). Proveedor: **Resend por SMTP**.
+
+**🔥 2026-08-14 — se baja AWS SES, se pasa a Resend (SMTP).** Mismo `SmtpMailSender` (provider-agnostic), vars `MAIL_SMTP_*`, host `smtp.resend.com:587` user `resend` pass = API key. Eliminado el adapter/SDK de AWS. Verificado e2e por Resend: envío simple + contrato con PDF adjunto (`attachments=1`), ambos entregados. PDF del contrato renombrado a `contrato-imedba.pdf`. **Prod:** falta verificar el dominio de IMEDBA en Resend (DNS, lo carga David) y cambiar `MAIL_FROM_ADDRESS`. OJO entorno: `nutriapp` comparte puertos 5432/8081 — pararlo para levantar imedba. Detalle DIARIO 08-14.
 
 **🔥 2026-07-03 — 3 recordatorios de cobranza (textos de Nico) + logo inline.** Rec.1 = `installmentDueSoon` (día antes del venc.), Rec.2 = NUEVO `installmentOverdue`/`INSTALLMENT_OVERDUE` disparado al aplicar el 5% (día +1, OVERDUE) desde `InstallmentScheduler`, Rec.3 = `preSuspension` (día 20). Logo `Logo-Imedba-Zoom.png` incrustado inline (CID `imedba-logo`) por el `SmtpMailSender`. **V032** suma el tipo al CHECK. Textos por concatenación + `.replace("{{AMOUNT}}")` (tienen "5%"). Verificado e2e: cuota forzada a OVERDUE → Rec.2 despachado a la casilla verificada con el logo. Detalle DIARIO 07-03.
 

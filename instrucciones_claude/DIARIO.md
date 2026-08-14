@@ -29,6 +29,17 @@
 
 ## Entradas
 
+## 2026-08-14 — Fran — backend (mail: se baja AWS SES, se pasa a Resend por SMTP)
+**Qué:** Se abandonó AWS SES (fricción para salir de sandbox / aprobación de producción) y el proveedor de mail pasó a **Resend**. Como el `SmtpMailSender` es provider-agnostic, fue casi solo config:
+- Vars SMTP renombradas `SES_SMTP_*` → **`MAIL_SMTP_*`** (neutras) en `application.yml`, `docker-compose.yml`, `.env`, `.env.example`. Resend: host `smtp.resend.com`, puerto 587 (STARTTLS), usuario literal `resend`, password = API key (`re_...`).
+- **Eliminado** el adapter por API `SesMailSender.java` + el AWS SDK v2 (`sesv2` + BOM) del `pom` + el bloque `aws.ses`. Adapters vigentes: `SmtpMailSender` (activo, Resend), `NoopMailSender` (default), `SendGridMailSender` (dormido, legacy).
+- Nombre del PDF del contrato pasó de `contrato-<apellido>.pdf` a **`contrato-imedba.pdf`** (fijo) en `EnrollmentService`.
+**Por qué:** Pedido de Fran. Resend: setup más simple, free 100/día-3000/mes, SMTP con la API key como password.
+**Verificado e2e (14-08):** envío simple (SMTP directo a Resend → `SENT OK`) y por la app el alta de inscripción → bienvenida + **contrato con PDF adjunto** despachados por Resend (`SMTP: sent ... attachments=1`), ambos entregados a la casilla. El adjunto sale como `contrato-imedba.pdf` (~15KB).
+**Atención:** (1) Resend exige **verificar un dominio** (DNS: DKIM/SPF/DMARC) antes de mandar a cualquiera; sin eso sólo `onboarding@resend.dev` → mail de la cuenta. Para prod: verificar el dominio de IMEDBA (imedba.com) en Resend — lo carga en el DNS quien lo maneja (David); NO se necesitan credenciales de mail de IMEDBA. Luego cambiar `MAIL_FROM_ADDRESS`. (2) Rate limit Resend 2 req/s (de sobra). (3) Endpoint TEST-ONLY `/notifications/_test-send` sigue — borrar antes del go-live. (4) OJO entorno: el proyecto `nutriapp` de Fran comparte los puertos 5432/8081; hay que pararlo para levantar imedba.
+**Impacto para el otro (Santi):** Proveedor de mail activo = Resend (SMTP). Nada de AWS en el repo. Sin cambios de contrato con el front.
+**Refs:** `pom.xml`, `application.yml`, `docker-compose.yml`, `.env.example`, `SmtpMailSender.java`, `EnrollmentService.java` (borrado `SesMailSender.java`).
+
 ## 2026-07-20 — Fran — backend + frontend (correcciones docx Jaque: cierro 5 items backend con permiso explícito de Santi)
 **Qué:** Con Fran de viaje próximo a Brasil, Santi le dio permiso explícito de tocar backend para cerrar todos los items posibles del docx `Sistema imedba correcciones.docx` antes del viaje. Cerré **5 items backend + adaptaciones frontend** (items #3, #5, #6, #7 del docx; el #4 quedó bloqueado por falta de specs de Jaque).
 
