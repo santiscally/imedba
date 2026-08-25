@@ -52,3 +52,5 @@ nginx/certs/*
 !nginx/certs/.gitkeep
 
 .claude/*
+
+/ssh.txt
