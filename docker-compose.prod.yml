@@ -20,7 +20,14 @@ services:
           memory: 256M
 
   keycloak:
-    command: ["start", "--import-realm", "--optimized"]
+    # SIN --optimized. En Keycloak, `db` es opción de BUILD-time y la imagen oficial viene
+    # horneada con el driver de H2: con --optimized el server saltea el build, ignora
+    # KC_DB=postgres y arranca con el driver equivocado ->
+    #   "Driver does not support the provided URL: jdbc:postgresql://db:5432/keycloak"
+    # -> exited with code 1 (restarting). Sin el flag, Keycloak buildea al arrancar, toma
+    # KC_DB=postgres e incluye el driver correcto. Cuesta ~40s más de boot.
+    # Alternativa para recuperar el arranque rápido: imagen propia multi-stage con `kc.sh build`.
+    command: ["start", "--import-realm"]
     environment:
       KC_HTTP_RELATIVE_PATH: /auth
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
