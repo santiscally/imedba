@@ -3,13 +3,25 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Validación de `iss` OPCIONAL: se activa solo si KEYCLOAK_ISSUER_URI trae
-          # valor. Vacío (default) => Spring valida solo la firma vía JWK (fetch interno
-          # a Keycloak) + timestamps, sin atarse a un hostname público. Esto hace que el
-          # backend acepte tokens venga con el `iss` que venga (localhost, túnel Cloudflare
-          # con hostname random, dominio real) sin romperse. Cuando tengas un dominio fijo
-          # y quieras defensa-en-profundidad, seteá KEYCLOAK_ISSUER_URI y vuelve a validar.
-          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:}
+          # Validación de `iss`: OBLIGATORIA en prod. Sin default a propósito.
+          #
+          # OJO — acá vivía un bug real (deploy 2026-08-25). Decía
+          # `${...:}`, o sea default = string VACÍO. El auto-config de Spring hace:
+          #     issuerUri != null ? createDefaultWithIssuer(issuerUri) : createDefault()
+          # Chequea != null, NO si tiene contenido. String vacío NO es null => armaba un
+          # JwtIssuerValidator("") que exige iss == "" => NINGÚN token pasaba nunca. El
+          # backend levantaba perfecto y devolvía 401 a todo, con
+          # "The iss claim is not valid" escondido en el header WWW-Authenticate.
+          #
+          # Tampoco sirve `${...:#{null}}`: el SpEL #{} lo evalúa @Value, no el binder de
+          # @ConfigurationProperties, así que bindearía el literal "#{null}".
+          #
+          # Sin default, si la variable falta el arranque falla con un error explícito de
+          # placeholder. El compose además la exige con ${KEYCLOAK_ISSUER_URI:?...}, así que
+          # el error salta en el `up`, antes de levantar nada. Fallar fuerte > fallar mudo.
+          #
+          # Formato: https://<SERVER_NAME>/auth/realms/imedba
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
           jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI}
   jpa:
     show-sql: false

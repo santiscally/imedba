@@ -29,6 +29,40 @@
 
 ## Entradas
 
+## 2026-08-25 — Fran — infra (PRODUCCIÓN en el aire: VPS nuevo + los 3 bugs que tenía el perfil `prod`)
+
+**Qué:** Deploy de producción completo en un **VPS nuevo de DonWeb**, distinto al del demo: `179.43.112.23` (SSH puerto **5213**), hostname público **`vps-6294990-x.dattaweb.com`** — resuelve solo a esa IP, no hizo falta crear ningún A record. Repo en `/home/imedba`, stack con `docker-compose.yml + docker-compose.prod.yml` (nginx en contenedor tomando 80/443), cert propio de Let's Encrypt (vence ~2026-11-23). Verificado de punta a punta: login ROPC → token → `GET /api/v1/students` → **200**, y login por navegador OK.
+
+**Por qué:** cerrar el pasaje a producción. El demo (`vps-4740477-x.dattaweb.com`) queda como está.
+
+**Problemas — los 3 son de la misma familia: el override `prod` NUNCA se había ejecutado.** Todos los deploys anteriores usaron `docker-compose.demo.yml`, así que `docker-compose.prod.yml` + `application-prod.yml` se escribieron en Fase 8 y quedaron sin ejercitar. Los tres aparecieron en cascada:
+
+1. **`keycloak-config` apuntaba a Keycloak sin `/auth` → 403 en toda la app.** `docker-compose.yml` tiene `KC_SERVER: http://keycloak:8080` **hardcodeado, sin `${}`**, y el override de prod no lo pisaba (el de demo sí). En prod Keycloak sirve bajo `/auth`, así que kcadm nunca lo encontraba: `sync-roles.sh` se quedaba en "esperando Keycloak...", timeouteaba y **no aplicaba roles ni permisos** → todos los `@PreAuthorize` devolvían 403. Fix: bloque `keycloak-config` en el override de prod con `KC_SERVER: http://keycloak:8080/auth`.
+
+2. **`--optimized` hacía arrancar Keycloak con el driver de H2 → crashloop.** En Keycloak, `db` es opción de **build-time**, y la imagen oficial viene con un build horneado que no incluye Postgres. Con `--optimized` el server saltea el build e **ignora `KC_DB=postgres`**: `Driver does not support the provided URL: jdbc:postgresql://db:5432/keycloak` → `exited with code 1 (restarting)`. Fix: sacar el flag; Keycloak buildea al arrancar (~40s más de boot). Si molesta, la salida es una imagen propia multi-stage con `kc.sh build`.
+
+3. **`issuer-uri` vacío → 401 en TODOS los endpoints, con el backend levantado y sano.** `application-prod.yml` tenía `issuer-uri: ${...:}` (default = string **vacío**) y el comentario afirmaba que vacío significaba "validar solo la firma". **Falso.** El auto-config de Spring hace `issuerUri != null ? createDefaultWithIssuer(issuerUri) : createDefault()` — chequea `!= null`, **no** si tiene contenido. String vacío no es null → armaba un `JwtIssuerValidator("")` que exige `iss == ""` → ningún token pasaba jamás. Síntoma tramposo: token válido de 2703 caracteres y **401, no 403**; el motivo real (`The iss claim is not valid`) sólo aparecía en el header `WWW-Authenticate`. **Ojo para el futuro:** `${...:#{null}}` tampoco sirve — el SpEL `#{}` lo evalúa `@Value`, no el binder de `@ConfigurationProperties`, así que bindearía el literal `"#{null}"`. Fix: **sin default**, y el compose la exige con `${KEYCLOAK_ISSUER_URI:?...}` → el `up` aborta con mensaje explícito. Fallar fuerte > fallar mudo.
+
+**Otros hallazgos:**
+
+- **El realm importa 6 usuarios con password `test1234` hardcodeada en un repo público**, incluido `admin@imedba.dev` con rol `ADMIN`. En prod se les cambió la password. **⚠️ El server de demo sigue expuesto así en internet** (`https://vps-4740477-x.dattaweb.com`) — Santi, eso está pendiente. Ojo: **las passwords temporales NO son opción**, porque el SPA loguea por ROPC (`grant_type=password`) y un usuario con acción requerida pendiente recibe `invalid_grant` sin ninguna pantalla donde resolverla.
+- **`FRONTEND_REDIRECT_URIS_EXTRA`** la consume el compose pero faltaba en `.env.example`. Agregada.
+- **`IMEDBA_BACKEND_CLIENT_SECRET`** estaba en `.env.example` pero **no la lee nadie** — ni el compose ni el backend (es resource server puro, valida por firma). Eliminada.
+- **La renovación del cert no podía funcionar:** el template de nginx sirve el challenge desde `/var/www/certbot`, pero ese directorio **no estaba montado** en el contenedor. Agregado el volumen + `scripts/renew-cert.sh` (webroot, no standalone: el 80 ahora lo tiene nginx).
+
+**Hardware — atención:** el VPS tiene **1.9 GB de RAM**, no 4. Sin swap el build muere por OOM (`exit 137`), así que se agregó un **swapfile de 4 GB** (`/swapfile`, `swappiness=10`). Los `limits.memory` del compose estaban dimensionados para 4 GB: se parametrizaron con **default idéntico al valor previo** (`${BACKEND_MEM_LIMIT:-1536M}`, etc.), así que **para el demo no cambia nada**. En prod se apretaron desde el `.env` a 384M/640M/768M/64M/64M.
+
+**Impacto para el otro (Santi):**
+- **Los 3 fixes también te sirven a vos** si algún día levantás el demo con el override de prod. El de memoria no te toca: los defaults quedaron iguales.
+- **Cambio de contrato:** `KEYCLOAK_ISSUER_URI` ahora es **obligatoria en prod**. Un `.env` de prod sin ella no levanta (y te dice por qué).
+- **Acción pendiente tuya:** las passwords `test1234` del demo público.
+- `docker compose down -v` en prod re-importa el realm y **revive los 6 usuarios con `test1234`**. Si alguna vez hace falta, hay que volver a cambiarlas.
+
+**Pendientes que quedaron anotados (no bloquean, pero 1 y 2 rompen solos):** (1) cron de `scripts/renew-cert.sh` — el cert vence ~23-nov; (2) cron de `scripts/backup-db.sh` — **hoy no hay ningún backup**; (3) API key de Resend + dominio verificado (sin eso el mail es Noop); (4) pasar a claves SSH y desactivar login por password.
+
+**Refs:** commits `75d50d4` (bug 1 + parametrización de memoria), `f49c002` (bug 2), este commit (bug 3 + webroot + `renew-cert.sh` + `.env.example`). Archivos: `docker-compose.prod.yml`, `backend/src/main/resources/application-prod.yml`, `scripts/renew-cert.sh`, `.env.example`.
+
+
 ## 2026-08-14 — Fran — backend (mail: se baja AWS SES, se pasa a Resend por SMTP)
 **Qué:** Se abandonó AWS SES (fricción para salir de sandbox / aprobación de producción) y el proveedor de mail pasó a **Resend**. Como el `SmtpMailSender` es provider-agnostic, fue casi solo config:
 - Vars SMTP renombradas `SES_SMTP_*` → **`MAIL_SMTP_*`** (neutras) en `application.yml`, `docker-compose.yml`, `.env`, `.env.example`. Resend: host `smtp.resend.com`, puerto 587 (STARTTLS), usuario literal `resend`, password = API key (`re_...`).

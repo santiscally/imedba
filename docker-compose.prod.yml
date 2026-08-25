@@ -54,10 +54,10 @@ services:
   backend:
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      # issuer-uri VACÍO por default => validación solo por firma JWK (hostname-agnostic:
-      # sirve para el túnel Cloudflare que cambia de hostname). Seteá KEYCLOAK_ISSUER_URI
-      # en el .env solo cuando tengas un dominio fijo y quieras validar el `iss`.
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      # OBLIGATORIA. El `:?` hace que `docker compose up` aborte con este mensaje si falta
+      # o está vacía, en vez de arrancar un backend que rechaza todos los tokens (ver el
+      # comentario largo en application-prod.yml — string vacío != null y Spring exige iss=="").
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:?falta KEYCLOAK_ISSUER_URI en el .env — formato https://<SERVER_NAME>/auth/realms/imedba}
       # JWK interno (backend -> keycloak por red Docker). Default con /auth (prod usa
       # KC_HTTP_RELATIVE_PATH=/auth) para que ande aunque el .env no lo setee.
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/auth/realms/imedba/protocol/openid-connect/certs}
@@ -104,6 +104,10 @@ services:
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      # Webroot del challenge ACME. El template ya sirve /.well-known/acme-challenge/ desde
+      # acá; sin este montaje `certbot renew --webroot` no tiene dónde escribir y la
+      # renovación falla en silencio hasta que el cert vence. Ver scripts/renew-cert.sh.
+      - /var/www/certbot:/var/www/certbot:ro
     networks: [imedba-net]
     deploy:
       resources:
