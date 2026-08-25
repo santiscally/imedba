@@ -21,11 +21,17 @@ fi
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${COMPOSE_FILE:-${REPO_DIR}/docker-compose.yml}"
+# Ver la nota de COMPOSE_FILE en backup-db.sh: no se usa `-f`, se corre desde REPO_DIR.
 POSTGRES_USER="${POSTGRES_USER:-imedba}"
 POSTGRES_DB="${POSTGRES_DB:-imedba}"
 
+
 dump="$1"
+# A absoluto ANTES del cd: si vino una ruta relativa, después del cd ya no resuelve.
+[ -f "${dump}" ] || { echo "no existe el archivo: ${dump}"; exit 1; }
+dump="$(cd "$(dirname "${dump}")" && pwd)/$(basename "${dump}")"
+
+cd "${REPO_DIR}"
 
 echo "[$(date -Iseconds)] ATENCIÓN: se va a dropear y reemplazar la DB ${POSTGRES_DB}"
 echo "                   desde el archivo: ${dump}"
@@ -33,13 +39,13 @@ read -r -p "Confirmar con 'yes': " confirm
 [ "${confirm}" = "yes" ] || { echo "cancelado"; exit 1; }
 
 echo "[$(date -Iseconds)] drop + recreate DB"
-docker compose -f "${COMPOSE_FILE}" exec -T db \
+docker compose exec -T db \
     psql -U "${POSTGRES_USER}" -d postgres -c "DROP DATABASE IF EXISTS ${POSTGRES_DB};"
-docker compose -f "${COMPOSE_FILE}" exec -T db \
+docker compose exec -T db \
     psql -U "${POSTGRES_USER}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB};"
 
 echo "[$(date -Iseconds)] loading dump"
-gunzip -c "${dump}" | docker compose -f "${COMPOSE_FILE}" exec -T db \
+gunzip -c "${dump}" | docker compose exec -T db \
     psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
 
 echo "[$(date -Iseconds)] restore ok"
