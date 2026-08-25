@@ -15,7 +15,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: ${DB_MEM_LIMIT:-1G}
         reservations:
           memory: 256M
 
@@ -32,9 +32,17 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: ${KC_MEM_LIMIT:-1G}
         reservations:
           memory: 384M
+
+  # Keycloak sirve bajo /auth en prod (KC_HTTP_RELATIVE_PATH) -> kcadm necesita el base URL
+  # CON /auth. El compose base lo tiene hardcodeado sin el subpath y este override no lo pisaba:
+  # sin esto sync-roles.sh se queda en "esperando Keycloak...", timeoutea y NO aplica roles ni
+  # permisos -> todos los endpoints con @PreAuthorize devuelven 403. Mismo override que demo.
+  keycloak-config:
+    environment:
+      KC_SERVER: http://keycloak:8080/auth
 
   backend:
     environment:
@@ -59,7 +67,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: ${BACKEND_MEM_LIMIT:-1536M}
         reservations:
           memory: 512M
 
@@ -72,7 +80,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: ${FRONTEND_MEM_LIMIT:-256M}
 
   nginx:
     image: nginx:1.27-alpine
@@ -93,4 +101,4 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: ${NGINX_MEM_LIMIT:-128M}
