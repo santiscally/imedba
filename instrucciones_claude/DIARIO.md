@@ -29,6 +29,23 @@
 
 ## Entradas
 
+## 2026-08-25 (b) — Fran — infra (corrección: el backup generaba archivos VACÍOS y no cubría Keycloak)
+
+**Qué:** Corrección a la entrada de hoy, que dejaba "cron de backup" como pendiente resuelto. Al correr `scripts/backup-db.sh` a mano en producción falló, **pero dejó igual un `.sql.gz` de 20 bytes en `daily/`**.
+
+**Por qué falló:** los scripts hacían `docker compose -f "${COMPOSE_FILE}"`. `COMPOSE_FILE` con varios archivos separados por `:` es sintaxis **nativa** de docker compose (y es la que se usa en prod), pero pasada como un **único `-f`** hace que busque un archivo llamado literalmente `a:b`. El `pg_dump` nunca corría y el `| gzip > archivo` creaba el `.gz` igual → **un archivo que parece un backup y está vacío, que es peor que no tener backup**. `restore-db.sh` tenía el mismo bug en tres lugares: ahí se habría descubierto en medio de un desastre, que es el peor momento posible.
+
+**Nota:** por cron **no** se manifestaba (cron no hereda `COMPOSE_FILE`, así que caía al default y andaba). Solo fallaba corriéndolo a mano desde una sesión con la variable exportada. Un bug que aparece justo cuando lo probás y desaparece cuando lo automatizás.
+
+**Fixes:** (1) no se usa `-f`; los scripts corren desde `REPO_DIR` y dejan que compose resuelva (respeta `COMPOSE_FILE` si está). (2) Se dumpea a `.partial` y se renombra al final; si `pg_dump` falla o el resultado pesa menos de 2 KB, se descarta y se sale con error. (3) **Se agrega el dump de la DB `keycloak`**, en archivo separado (`keycloak-TIMESTAMP.sql.gz`) — sin ella un restore devuelve los datos del negocio pero **sin ninguna persona que pueda entrar**; el realm JSON re-importa la estructura, no las personas del módulo Personal. (4) `restore-db.sh` resuelve la ruta del dump a absoluta antes del `cd`.
+
+**Impacto para el otro (Santi):** si tenés cron de backup en el demo, **verificá el tamaño de los archivos** — pueden ser todos vacíos por el mismo motivo. Y para restaurar Keycloak ahora es `POSTGRES_DB=keycloak ./scripts/restore-db.sh <archivo>`.
+
+**Verificado:** renovación del cert probada con `certbot renew --dry-run` → `Congratulations, all simulated renewals succeeded`. Los dos crons cargados en prod (backup 03:00 diario, renovación 03:30 los lunes).
+
+**Refs:** commit `0440cfe`. `scripts/backup-db.sh`, `scripts/restore-db.sh`, `scripts/README.md`.
+
+
 ## 2026-08-25 — Fran — infra (PRODUCCIÓN en el aire: VPS nuevo + los 3 bugs que tenía el perfil `prod`)
 
 **Qué:** Deploy de producción completo en un **VPS nuevo de DonWeb**, distinto al del demo: `179.43.112.23` (SSH puerto **5213**), hostname público **`vps-6294990-x.dattaweb.com`** — resuelve solo a esa IP, no hizo falta crear ningún A record. Repo en `/home/imedba`, stack con `docker-compose.yml + docker-compose.prod.yml` (nginx en contenedor tomando 80/443), cert propio de Let's Encrypt (vence ~2026-11-23). Verificado de punta a punta: login ROPC → token → `GET /api/v1/students` → **200**, y login por navegador OK.
