@@ -7,6 +7,7 @@ import com.imedba.modules.notification.entity.NotificationStatus;
 import com.imedba.modules.notification.entity.NotificationType;
 import com.imedba.modules.notification.entity.RelatedEntityType;
 import com.imedba.modules.notification.mail.MailAttachment;
+import com.imedba.modules.notification.mail.MailFromResolver;
 import com.imedba.modules.notification.mail.MailRequest;
 import com.imedba.modules.notification.mail.MailSendException;
 import com.imedba.modules.notification.mail.MailSender;
@@ -39,6 +40,7 @@ public class NotificationService {
 
     private final NotificationRepository repository;
     private final MailSender mailSender;
+    private final MailFromResolver mailFromResolver;
 
     /**
      * Idempotente por (type, relatedEntity*): si ya hay una activa/enviada para la
@@ -174,14 +176,19 @@ public class NotificationService {
         return cancelled;
     }
 
-    private static MailRequest toMailRequest(Notification n) {
-        if (n.getAttachmentContent() != null) {
-            MailAttachment att = MailAttachment.pdf(
-                    n.getAttachmentFilename() != null ? n.getAttachmentFilename() : "adjunto.pdf",
-                    n.getAttachmentContent());
-            return new MailRequest(n.getRecipientEmail(), n.getSubject(), n.getBody(), List.of(att));
-        }
-        return MailRequest.of(n.getRecipientEmail(), n.getSubject(), n.getBody());
+    /**
+     * El remitente depende del tipo: cuotas, matrícula y mora salen de cobranzas; el resto
+     * de informes. Ver {@link MailFromResolver}.
+     */
+    private MailRequest toMailRequest(Notification n) {
+        List<MailAttachment> attachments = n.getAttachmentContent() != null
+                ? List.of(MailAttachment.pdf(
+                        n.getAttachmentFilename() != null ? n.getAttachmentFilename() : "adjunto.pdf",
+                        n.getAttachmentContent()))
+                : List.<MailAttachment>of();
+        return new MailRequest(
+                n.getRecipientEmail(), n.getSubject(), n.getBody(), attachments,
+                mailFromResolver.forType(n.getType()));
     }
 
     private static String truncate(String s, int max) {

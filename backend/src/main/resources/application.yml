@@ -84,8 +84,15 @@ sendgrid:
 # de la cuenta. Usado por el adapter SMTP.
 mail:
   from:
+    # Remitente por defecto = "informes". Lo usan contrato, bienvenida y avisos internos.
     address: ${MAIL_FROM_ADDRESS:no-reply@imedba.local}
     name: ${MAIL_FROM_NAME:IMEDBA}
+    # Casilla de cobranzas: cuotas, matrícula, recargos y suspensión por mora. Si queda
+    # VACÍA, todo sale del remitente de arriba (comportamiento previo a este cambio).
+    # El dominio tiene que estar verificado en Resend igual que el otro.
+    cobranzas:
+      address: ${MAIL_FROM_COBRANZAS_ADDRESS:}
+      name: ${MAIL_FROM_COBRANZAS_NAME:}
 
 # Integración Moodle (LMS). Deshabilitada por default: hasta que David pase URL + token,
 # el MoodleClient es inerte (loguea, no llama a la red). Para activar: MOODLE_ENABLED=true

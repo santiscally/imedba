@@ -13,6 +13,7 @@ import com.imedba.modules.notification.entity.Notification;
 import com.imedba.modules.notification.entity.NotificationStatus;
 import com.imedba.modules.notification.entity.NotificationType;
 import com.imedba.modules.notification.entity.RelatedEntityType;
+import com.imedba.modules.notification.mail.MailFromResolver;
 import com.imedba.modules.notification.mail.MailRequest;
 import com.imedba.modules.notification.mail.MailSendException;
 import com.imedba.modules.notification.mail.MailSender;
@@ -44,7 +45,10 @@ class NotificationDispatchTests {
 
     @BeforeEach
     void setUp() {
-        service = new NotificationService(repository, mailSender);
+        service = new NotificationService(repository, mailSender,
+                new MailFromResolver(
+                        "informes@imedba.com.ar", "IMEDBA",
+                        "cobranzas@imedba.com.ar", "IMEDBA Cobranzas"));
         lenient().when(repository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 

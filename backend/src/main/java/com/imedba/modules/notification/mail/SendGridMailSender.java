@@ -42,8 +42,10 @@ public class SendGridMailSender implements MailSender {
 
     @Override
     public void send(MailRequest request) {
+        // Remitente del request si vino (cobranzas vs informes); si no, el default.
+        MailFrom from = request.from();
         Mail mail = new Mail(
-                new Email(fromEmail, fromName),
+                from != null ? new Email(from.address(), from.name()) : new Email(fromEmail, fromName),
                 request.subject(),
                 new Email(request.to()),
                 new Content("text/html", request.body()));
