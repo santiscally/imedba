@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 /**
  * Decide desde qué casilla sale cada notificación.
  *
- * <p>Criterio (definido con IMEDBA): <b>todo lo que es deuda, matrícula y cuotas sale de
- * cobranzas; el resto de informes.</b> Que el aviso de cuota vencida llegue desde
+ * <p>Criterio (definido con IMEDBA): <b>todo lo contable sale de cobranzas, sea ingreso o
+ * egreso; el resto de informes.</b> Que el aviso de cuota vencida llegue desde
  * {@code cobranzas@} y no desde una casilla genérica importa para que el alumno sepa a
  * quién responder, y para que las respuestas caigan en la bandeja correcta.
  *
@@ -36,7 +36,10 @@ public class MailFromResolver {
             NotificationType.INSTALLMENT_DUE_SOON,
             NotificationType.INSTALLMENT_OVERDUE,
             NotificationType.PRE_SUSPENSION,
-            NotificationType.SUSPENDED);
+            NotificationType.SUSPENDED,
+            // Pedido de factura a docentes/preceptoras: es un EGRESO, pero IMEDBA quiere todo lo
+            // contable —ingreso o egreso— en la misma casilla. Decisión del 2026-08-26.
+            NotificationType.TEACHING_INVOICE_REQUEST);
 
     private final MailFrom defaultFrom;
     private final MailFrom cobranzasFrom;

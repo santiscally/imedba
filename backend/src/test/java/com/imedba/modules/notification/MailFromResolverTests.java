@@ -11,8 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Criterio acordado con IMEDBA: deuda, matrícula y cuotas salen de cobranzas; el resto de
- * informes. Estos tests fijan ese mapeo — si mañana se agrega un NotificationType nuevo,
+ * Criterio acordado con IMEDBA: todo lo contable sale de cobranzas (ingresos y egresos);
+ * el resto de informes. Estos tests fijan ese mapeo — si mañana se agrega un NotificationType nuevo,
  * {@code todos_los_tipos_tienen_remitente} obliga a decidir de qué casilla sale.
  */
 class MailFromResolverTests {
@@ -25,14 +25,15 @@ class MailFromResolverTests {
             NotificationType.INSTALLMENT_DUE_SOON,
             NotificationType.INSTALLMENT_OVERDUE,
             NotificationType.PRE_SUSPENSION,
-            NotificationType.SUSPENDED);
+            NotificationType.SUSPENDED,
+            NotificationType.TEACHING_INVOICE_REQUEST);
 
     private static MailFromResolver resolver() {
         return new MailFromResolver(INFORMES, "IMEDBA", COBRANZAS, "IMEDBA Cobranzas");
     }
 
     @Test
-    @DisplayName("cuotas, matrícula y mora salen de cobranzas; el resto de informes")
+    @DisplayName("lo contable sale de cobranzas (ingresos y egresos); el resto de informes")
     void mapea_cada_tipo_a_su_casilla() {
         MailFromResolver r = resolver();
         for (NotificationType t : NotificationType.values()) {
