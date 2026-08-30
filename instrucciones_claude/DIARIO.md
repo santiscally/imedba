@@ -29,6 +29,38 @@
 
 ## Entradas
 
+## 2026-08-30 — Fran — backend/infra (mail productivo: Resend con dominio de IMEDBA + remitente por tipo)
+
+**Qué:** El mail quedó **funcionando en producción**. Dominio **`imedba.com.ar` verificado en Resend** (SPF + DKIM cargados por David en Cloudflare) y **remitente por tipo de notificación** implementado y deployado.
+
+- **Cobranzas** (`cobranzas@imedba.com.ar`): `PAYMENT_RECEIPT`, `INSTALLMENT_DUE_SOON`, `INSTALLMENT_OVERDUE`, `PRE_SUSPENSION`, `SUSPENDED`, `TEACHING_INVOICE_REQUEST`.
+- **Informes** (`informes@imedba.com.ar`): `CONTRACT`, `WELCOME`, `SETTLEMENT_APPROVED`.
+
+**Por qué:** pedido de IMEDBA — todo lo contable sale de cobranzas, sea ingreso o egreso; el resto de informes. Que el aviso de cuota llegue desde `cobranzas@` importa para que el alumno sepa a quién responder y las respuestas caigan en la bandeja correcta.
+
+**Piezas:** `MailFrom` (record dirección+nombre), `MailFromResolver` (`@Component` con el mapeo), `MailRequest` gana un `from` nullable, y los dos adapters (SMTP y SendGrid) lo usan si viene. El cableado queda en un solo lugar: `NotificationService.toMailRequest()`. **Degradación segura:** si `MAIL_FROM_COBRANZAS_ADDRESS` queda vacía, TODO sale del remitente por defecto — el comportamiento previo. `MailFromResolverTests` recorre `NotificationType.values()`, así que **un tipo nuevo rompe el test hasta que alguien decida de qué casilla sale**.
+
+**DNS:** los tres registros de Resend van sobre el subdominio `send` (MX + SPF) y `resend._domainkey` (DKIM). **No tocan el SPF ni los MX de la raíz**, que son los que hacen andar las casillas actuales de IMEDBA — verificado post-carga que siguen intactos. El DNS de `imedba.com.ar` está en **Cloudflare** (`kip`/`aria.ns.cloudflare.com`), no en DonWeb ni Hostinger; lo maneja David.
+
+**Problema que costó una hora — `MAIL_SMTP_PASSWORD` vacía en el server.** El `_test-send` devolvía `Authentication failed` con `adapter: SmtpMailSender`. La API key **estaba en el `.env` local de la máquina de Fran, no en el del server**: `.env` es gitignored, así que nunca viajó con el `git clone`, y el `.env` de prod se creó de cero con esa línea vacía. Se confundió el estado de los dos archivos durante un buen rato.
+**Regla que sale de esto: el `.env` del server es el que manda, y todo cambio de config hay que hacerlo ahí explícitamente. Que esté en el local no significa nada.**
+
+**⚠️ Hallazgo aparte — el CI viene en ROJO hace 10+ commits.** Todas las corridas de `main` fallan en `Maven test` (compile pasa), desde antes de cualquier cambio de esta tanda. Dos tests, los dos de integración:
+1. **`EnrollmentApiIntegrationTests.vendedora_sees_only_own`** — espera 1 inscripción, ve **0**. Verifica la regla `Vendedora: solo ve sus inscripciones`. **O el test quedó viejo, o la regla está rota y una vendedora no ve ni las propias** — que sería un bug funcional visible el primer día que una vendedora entre a producción. **Sin diagnosticar por decisión del usuario** (el cliente apuraba la entrega).
+2. **`PaymentApiIntegrationTests.register_payment_closes_installment`** — `ClassCastException: Integer cannot be cast to Double` en la aserción. Casi seguro bug del test (compara contra `Double`, el JSON trae entero); o sea que ese test nunca verificó lo que dice verificar.
+
+**Un CI en rojo permanente dejó de ser señal:** al pushear el cambio de mail no hubo forma de saber si algo se rompió, y hubo que copiar logs a mano desde la web de Actions.
+
+**Impacto para el otro (Santi):**
+- `NotificationService` cambió de constructor (toma `MailFromResolver`). Si tenés tests propios que lo instancian a mano, hay que actualizarlos.
+- Las variables nuevas son `MAIL_FROM_COBRANZAS_ADDRESS` y `MAIL_FROM_COBRANZAS_NAME`, documentadas en `.env.example`. Vacías = comportamiento anterior, no rompe nada.
+- **El CI en rojo es tema de los dos.** Arrancaría por el de la vendedora, que es el único con riesgo de producción.
+
+**Pendientes:** (1) **DMARC** — `_dmarc.imedba.com.ar` no existe; pedido a David, `p=none` (solo observar, no puede romper nada). Ayuda a salir de la pestaña Promociones de Gmail, donde cae hoy el mail de prueba. (2) **Borrar `_test-send`** de `NotificationController` — el propio código dice "borrar antes del go-live" y esto ya es go-live. (3) El CI.
+
+**Refs:** commits `dfd7701` (remitente por tipo) y `def6f47` (TEACHING_INVOICE_REQUEST a cobranzas). Archivos: `backend/.../notification/mail/MailFrom.java`, `MailFromResolver.java`, `MailRequest.java`, `SmtpMailSender.java`, `SendGridMailSender.java`, `NotificationService.java`, `MailFromResolverTests.java`, `application.yml`, `docker-compose.yml`, `.env.example`.
+
+
 ## 2026-08-25 (b) — Fran — infra (corrección: el backup generaba archivos VACÍOS y no cubría Keycloak)
 
 **Qué:** Corrección a la entrada de hoy, que dejaba "cron de backup" como pendiente resuelto. Al correr `scripts/backup-db.sh` a mano en producción falló, **pero dejó igual un `.sql.gz` de 20 bytes en `daily/`**.
