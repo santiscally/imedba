@@ -29,6 +29,18 @@
 
 ## Entradas
 
+## 2026-09-04 — Santi — infra
+**Qué:** el dominio público pasa a ser `https://gestion.imedba.com`. Cert de Let's Encrypt expandido para cubrir los dos hostnames, y `.env` migrado: `SERVER_NAME`, `KEYCLOAK_HOSTNAME`, `KEYCLOAK_ISSUER_URI`, `APP_CORS_ALLOWED_ORIGINS` y `FRONTEND_REDIRECT_URIS_EXTRA`. Script nuevo `scripts/setup-domain-gestion.sh` (idempotente) con todo el cutover. `vps-6294990-x.dattaweb.com` **sigue funcionando** — quedó en el SAN del cert y en los redirectUris del client.
+**Por qué:** `gestion.imedba.com` no apuntaba al server: en Cloudflare había una **redirect rule 301** a `https://vps-6294990-x.dattaweb.com/`. Por eso el navegador entraba bien pero terminaba mostrando la URL de DonWeb — comportamiento correcto de un 301, el problema era que no debía haber 301. David (el que maneja el DNS de imedba.com) borró la regla y creó A `179.43.112.23` + AAAA `2800:6c0:6::4a0`, en **DNS only (nube gris)**.
+**Problemas:**
+  1. **El issuer del JWT y `KC_HOSTNAME` hay que cambiarlos en el MISMO paso.** El backend valida `iss` contra `KEYCLOAK_ISSUER_URI`; si Keycloak empieza a emitir con el hostname nuevo y el backend no se entera, **401 en todos los endpoints**. El script recrea `keycloak` + `backend` juntos por eso.
+  2. **`SERVER_NAME` tiene que quedar con UN solo hostname.** `keycloak/sync-roles.sh` arma `"https://$SERVER_NAME/*"`: con dos valores separados por espacio genera una redirect URI inválida y rompe el logout. El hostname viejo va por `FRONTEND_REDIRECT_URIS_EXTRA`, no acá. En nginx no hace falta listarlo: el bloque 443 es el único, así que es el default server y responde igual con cualquier `Host`.
+  3. **El cert se expandió con `--cert-name vps-6294990-x.dattaweb.com` a propósito** (no con el nombre nuevo). `scripts/renew-cert.sh` y su cron de los lunes 3:30 usan ese `--cert-name` hardcodeado; cambiarlo habría dejado la renovación apuntando a un cert que ya no se usa, y se descubriría recién a los 90 días con el sitio caído.
+  4. Nube gris y no naranja: con Cloudflare proxeando, el challenge HTTP-01 y el modo SSL de CF necesitan config extra (origin cert / Full strict). Si algún día se quiere pasar a naranja, hay que hacer ese trabajo primero.
+**Verificado:** SAN = `gestion.imedba.com, vps-6294990-x.dattaweb.com` · `curl -L` a `https://gestion.imedba.com/` → **200, 0 redirects, URL final intacta** · discovery OIDC publica `"issuer":"https://gestion.imedba.com/auth/realms/imedba"` · flujo `/auth` con PKCE S256 devuelve la pantalla de login **para los dos hostnames** · `sync-roles` OK · backend `healthy` (el 401 en `/api/actuator/health` desde afuera es Spring Security, el healthcheck interno da `{"status":"UP"}`) · hostname viejo → 200.
+**Impacto para el otro:** `[FRAN]` la URL de producción es ahora **https://gestion.imedba.com**. El SPA no necesita rebuild: `VITE_API_BASE_URL=/api` y `VITE_KEYCLOAK_URL=/auth` son relativas, así que todo sigue en un solo origen. El link viejo sigue andando, pero usá el nuevo.
+**Refs:** `scripts/setup-domain-gestion.sh` (nuevo), `.env`, `nginx/templates/default.conf.template`, `scripts/renew-cert.sh` (sin cambios, pero depende del `--cert-name` viejo).
+
 ## 2026-08-30 — Fran — backend/infra (mail productivo: Resend con dominio de IMEDBA + remitente por tipo)
 
 **Qué:** El mail quedó **funcionando en producción**. Dominio **`imedba.com.ar` verificado en Resend** (SPF + DKIM cargados por David en Cloudflare) y **remitente por tipo de notificación** implementado y deployado.
@@ -59,7 +71,6 @@
 **Pendientes:** (1) **DMARC** — `_dmarc.imedba.com.ar` no existe; pedido a David, `p=none` (solo observar, no puede romper nada). Ayuda a salir de la pestaña Promociones de Gmail, donde cae hoy el mail de prueba. (2) **Borrar `_test-send`** de `NotificationController` — el propio código dice "borrar antes del go-live" y esto ya es go-live. (3) El CI.
 
 **Refs:** commits `dfd7701` (remitente por tipo) y `def6f47` (TEACHING_INVOICE_REQUEST a cobranzas). Archivos: `backend/.../notification/mail/MailFrom.java`, `MailFromResolver.java`, `MailRequest.java`, `SmtpMailSender.java`, `SendGridMailSender.java`, `NotificationService.java`, `MailFromResolverTests.java`, `application.yml`, `docker-compose.yml`, `.env.example`.
-
 
 ## 2026-08-25 (b) — Fran — infra (corrección: el backup generaba archivos VACÍOS y no cubría Keycloak)
 
