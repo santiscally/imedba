@@ -151,6 +151,54 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f --tail=2
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
+### 4. Base de datos en el deploy: arreglos y diagnóstico
+
+Los arreglos de datos **no se corren a mano**: van como migraciones Flyway
+`V0NN__fix_<qué>.sql` y se ejecutan solos al arrancar el backend, una única vez y en
+transacción. Si uno falla, el backend no arranca y la base queda como estaba. Lo que
+necesita una decisión de negocio no se arregla solo: aparece en el diagnóstico para
+resolverlo a mano.
+
+Orden en cada deploy:
+
+```bash
+PROD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+
+# 1) Backup (obligatorio antes de cualquier migración)
+./scripts/backup-db.sh
+
+# 2) Diagnóstico ANTES (sólo lectura): guardar la salida para comparar
+$PROD exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < scripts/sql/diagnostico-deploy.sql > diagnostico-antes.txt
+
+# 3) Deploy: al arrancar, el backend aplica las migraciones pendientes (incluidos los arreglos)
+$PROD up -d --build
+$PROD logs backend | grep -E "Migrating schema|Successfully applied|FAILED"
+
+# 4) Diagnóstico DESPUÉS: comparar con el de antes
+$PROD exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < scripts/sql/diagnostico-deploy.sql > diagnostico-despues.txt
+```
+
+Reglas para escribir un arreglo:
+
+- Nunca `DELETE` físico ni borrar columnas con datos; no tocar montos, pagos ni cuotas.
+- **Derivar, no inventar**: sólo se completa un dato si sale de otro que ya está en la base.
+- Que no rompa si no hay nada que arreglar (corre igual en prod, demo y local).
+- Probarlo antes contra una copia con `BEGIN; … ROLLBACK;`.
+- Si hace falta decidir algo, no va automático: se agrega una consulta al diagnóstico.
+
+Arreglos de datos incluidos hasta hoy:
+
+| Migración | Qué arregla |
+|---|---|
+| `V044` | Cada diplomatura vieja pasa a tener su curso espejo como primera comisión. |
+| `V046` | Unidad de alta de los alumnos existentes: Formación Superior si sólo tienen inscripciones en FS, si no Residencias. |
+| `V047` | Cursos FS sin diplomatura: se cuelgan de la diplomatura de su programa (sacando el "— Comisión N" del nombre; la crea si no existe) y se completa el número de comisión cuando el nombre lo trae. |
+
+Qué mirar en `scripts/sql/diagnostico-deploy.sql` después del deploy: la sección 1
+tiene que dar vacía; las secciones 2 a 6 son pendientes a resolver a mano (comisiones sin
+número, diplomaturas duplicadas, cursos de Editorial/General, cursos sin fechas, libros
+de colección con precio 0).
+
 ## Fases de desarrollo
 
 Plan completo en `instrucciones_claude/04-plan-de-fases.md`. Estado actual: **Fase 0 (infra base)**.

@@ -35,3 +35,13 @@ docker compose stop backend
 ./scripts/restore-db.sh /var/backups/imedba/daily/imedba-20260423-030000.sql.gz
 docker compose start backend
 ```
+
+## `sql/diagnostico-deploy.sql`
+
+Diagnóstico de datos, sólo lectura. Se corre antes y después de cada deploy para ver qué
+arreglaron las migraciones `V0NN__fix_*` y qué queda para resolver a mano. Procedimiento y
+reglas en el README raíz, sección "Base de datos en el deploy".
+
+```bash
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < scripts/sql/diagnostico-deploy.sql
+```

@@ -30,6 +30,7 @@ Si una tarea implica modificar `frontend/` sin pedido explícito, **parar y avis
 - DB naming: snake_case. UUIDs en PKs. Migraciones Flyway `V00N__descripcion.sql`.
 - Enums (en código y VARCHAR en DB) para: payment_method, status, category, entry_type, staff_type, notification_type.
 - Nunca `DELETE` físico: setear `deleted_at`.
+- Arreglos de datos para el deploy: migración Flyway `V0NN__fix_<qué>.sql` (nunca SQL a mano) + consulta en `scripts/sql/diagnostico-deploy.sql` para lo que necesita decisión. Reglas en README §"Base de datos en el deploy".
 
 ## Entidades
 
