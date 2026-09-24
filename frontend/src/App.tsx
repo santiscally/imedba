@@ -28,14 +28,20 @@ export default function App() {
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="/dashboard"     element={<Dashboard />} />
-        <Route path="/alumnos"       element={<Alumnos />} />
-        <Route path="/cursos"        element={<Cursos />} />
-        <Route path="/inscripciones" element={<Inscripciones />} />
+        <Route path="/rm/alumnos"       element={<Alumnos key="rm" unit="RESIDENCIAS" />} />
+        <Route path="/rm/cursos"        element={<Cursos />} />
+        <Route path="/rm/inscripciones" element={<Inscripciones key="rm" unit="RESIDENCIAS" />} />
+        <Route path="/fs/alumnos"       element={<Alumnos key="fs" unit="FORMACION_SUPERIOR" />} />
+        <Route path="/fs/diplomaturas"  element={<Diplomaturas />} />
+        <Route path="/fs/inscripciones" element={<Inscripciones key="fs" unit="FORMACION_SUPERIOR" />} />
+        <Route path="/alumnos"          element={<Navigate to="/rm/alumnos" replace />} />
+        <Route path="/cursos"           element={<Navigate to="/rm/cursos" replace />} />
+        <Route path="/inscripciones"    element={<Navigate to="/rm/inscripciones" replace />} />
+        <Route path="/diplomaturas"     element={<Navigate to="/fs/diplomaturas" replace />} />
         <Route path="/personal-academico" element={<PersonalAcademico />} />
         <Route path="/clases"        element={<Clases />} />
         <Route path="/cuotas"        element={<Cuotas />} />
         <Route path="/descuentos"    element={<Descuentos />} />
-        <Route path="/diplomaturas"  element={<Diplomaturas />} />
         <Route path="/liquidaciones" element={<Liquidaciones />} />
         <Route path="/presupuesto"   element={<Presupuesto />} />
         <Route path="/autores"       element={<Autores />} />

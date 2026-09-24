@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -48,12 +49,12 @@ public interface PaymentRepository
     @Query("""
            SELECT COALESCE(SUM(p.amount + p.lateFeeAmount), 0)
              FROM Payment p
-            WHERE p.enrollment.course.id = :courseId
+            WHERE p.enrollment.course.id IN :courseIds
               AND p.paymentDate >= :from
               AND p.paymentDate < :to
            """)
-    BigDecimal sumByCourseBetween(
-            @Param("courseId") UUID courseId,
+    BigDecimal sumByCoursesBetween(
+            @Param("courseIds") Collection<UUID> courseIds,
             @Param("from") Instant from,
             @Param("to") Instant to);
 }

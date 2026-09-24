@@ -12,12 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import logo from '../assets/logo_imedba.png'
 import { currentUser, logout } from '../lib/auth'
 import { canAccess } from '../lib/access'
-import { useUnidad } from '../lib/unidad'
 import './Sidebar.scss'
-
-// Secciones que pertenecen exclusivamente a Formación Superior: con la unidad
-// "Residencias Médicas" seleccionada no tiene sentido mostrarlas.
-const FS_ONLY_ROUTES = new Set(['/diplomaturas', '/liquidaciones'])
 
 interface NavItem {
   to:    string
@@ -25,55 +20,77 @@ interface NavItem {
   label: string
 }
 
-interface NavGroup {
+interface NavSection {
   title: string | null
   items: NavItem[]
 }
 
+interface NavGroup {
+  title:    string | null
+  sections: NavSection[]
+}
+
+const single = (items: NavItem[]): NavSection[] => [{ title: null, items }]
+
 const NAV: NavGroup[] = [
   {
     title: null,
-    items: [
+    sections: single([
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    ],
+    ]),
   },
   {
+    // Residencias y Formación Superior por separado (docx IMEDBA 2026-09-24).
     title: 'Académico',
-    items: [
-      { to: '/alumnos',            icon: Users,          label: 'Alumnos'       },
-      { to: '/cursos',             icon: BookOpen,       label: 'Cursos'        },
-      { to: '/inscripciones',      icon: FileText,       label: 'Inscripciones' },
-      { to: '/diplomaturas',       icon: GraduationCap,  label: 'Diplomaturas'  },
-      // Docentes/tutoras/preceptoras/directoras. OJO: distinto de /personal,
-      // que son los usuarios de Keycloak (abajo, "Usuarios").
-      { to: '/personal-academico', icon: Presentation,   label: 'Personal Académico' },
-      { to: '/clases',             icon: CalendarDays,   label: 'Clases'             },
+    sections: [
+      {
+        title: 'Residencias Médicas',
+        items: [
+          { to: '/rm/alumnos',       icon: Users,         label: 'Alumnos'       },
+          { to: '/rm/cursos',        icon: BookOpen,      label: 'Cursos'        },
+          { to: '/rm/inscripciones', icon: FileText,      label: 'Inscripciones' },
+        ],
+      },
+      {
+        title: 'Formación Superior',
+        items: [
+          { to: '/fs/alumnos',       icon: Users,         label: 'Alumnos'       },
+          { to: '/fs/diplomaturas',  icon: GraduationCap, label: 'Diplomaturas'  },
+          { to: '/fs/inscripciones', icon: FileText,      label: 'Inscripciones' },
+        ],
+      },
+      {
+        title: null,
+        items: [
+          // OJO: distinto de /personal, que son los usuarios de Keycloak (abajo, "Usuarios").
+          { to: '/personal-academico', icon: Presentation, label: 'Personal Académico' },
+          { to: '/clases',             icon: CalendarDays, label: 'Clases'             },
+        ],
+      },
     ],
   },
   {
     title: 'Finanzas',
-    items: [
-      { to: '/cuotas',        icon: CreditCard,    label: 'Cuotas y Pagos'    },
-      { to: '/descuentos',    icon: Tag,           label: 'Descuentos'        },
-      { to: '/liquidaciones', icon: Calculator,    label: 'Liquidaciones'      },
-      { to: '/presupuesto',   icon: Wallet,        label: 'Presupuesto'       },
-    ],
+    sections: single([
+      { to: '/cuotas',        icon: CreditCard, label: 'Cuotas y Pagos' },
+      { to: '/descuentos',    icon: Tag,        label: 'Descuentos'     },
+      { to: '/liquidaciones', icon: Calculator, label: 'Liquidaciones'  },
+      { to: '/presupuesto',   icon: Wallet,     label: 'Presupuesto'    },
+    ]),
   },
   {
     title: 'Editorial',
-    items: [
+    sections: single([
       { to: '/libros',      icon: Book,        label: 'Libros'      },
       { to: '/colecciones', icon: Library,     label: 'Colecciones' },
       { to: '/ventas',      icon: ShoppingBag, label: 'Ventas'      },
-    ],
+    ]),
   },
   {
     title: 'Administración',
-    items: [
-      // Renombrado de "Personal" a "Usuarios": chocaba con Personal Académico y
-      // se prestaba a confusión. Son los usuarios de Keycloak (acceso y roles).
+    sections: single([
       { to: '/personal', icon: UserCog, label: 'Usuarios' },   // solo admin
-    ],
+    ]),
   },
 ]
 
@@ -83,7 +100,6 @@ interface Props {
 }
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
-  const { unidad } = useUnidad()
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
 
@@ -103,33 +119,24 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
 
       <nav className="sidebar__nav">
         {NAV.map((group, i) => {
-          // Sólo mostramos los items a los que el usuario tiene acceso (por authority)
-          // y que correspondan a la unidad de negocio seleccionada.
-          const items = group.items.filter(it =>
-            canAccess(it.to) && !(unidad === 'RESIDENCIAS' && FS_ONLY_ROUTES.has(it.to)))
-          if (items.length === 0) return null
+          const sections = group.sections
+            .map(sec => ({ ...sec, items: sec.items.filter(it => canAccess(it.to)) }))
+            .filter(sec => sec.items.length > 0)
+          if (sections.length === 0) return null
           return (
           <div className="nav-group" key={i}>
             {group.title && !collapsed && (
               <div className="nav-group__title">{group.title}</div>
             )}
             {group.title && collapsed && <div className="nav-group__sep" />}
-            {items.map(item => {
-              const Icon = item.icon
-              return (
-                <NavLink
-                  to={item.to}
-                  key={item.to}
-                  className={({ isActive }) =>
-                    `nav-item ${isActive ? 'nav-item--active' : ''}`
-                  }
-                  title={collapsed ? item.label : undefined}
-                >
-                  <Icon size={18} className="nav-item__icon" strokeWidth={2} />
-                  {!collapsed && <span className="nav-item__label">{item.label}</span>}
-                </NavLink>
-              )
-            })}
+            {sections.map((sec, j) => (
+              <div key={j}>
+                {sec.title && !collapsed && <div className="nav-group__subtitle">{sec.title}</div>}
+                {sec.items.map(item => (
+                  <NavEntry key={item.to} item={item} area={sec.title} collapsed={collapsed} />
+                ))}
+              </div>
+            ))}
           </div>
           )
         })}
@@ -138,6 +145,22 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       <SidebarFooter collapsed={collapsed} />
 
     </aside>
+  )
+}
+
+function NavEntry({ item, area, collapsed }: { item: NavItem; area: string | null; collapsed: boolean }) {
+  const Icon = item.icon
+  // Con el menú colapsado el tooltip suma el área: si no, hay dos "Alumnos" iguales.
+  const tooltip = area ? `${item.label} · ${area}` : item.label
+  return (
+    <NavLink
+      to={item.to}
+      className={({ isActive }) => `nav-item ${isActive ? 'nav-item--active' : ''}`}
+      title={collapsed ? tooltip : undefined}
+    >
+      <Icon size={18} className="nav-item__icon" strokeWidth={2} />
+      {!collapsed && <span className="nav-item__label">{item.label}</span>}
+    </NavLink>
   )
 }
 

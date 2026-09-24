@@ -23,6 +23,10 @@ public final class EnrollmentSpecs {
         return (root, q, cb) -> courseId == null ? null : cb.equal(root.get("course").get("id"), courseId);
     }
 
+    public static Specification<Enrollment> byBusinessUnit(BusinessUnit bu) {
+        return (root, q, cb) -> bu == null ? null : cb.equal(root.get("course").get("businessUnit"), bu);
+    }
+
     public static Specification<Enrollment> byStatus(EnrollmentStatus status) {
         return (root, q, cb) -> status == null ? null : cb.equal(root.get("status"), status);
     }

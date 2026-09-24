@@ -9,9 +9,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -40,23 +40,14 @@ public class Diploma extends BaseEntity {
     @Column(name = "university_name", length = 200)
     private String universityName;
 
-    /**
-     * Curso (unidad FS) por el que se inscriben los alumnos de esta diplomatura.
-     * La inscripción/cuotas/pagos pasan por el flujo de cursos; la liquidación
-     * suma los pagos del período de las inscripciones de este curso (V026).
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id")
-    private Course course;
-
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "enrollment_price", precision = 12, scale = 2)
-    private BigDecimal enrollmentPrice;
-
-    @Column(name = "course_price", precision = 12, scale = 2)
-    private BigDecimal coursePrice;
+    /** Comisiones (V044): cursos FS a los que se inscriben los alumnos; la liquidación suma los pagos de todas. */
+    @Default
+    @OneToMany(mappedBy = "diploma", fetch = FetchType.LAZY)
+    @OrderBy("commission DESC")
+    private List<Course> commissions = new ArrayList<>();
 
     /**
      * Directoras de la diplomatura, tomadas de Personal Académico (V035).

@@ -13,6 +13,8 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring")
 public interface CourseMapper {
 
+    @Mapping(target = "diplomaId", source = "diploma.id")
+    @Mapping(target = "diplomaName", source = "diploma.name")
     CourseResponse toResponse(Course c);
 
     /**

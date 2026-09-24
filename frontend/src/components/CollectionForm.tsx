@@ -5,6 +5,8 @@ import type {
 } from '../types/collection'
 import { COLLECTION_VARIANTS, COLLECTION_VARIANT_LABELS } from '../types/collection'
 import type { Book } from '../types/book'
+import type { BusinessUnit } from '../types/course'
+import { BUSINESS_UNIT_LABELS } from '../types/course'
 import { booksApi } from '../api/books'
 import './StudentForm.scss'
 
@@ -19,7 +21,7 @@ interface Props {
 export default function CollectionForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
   const [name,     setName]     = useState(initial?.name ?? '')
   const [variant,  setVariant]  = useState<CollectionVariant>(initial?.variant ?? 'TRADICIONAL')
-  const [price,    setPrice]    = useState(initial?.price != null ? String(initial.price) : '')
+  const [unit,     setUnit]     = useState<BusinessUnit | ''>(initial?.businessUnit ?? '')
   const [discount, setDiscount] = useState(initial?.studentDiscountPct != null ? String(initial.studentDiscountPct) : '35')
   const [bookIds,  setBookIds]  = useState<string[]>(initial?.books.map(b => b.id) ?? [])
 
@@ -40,6 +42,10 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
       .catch(() => setBooks([]))
   }, [])
 
+  const listPrice = books
+    .filter(b => bookIds.includes(b.id))
+    .reduce((acc, b) => acc + (b.salePrice ?? 0), 0)
+
   function toggleBook(id: string) {
     setBookIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
@@ -47,15 +53,13 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault()
     if (!name.trim()) { setError('El nombre es obligatorio'); return }
-    const p = Number(price)
-    if (!price || Number.isNaN(p)) { setError('El precio debe ser un número'); return }
     if (bookIds.length === 0) { setError('Elegí al menos un libro'); return }
     setSaving(true); setError(null)
     try {
       const saved = await onSubmit({
         name: name.trim(),
+        businessUnit: unit === '' ? null : unit,
         variant,
-        price: p,
         studentDiscountPct: discount ? Number(discount) : null,
         bookIds,
       })
@@ -96,9 +100,18 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
               </select>
             </div>
             <div className="field">
-              <label className="field__label">Precio de lista (ARS)<span className="field__required">*</span></label>
-              <input type="number" step="any" value={price}
-                onChange={e => setPrice(e.target.value)} placeholder="700000" />
+              <label className="field__label">Unidad de negocio</label>
+              <select value={unit} onChange={e => setUnit(e.target.value as BusinessUnit | '')}>
+                <option value="">Todas las unidades</option>
+                {(['RESIDENCIAS', 'FORMACION_SUPERIOR', 'EDITORIAL'] as BusinessUnit[]).map(u => (
+                  <option key={u} value={u}>{BUSINESS_UNIT_LABELS[u]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field__label">Precio de lista (ARS)</label>
+              <input type="text" readOnly value={formatARS(listPrice)} />
+              <span className="field__hint">Suma de los libros elegidos.</span>
             </div>
             <div className="field">
               <label className="field__label">Descuento alumno (%)</label>
@@ -122,9 +135,7 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
                     <input type="checkbox" checked={bookIds.includes(b.id)} onChange={() => toggleBook(b.id)} />
                     <span className="checklist__name">{b.name}</span>
                     {b.salePrice != null && (
-                      <span className="checklist__price">
-                        {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(b.salePrice)}
-                      </span>
+                      <span className="checklist__price">{formatARS(b.salePrice)}</span>
                     )}
                   </label>
                 ))}
@@ -144,4 +155,8 @@ export default function CollectionForm({ mode, initial, onClose, onSaved, onSubm
       </div>
     </div>
   )
+}
+
+function formatARS(n: number): string {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }

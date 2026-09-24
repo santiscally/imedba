@@ -2,20 +2,24 @@ package com.imedba.modules.diploma.service;
 
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
+import com.imedba.modules.course.entity.BusinessUnit;
+import com.imedba.modules.course.entity.Course;
+import com.imedba.modules.course.repository.CourseRepository;
+import com.imedba.modules.course.service.CourseService;
+import com.imedba.modules.diploma.dto.CommissionRequest;
+import com.imedba.modules.diploma.dto.CommissionResponse;
 import com.imedba.modules.diploma.dto.DiplomaCreateRequest;
 import com.imedba.modules.diploma.dto.DiplomaResponse;
 import com.imedba.modules.diploma.dto.DiplomaUpdateRequest;
 import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.mapper.DiplomaMapper;
 import com.imedba.modules.diploma.repository.DiplomaRepository;
-import com.imedba.modules.course.entity.BusinessUnit;
-import com.imedba.modules.course.entity.Course;
-import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.staff.entity.Staff;
 import com.imedba.modules.staff.entity.StaffType;
 import com.imedba.modules.staff.repository.StaffRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +33,7 @@ public class DiplomaService {
     private final DiplomaRepository repository;
     private final DiplomaMapper mapper;
     private final CourseRepository courseRepository;
+    private final CourseService courseService;
     private final StaffRepository staffRepository;
 
     @Transactional(readOnly = true)
@@ -45,37 +50,58 @@ public class DiplomaService {
     }
 
     public DiplomaResponse create(DiplomaCreateRequest req) {
-        Diploma d = Diploma.builder()
+        Diploma d = repository.save(Diploma.builder()
                 .name(req.name())
                 .universityName(req.universityName())
-                // La diplomatura ES un curso (decisión 2026-06-09): se crea su curso
-                // automáticamente en FS y la inscripción/cuotas pasan por él. No hay
-                // vínculo manual.
-                .course(createCourseFor(req))
                 .description(req.description())
-                .enrollmentPrice(req.enrollmentPrice())
-                .coursePrice(req.coursePrice())
                 .directors(new ArrayList<>(resolveDirectors(req.directorIds())))
                 .active(Boolean.TRUE)
-                .build();
-        return mapper.toResponse(repository.save(d));
+                .build());
+        if (req.firstCommission() != null) {
+            addCommission(d, req.firstCommission());
+        }
+        return mapper.toResponse(d);
     }
 
     public DiplomaResponse update(UUID id, DiplomaUpdateRequest req) {
         Diploma d = find(id);
-        if (req.name() != null) d.setName(req.name());
+        if (req.name() != null) {
+            d.setName(req.name());
+            d.getCommissions().forEach(c -> c.setName(commissionName(d, c.getCommission())));
+        }
         if (req.universityName() != null) d.setUniversityName(req.universityName());
         if (req.description() != null) d.setDescription(req.description());
-        if (req.enrollmentPrice() != null) d.setEnrollmentPrice(req.enrollmentPrice());
-        if (req.coursePrice() != null) d.setCoursePrice(req.coursePrice());
         // null = no tocar; lista (incluso vacía) = reemplaza el set completo.
         if (req.directorIds() != null) {
             d.getDirectors().clear();
             d.getDirectors().addAll(resolveDirectors(req.directorIds()));
         }
-        if (req.active() != null) d.setActive(req.active());
-        syncCourse(d);
+        if (req.active() != null) {
+            d.setActive(req.active());
+            if (!req.active()) d.getCommissions().forEach(c -> c.setActive(Boolean.FALSE));
+        }
         return mapper.toResponse(d);
+    }
+
+    public CommissionResponse createCommission(UUID diplomaId, CommissionRequest req) {
+        return mapper.toCommissionDto(addCommission(find(diplomaId), req));
+    }
+
+    public CommissionResponse updateCommission(UUID diplomaId, UUID courseId, CommissionRequest req) {
+        Diploma d = find(diplomaId);
+        Course c = findCommission(d, courseId);
+        requireFreeNumber(d, req.commission(), c.getId());
+        CourseService.requireValidDates(req.startDate(), req.endDate());
+        applyCommission(d, c, req);
+        if (req.active() != null) c.setActive(req.active());
+        return mapper.toCommissionDto(c);
+    }
+
+    public void deleteCommission(UUID diplomaId, UUID courseId) {
+        Diploma d = find(diplomaId);
+        Course c = findCommission(d, courseId);
+        courseService.deleteCourse(c);
+        d.getCommissions().remove(c);
     }
 
     /**
@@ -104,41 +130,58 @@ public class DiplomaService {
     public void deactivate(UUID id) {
         Diploma d = find(id);
         d.setActive(Boolean.FALSE);
-        if (d.getCourse() != null) {
-            d.getCourse().setActive(Boolean.FALSE);
-        }
+        d.getCommissions().forEach(c -> c.setActive(Boolean.FALSE));
     }
 
     public Diploma findEntity(UUID id) {
         return find(id);
     }
 
-    /**
-     * Crea el curso "espejo" de la diplomatura (unidad FORMACION_SUPERIOR). Es el curso
-     * al que se inscriben los alumnos — aparece en Cursos/Inscripciones como cualquier
-     * otro y la liquidación suma los pagos de sus inscripciones.
-     */
-    private Course createCourseFor(DiplomaCreateRequest req) {
+    private Course addCommission(Diploma d, CommissionRequest req) {
+        requireFreeNumber(d, req.commission(), null);
+        CourseService.requireValidDates(req.startDate(), req.endDate());
         Course c = Course.builder()
-                .name(truncate(req.name(), 200))
-                .description(req.description())
                 .businessUnit(BusinessUnit.FORMACION_SUPERIOR)
-                .enrollmentPrice(req.enrollmentPrice())
-                .coursePrice(req.coursePrice())
-                .active(Boolean.TRUE)
+                .diploma(d)
+                .active(req.active() == null ? Boolean.TRUE : req.active())
                 .build();
-        return courseRepository.save(c);
+        applyCommission(d, c, req);
+        Course saved = courseRepository.save(c);
+        d.getCommissions().add(0, saved);
+        return saved;
     }
 
-    /** Mantiene el curso espejo en sintonía con la diplomatura (nombre/precios/activo). */
-    private void syncCourse(Diploma d) {
-        Course c = d.getCourse();
-        if (c == null) return;
-        c.setName(truncate(d.getName(), 200));
-        c.setDescription(d.getDescription());
-        c.setEnrollmentPrice(d.getEnrollmentPrice());
-        c.setCoursePrice(d.getCoursePrice());
-        c.setActive(d.getActive());
+    private static void applyCommission(Diploma d, Course c, CommissionRequest req) {
+        c.setName(commissionName(d, req.commission()));
+        c.setCommission(req.commission());
+        c.setAcademicYear(req.academicYear());
+        c.setEnrollmentPrice(req.enrollmentPrice());
+        c.setCoursePrice(req.coursePrice());
+        c.setIncludesPremaBook(Boolean.TRUE.equals(req.includesPremaBook()));
+        c.setStartDate(req.startDate());
+        c.setEndDate(req.endDate());
+        c.setModality(req.modality());
+        c.setMoodleCourseId(req.moodleCourseId());
+    }
+
+    private static void requireFreeNumber(Diploma d, Integer number, UUID exceptCourseId) {
+        boolean taken = d.getCommissions().stream()
+                .anyMatch(c -> Objects.equals(c.getCommission(), number)
+                        && !c.getId().equals(exceptCourseId));
+        if (taken) {
+            throw new ConflictException("La diplomatura ya tiene una comisión " + number);
+        }
+    }
+
+    private static Course findCommission(Diploma d, UUID courseId) {
+        return d.getCommissions().stream()
+                .filter(c -> c.getId().equals(courseId))
+                .findFirst()
+                .orElseThrow(() -> NotFoundException.of("Commission", courseId));
+    }
+
+    private static String commissionName(Diploma d, Integer number) {
+        return truncate(d.getName() + " · Comisión " + number, 200);
     }
 
     private static String truncate(String s, int max) {

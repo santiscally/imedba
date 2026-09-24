@@ -6,9 +6,9 @@ import {
 } from 'lucide-react'
 import { studentsApi } from '../api/students'
 import { moodleApi } from '../api/moodle'
-import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import type { PageResponse } from '../types/common'
-import type { Student, StudentCreateRequest } from '../types/student'
+import type { Student, StudentCreateRequest, StudentUnit } from '../types/student'
+import { BUSINESS_UNIT_LABELS } from '../types/course'
 import EmptyState from '../components/EmptyState'
 import StudentForm from '../components/StudentForm'
 import StudentDetail from '../components/StudentDetail'
@@ -30,7 +30,8 @@ type PanelState =
   | { kind: 'edit';   student: Student }
   | { kind: 'detail'; student: Student }
 
-export default function Alumnos() {
+// Un listado por unidad (docx 2026-09-24): incluye a los de alta en la unidad y a los inscriptos en ella.
+export default function Alumnos({ unit }: { unit: StudentUnit }) {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
   const [page,      setPage]      = useState(0)
@@ -46,29 +47,24 @@ export default function Alumnos() {
   const [exportingUnlinked, setExportingUnlinked] = useState(false)
   const canMoodleRead = hasAuthority('students:read')
 
-  const { unidad } = useUnidad()
-  const unidadBu = unidadBusinessUnit(unidad)
-
   // Debounce del search — 300ms — resetea a page 0.
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
 
-  useEffect(() => { setPage(0) }, [unidad])
-
   useEffect(() => {
     setLoading(true); setError(null)
     studentsApi.list({
       q:            debounced || undefined,
-      businessUnit: unidadBu,
+      businessUnit: unit,
       page,
       size: PAGE_SIZE,
       sort: sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, unidadBu, page, sort, reload])
+  }, [debounced, unit, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -109,11 +105,11 @@ export default function Alumnos() {
     try {
       const res = await studentsApi.list({
         q:            debounced || undefined,
-        businessUnit: unidadBu,
+        businessUnit: unit,
         size:         2000,
         sort:         sort ? `${sort.field},${sort.dir}` : 'lastName,asc',
       })
-      exportToCsv(`alumnos-${dateStamp()}`, res.content, [
+      exportToCsv(`alumnos-${unit === 'RESIDENCIAS' ? 'rm' : 'fs'}-${dateStamp()}`, res.content, [
         { label: 'Apellido',     value: s => s.lastName },
         { label: 'Nombre',       value: s => s.firstName },
         { label: 'DNI',          value: s => s.dni ?? '' },
@@ -153,7 +149,7 @@ export default function Alumnos() {
         <div className="alumnos__header-text">
           <h2 className="alumnos__title">
             <span className="alumnos__title-icon"><Users size={22} strokeWidth={2} /></span>
-            Alumnos
+            Alumnos · {BUSINESS_UNIT_LABELS[unit]}
           </h2>
           <p className="alumnos__subtitle">
             {total > 0
@@ -325,6 +321,7 @@ export default function Alumnos() {
       {panel.kind === 'create' && (
         <StudentForm
           mode="create"
+          unit={unit}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload: StudentCreateRequest) => studentsApi.create(payload)}
@@ -334,6 +331,7 @@ export default function Alumnos() {
         <StudentForm
           mode="edit"
           initial={panel.student}
+          unit={unit}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload) => studentsApi.update(panel.student.id, payload)}

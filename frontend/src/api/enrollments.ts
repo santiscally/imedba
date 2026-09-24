@@ -15,7 +15,7 @@ export interface ListEnrollmentsParams {
   courseId?:       string
   status?:         EnrollmentStatus
   contractSigned?: boolean             // true = sólo firmados, false = sólo sin firmar
-  businessUnit?:   string              // la segmentación es server-side por JWT; este param lo ignora Spring
+  businessUnit?:   string              // unidad del curso (RESIDENCIAS / FORMACION_SUPERIOR)
   page?:           number
   size?:           number
   sort?:           string   // ej: "enrollmentDate,desc"

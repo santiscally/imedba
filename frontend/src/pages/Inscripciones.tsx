@@ -7,7 +7,8 @@ import {
 } from 'lucide-react'
 import { enrollmentsApi } from '../api/enrollments'
 import { ApiError } from '../api/client'
-import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
+import type { StudentUnit } from '../types/student'
+import { BUSINESS_UNIT_LABELS } from '../types/course'
 import type { PageResponse } from '../types/common'
 import type {
   Enrollment,
@@ -57,7 +58,7 @@ type PanelState =
   | { kind: 'edit';   en: Enrollment }
   | { kind: 'detail'; en: Enrollment }
 
-export default function Inscripciones() {
+export default function Inscripciones({ unit }: { unit: StudentUnit }) {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
   const [status,    setStatus]    = useState<StatusFilter>('TODAS')
@@ -74,15 +75,10 @@ export default function Inscripciones() {
   const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
   const [exporting, setExporting] = useState(false)
 
-  const { unidad } = useUnidad()
-  const unidadBu = unidadBusinessUnit(unidad)
-
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
   }, [query])
-
-  useEffect(() => { setPage(0) }, [unidad])
 
   useEffect(() => {
     setLoading(true); setError(null)
@@ -92,14 +88,14 @@ export default function Inscripciones() {
       q:              debounced || undefined,
       status:         status === 'TODAS' ? undefined : status,
       contractSigned: contractFilterToParam(contract),
-      businessUnit:   unidadBu,
+      businessUnit:   unit,
       page,
       size:   PAGE_SIZE,
       sort:   sort ? `${sort.field},${sort.dir}` : undefined,
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, status, contract, unidadBu, page, sort, reload])
+  }, [debounced, status, contract, unit, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -191,11 +187,11 @@ export default function Inscripciones() {
     try {
       const res = await enrollmentsApi.list({
         status:       status === 'TODAS' ? undefined : status,
-        businessUnit: unidadBu,
+        businessUnit: unit,
         size:         2000,
         sort:         sort ? `${sort.field},${sort.dir}` : 'enrollmentDate,desc',
       })
-      exportToCsv(`inscripciones-${dateStamp()}`, res.content, [
+      exportToCsv(`inscripciones-${unit === 'RESIDENCIAS' ? 'rm' : 'fs'}-${dateStamp()}`, res.content, [
         { label: 'Alumno',        value: e => `${e.student.lastName}, ${e.student.firstName}` },
         { label: 'Curso',         value: e => e.course.name },
         { label: 'Fecha',         value: e => e.enrollmentDate?.slice(0, 10) ?? '' },
@@ -220,7 +216,7 @@ export default function Inscripciones() {
         <div className="inscripciones__header-text">
           <h2 className="inscripciones__title">
             <span className="inscripciones__title-icon"><FileText size={22} strokeWidth={2} /></span>
-            Inscripciones
+            Inscripciones · {BUSINESS_UNIT_LABELS[unit]}
           </h2>
           <p className="inscripciones__subtitle">
             {total > 0
@@ -465,6 +461,7 @@ export default function Inscripciones() {
       {panel.kind === 'create' && (
         <EnrollmentForm
           mode="create"
+          unit={unit}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload) => enrollmentsApi.create(payload as EnrollmentCreateRequest)}
@@ -474,6 +471,7 @@ export default function Inscripciones() {
         <EnrollmentForm
           mode="edit"
           initial={panel.en}
+          unit={unit}
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
           onSubmit={(payload) => enrollmentsApi.update(panel.en.id, payload)}

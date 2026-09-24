@@ -4,10 +4,8 @@ import type {
   Course,
   CourseCreateRequest,
   CourseUpdateRequest,
-  BusinessUnit,
 } from '../types/course'
 import {
-  BUSINESS_UNITS, BUSINESS_UNIT_LABELS,
   COURSE_TYPES, COURSE_TYPE_LABELS, MODALITIES, MODALITY_LABELS,
 } from '../types/course'
 import type { CourseType, Modality } from '../types/course'
@@ -28,15 +26,14 @@ interface FormState {
   name:            string
   code:            string
   description:     string
-  businessUnit:    BusinessUnit
   courseType:      CourseType | ''
   modality:        Modality | ''
   country:         string
   enrollmentPrice:   string
   coursePrice:       string
   academicYear:      string
-  commission:        string
-  includesPremaBook: boolean
+  startDate:         string
+  endDate:           string
 }
 
 function initialState(c?: Course): FormState {
@@ -44,15 +41,14 @@ function initialState(c?: Course): FormState {
     name:            c?.name            ?? '',
     code:            c?.code            ?? '',
     description:     c?.description     ?? '',
-    businessUnit:    c?.businessUnit    ?? 'RESIDENCIAS',
     courseType:      c?.courseType      ?? '',
     modality:        c?.modality        ?? '',
     country:         c?.country         ?? 'AR',
     enrollmentPrice: c?.enrollmentPrice != null ? String(c.enrollmentPrice) : '',
     coursePrice:     c?.coursePrice     != null ? String(c.coursePrice)     : '',
     academicYear:    c?.academicYear    != null ? String(c.academicYear)    : '',
-    commission:      c?.commission      != null ? String(c.commission)      : '',
-    includesPremaBook: c?.includesPremaBook === true,
+    startDate:       c?.startDate       ?? '',
+    endDate:         c?.endDate         ?? '',
   }
 }
 
@@ -67,13 +63,11 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
-  // Modalidad en cascada según unidad (reunión 12-jun); comisión sólo para Formación Superior.
-  const showCommission  = state.businessUnit === 'FORMACION_SUPERIOR'
+  const isCreate = mode === 'create'
 
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
     if (!state.name.trim())          e.name         = 'Obligatorio'
-    if (!state.businessUnit)         e.businessUnit = 'Obligatorio'
     if (state.name.length     > 200) e.name         = 'Máx 200 caracteres'
     if (state.code.length     > 50)  e.code         = 'Máx 50 caracteres'
 
@@ -86,8 +80,11 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     if (state.academicYear && Number.isNaN(Number(state.academicYear))) {
       e.academicYear = 'No es un número válido'
     }
-    if (state.commission && Number.isNaN(Number(state.commission))) {
-      e.commission = 'No es un número válido'
+    // Las fechas van al contrato: obligatorias en los cursos nuevos.
+    if (isCreate && !state.startDate) e.startDate = 'Obligatorio'
+    if (isCreate && !state.endDate)   e.endDate   = 'Obligatorio'
+    if (state.startDate && state.endDate && state.endDate < state.startDate) {
+      e.endDate = 'No puede ser anterior al inicio'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -102,15 +99,16 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
       name:            state.name.trim(),
       code:            state.code.trim()        || null,
       description:     state.description.trim() || null,
-      businessUnit:    state.businessUnit,
+      businessUnit:    'RESIDENCIAS',
       courseType:      state.courseType || null,
       modality:        state.modality   || null,
       country:         state.country            || null,
       enrollmentPrice:   state.enrollmentPrice    ? Number(state.enrollmentPrice) : null,
       coursePrice:       state.coursePrice        ? Number(state.coursePrice)     : null,
       academicYear:      state.academicYear       ? Number(state.academicYear)    : null,
-      commission:        showCommission && state.commission ? Number(state.commission) : null,
-      includesPremaBook: state.includesPremaBook,
+      startDate:         state.startDate || null,
+      endDate:           state.endDate   || null,
+      includesPremaBook: initial?.includesPremaBook === true,
     }
 
     try {
@@ -122,7 +120,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
     }
   }
 
-  const isCreate = mode === 'create'
   const Icon     = isCreate ? BookPlus : Save
 
   return (
@@ -168,26 +165,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               />
             </Field>
 
-            <Field label="Unidad de negocio" required error={errors.businessUnit}>
-              <select
-                value={state.businessUnit}
-                onChange={e => {
-                  const bu = e.target.value as BusinessUnit
-                  // Tipo y modalidad ya no dependen de la unidad (V038): son ejes
-                  // propios y valen para cualquiera. Sólo la comisión es de FS.
-                  setState(prev => ({
-                    ...prev,
-                    businessUnit: bu,
-                    commission: bu === 'FORMACION_SUPERIOR' ? prev.commission : '',
-                  }))
-                }}
-              >
-                {BUSINESS_UNITS.map(bu => (
-                  <option key={bu} value={bu}>{BUSINESS_UNIT_LABELS[bu]}</option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Tipo de curso" error={errors.courseType}>
               <select value={state.courseType}
                 onChange={e => setField('courseType', e.target.value as CourseType | '')}>
@@ -219,19 +196,24 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
               </select>
             </Field>
 
-            {showCommission && (
-              <Field label="Comisión" error={errors.commission}>
-                <input
-                  type="number"
-                  step="1"
-                  value={state.commission}
-                  onChange={e => setField('commission', e.target.value)}
-                  placeholder="10 — comisión actual"
-                />
-              </Field>
-            )}
+            <Field label="Inicio del curso" required={isCreate} error={errors.startDate}>
+              <input
+                type="date"
+                value={state.startDate}
+                onChange={e => setField('startDate', e.target.value)}
+              />
+            </Field>
 
-            <Field label={showCommission ? 'Año' : 'Año lectivo'} error={errors.academicYear}>
+            <Field label="Cierre del curso" required={isCreate} error={errors.endDate}>
+              <input
+                type="date"
+                value={state.endDate}
+                min={state.startDate || undefined}
+                onChange={e => setField('endDate', e.target.value)}
+              />
+            </Field>
+
+            <Field label="Año lectivo" error={errors.academicYear}>
               <input
                 type="number"
                 step="1"
@@ -259,22 +241,6 @@ export default function CourseForm({ mode, initial, onClose, onSaved, onSubmit }
                 onChange={e => setField('coursePrice', e.target.value)}
                 placeholder="1020000"
               />
-            </Field>
-
-            <Field label="Extras" fullWidth>
-              <label className="checkbox-row__opt" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                <input
-                  type="checkbox"
-                  checked={state.includesPremaBook}
-                  onChange={e => setField('includesPremaBook', e.target.checked)}
-                />
-                <span>
-                  <strong>Incluye libro PREMA en la matrícula</strong>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
-                    Al inscribir un alumno, se descuenta 1 ejemplar del stock automáticamente (sin cargo extra).
-                  </div>
-                </span>
-              </label>
             </Field>
 
           </div>

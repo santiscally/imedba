@@ -8,6 +8,7 @@ import com.imedba.modules.budget.entity.BudgetEntry;
 import com.imedba.modules.budget.entity.BusinessUnit;
 import com.imedba.modules.budget.entity.EntryType;
 import com.imedba.modules.budget.repository.BudgetEntryRepository;
+import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.diploma.entity.Diploma;
 import com.imedba.modules.diploma.service.DiplomaService;
 import com.imedba.modules.diplomasettlement.dto.DiplomaSettlementCreateRequest;
@@ -89,7 +90,7 @@ public class DiplomaSettlementService {
         // Recompute usa los inputs persistidos en el settlement (ya cargados por createDraft).
         // Si la diplomatura tiene curso vinculado, refresca también el totalCollected desde
         // los pagos (pueden haber entrado cobros nuevos del período desde que se creó el draft).
-        if (existing.getDiploma() != null && existing.getDiploma().getCourse() != null) {
+        if (existing.getDiploma() != null && !existing.getDiploma().getCommissions().isEmpty()) {
             existing.setTotalCollected(collectedForPeriod(
                     existing.getDiploma(), existing.getPeriodYear(), existing.getPeriodMonth()));
         }
@@ -175,18 +176,14 @@ public class DiplomaSettlementService {
 
     // ─── totalCollected automático (V026) ────────────────────────────────────
 
-    /**
-     * Total cobrado en el período por las inscripciones del curso vinculado a la
-     * diplomatura. Null si la diplomatura no tiene curso vinculado (el engine lo
-     * trata como 0; en ese caso conviene cargar el total a mano).
-     */
+    /** Total cobrado en el período por todas las comisiones; null si no tiene ninguna (se carga a mano). */
     private BigDecimal collectedForPeriod(Diploma d, int year, int month) {
-        if (d == null || d.getCourse() == null) {
+        if (d == null || d.getCommissions().isEmpty()) {
             return null;
         }
         LocalDate first = LocalDate.of(year, month, 1);
-        return paymentRepository.sumByCourseBetween(
-                d.getCourse().getId(),
+        return paymentRepository.sumByCoursesBetween(
+                d.getCommissions().stream().map(Course::getId).toList(),
                 first.atStartOfDay(ZONE).toInstant(),
                 first.plusMonths(1).atStartOfDay(ZONE).toInstant());
     }

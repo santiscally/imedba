@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ChevronDown, LogOut, Building2 } from 'lucide-react'
-import { useUnidad, UNIDAD_LABELS, type Unidad } from '../lib/unidad'
+import { ChevronDown, LogOut } from 'lucide-react'
 import { currentUser, logout } from '../lib/auth'
 import { ROLE_LABELS } from '../types/user'
 import './Topbar.scss'
@@ -21,16 +20,19 @@ function roleLabel(roles: string[]): string {
 
 const TITLES: Record<string, string> = {
   '/dashboard':      'Dashboard',
-  '/alumnos':        'Alumnos',
-  '/cursos':         'Cursos',
-  '/inscripciones':  'Inscripciones',
+  '/rm/alumnos':       'Alumnos · Residencias Médicas',
+  '/rm/cursos':        'Cursos · Residencias Médicas',
+  '/rm/inscripciones': 'Inscripciones · Residencias Médicas',
+  '/fs/alumnos':       'Alumnos · Formación Superior',
+  '/fs/diplomaturas':  'Diplomaturas · Formación Superior',
+  '/fs/inscripciones': 'Inscripciones · Formación Superior',
   '/cuotas':         'Cuotas y Pagos',
   '/descuentos':     'Descuentos',
   '/presupuesto':    'Presupuesto',
   '/libros':         'Libros',
   '/ventas':         'Ventas',
   '/autores':        'Autores',
-  '/diplomas':       'Diplomas',
+  '/colecciones':    'Colecciones',
   '/liquidaciones':  'Liquidaciones',
   '/personal':       'Usuarios',
   '/personal-academico': 'Personal Académico',
@@ -43,7 +45,6 @@ export default function Topbar() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const title = TITLES[location.pathname] ?? 'IMEDBA'
-  const { unidad, setUnidad } = useUnidad()
 
   // Usuario real desde el JWT (no hardcodeado).
   const user      = currentUser()
@@ -71,21 +72,6 @@ export default function Topbar() {
       </div>
 
       <div className="topbar__right">
-
-        <label className="topbar__unidad" title="Unidad de negocio (Residencias / Formación Superior)">
-          <Building2 size={16} strokeWidth={2} />
-          <select
-            className="topbar__unidad-select"
-            value={unidad}
-            onChange={e => setUnidad(e.target.value as Unidad)}
-            aria-label="Unidad de negocio"
-          >
-            {(Object.keys(UNIDAD_LABELS) as Unidad[]).map(u => (
-              <option key={u} value={u}>{UNIDAD_LABELS[u]}</option>
-            ))}
-          </select>
-        </label>
-
 
         <div className="topbar__user" ref={menuRef}>
           <button

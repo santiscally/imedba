@@ -13,6 +13,7 @@ import com.imedba.modules.course.entity.CourseType;
 import com.imedba.modules.course.entity.Modality;
 import com.imedba.test.AbstractIntegrationTest;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,11 +29,10 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /courses crea, filtro por businessUnit funciona")
-    void create_and_filter_by_business_unit() throws Exception {
-        createCourse("Curso A", "RES-01", BusinessUnit.RESIDENCIAS, true);
-        createCourse("Curso B", "PRE-01", BusinessUnit.FORMACION_SUPERIOR, true);
-        createCourse("Curso C", "RES-02", BusinessUnit.RESIDENCIAS, false);
+    @DisplayName("POST /courses crea, filtro por active funciona")
+    void create_and_filter_by_active() throws Exception {
+        createCourse("Curso A", "RES-01", true);
+        createCourse("Curso C", "RES-02", false);
 
         mockMvc.perform(get("/api/v1/courses").param("businessUnit", "RESIDENCIAS").with(reader()))
                 .andExpect(status().isOk())
@@ -48,35 +48,80 @@ class CourseApiIntegrationTests extends AbstractIntegrationTest {
     @Test
     @DisplayName("POST /courses con code duplicado → 409")
     void duplicate_code_is_409() throws Exception {
-        createCourse("X", "DUP-01", BusinessUnit.GENERAL, true);
-        var dup = new CourseCreateRequest(
-                "Y", "DUP-01", null, BusinessUnit.GENERAL, null, null, "AR",
-                BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, null, null, false, true);
+        createCourse("X", "DUP-01", true);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dup)))
+                        .content(objectMapper.writeValueAsString(
+                                request("Y", "DUP-01", BusinessUnit.RESIDENCIAS, START, END))))
                 .andExpect(status().isConflict());
     }
 
-    private void createCourse(String name, String code, BusinessUnit bu, boolean active) throws Exception {
+    @Test
+    @DisplayName("POST /courses de Formación Superior o General → 400 (FS se crea como comisión)")
+    void non_residencias_is_400() throws Exception {
+        for (BusinessUnit bu : new BusinessUnit[] {BusinessUnit.FORMACION_SUPERIOR, BusinessUnit.GENERAL}) {
+            mockMvc.perform(post("/api/v1/courses").with(writer())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request("Z", null, bu, START, END))))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    @DisplayName("POST /courses guarda inicio/cierre y rechaza cierre anterior al inicio")
+    void course_dates() throws Exception {
+        mockMvc.perform(post("/api/v1/courses").with(writer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request("Con fechas", null,
+                                BusinessUnit.RESIDENCIAS, LocalDate.of(2027, 3, 1), LocalDate.of(2027, 12, 15)))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.startDate").value("2027-03-01"))
+                .andExpect(jsonPath("$.endDate").value("2027-12-15"));
+
+        mockMvc.perform(post("/api/v1/courses").with(writer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request("Al revés", null,
+                                BusinessUnit.RESIDENCIAS, LocalDate.of(2027, 12, 15), LocalDate.of(2027, 3, 1)))))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/courses").with(writer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request("Sin fechas", null,
+                                BusinessUnit.RESIDENCIAS, null, null))))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static final LocalDate START = LocalDate.of(2027, 3, 1);
+    private static final LocalDate END = LocalDate.of(2027, 12, 15);
+
+    private void createCourse(String name, String code, boolean active) throws Exception {
         var req = new CourseCreateRequest(
-                name, code, null, bu, CourseType.NORMAL, Modality.LIBRE, "AR",
+                name, code, null, BusinessUnit.RESIDENCIAS, CourseType.NORMAL, Modality.LIBRE, "AR",
                 new BigDecimal("10000.00"), new BigDecimal("50000.00"),
-                null, null, null, null, null, false, active);
+                null, START, END, null, null, null, null, false, active);
         mockMvc.perform(post("/api/v1/courses").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated());
     }
 
+    private static CourseCreateRequest request(String name, String code, BusinessUnit bu,
+                                               LocalDate start, LocalDate end) {
+        return new CourseCreateRequest(
+                name, code, null, bu, null, null, "AR",
+                BigDecimal.ZERO, BigDecimal.ZERO, null, start, end, null, null, null, null, false, true);
+    }
+
     private static RequestPostProcessor writer() {
         return jwt().jwt(j -> j.subject("00000000-0000-0000-0000-000000000001"))
                 .authorities(new SimpleGrantedAuthority("courses:read"),
-                        new SimpleGrantedAuthority("courses:write"));
+                        new SimpleGrantedAuthority("courses:write"),
+                        new SimpleGrantedAuthority("residencias:read"));
     }
 
     private static RequestPostProcessor reader() {
         return jwt().jwt(j -> j.subject("00000000-0000-0000-0000-000000000001"))
-                .authorities(new SimpleGrantedAuthority("courses:read"));
+                .authorities(new SimpleGrantedAuthority("courses:read"),
+                        new SimpleGrantedAuthority("residencias:read"));
     }
 }

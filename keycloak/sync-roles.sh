@@ -7,7 +7,7 @@
 # del realm (usuarios, clients, settings de login). Resuelve que `--import-realm` NO
 # re-importe un realm que ya existe: este script aplica los roles "por encima".
 #
-# Idempotente: crea lo que falta, no borra nada. Source-of-truth de roles que debe
+# Idempotente: crea lo que falta y a cada rol le saca las authorities que ya no le tocan. Source-of-truth de roles que debe
 # mantenerse en sync con keycloak/realms/imedba-realm.json (el JSON es para el PRIMER
 # import — crea realm+clients+usuarios; este script re-aplica roles en cada arranque).
 # -----------------------------------------------------------------------------
@@ -49,7 +49,8 @@ hour_logs:read hour_logs:write contacts:read contacts:write \
 notifications:read notifications:write notifications:manage reports:read admin:manage \
 moodle:read moodle:write residencias:read residencias:write \
 formacion_superior:read formacion_superior:write editorial:read editorial:write \
-stock:read stock:write teaching:read settlements:read settlements:write"
+stock:read stock:write teaching:read settlements:read settlements:write \
+dashboard:read academico:read finanzas:read"
 
 for a in $ALL_AUTH; do
   if "$KCADM" create "clients/$CID/roles" -r "$REALM" -s name="$a" >/dev/null 2>&1; then
@@ -67,57 +68,67 @@ add_auth() {     # $1=role  $2=authority (client role de imedba-backend)
   "$KCADM" add-roles -r "$REALM" --rname "$1" --cclientid "$CLIENT" \
       --rolename "$2" >/dev/null 2>&1 || true
 }
+
+ensure_role ADMIN          "Administrador: acceso total"
+ensure_role VENDEDORA      "Académico y Editorial completos; cobra (ve sus inscripciones)"
+ensure_role SECRETARIA     "Secretaría: Académico completo (Residencias y Formación Superior)"
+ensure_role SECRETARIA_FS  "DEPRECADO: usar SECRETARIA"
+ensure_role SECRETARIA_RM  "DEPRECADO: usar SECRETARIA"
+ensure_role EDITORIAL      "Editorial: libros, colecciones, ventas, autorías"
+ensure_role CONTABLE       "Contable: acceso a todo menos la gestión de usuarios"
+ensure_role VIEWER         "Solo lectura global"
+
+# grant deja al rol con EXACTAMENTE estas authorities: agrega las que faltan y saca el resto.
 grant() {        # $1=role  $resto=authorities
   role="$1"; shift
   for a in "$@"; do add_auth "$role" "$a"; done
-  log "= composites de $role asegurados"
+  current=$("$KCADM" get-roles -r "$REALM" --rname "$role" --cclientid "$CLIENT" \
+              --fields name --format csv --noquotes 2>/dev/null | tr -d '\r')
+  for c in $current; do
+    case " $* " in
+      *" $c "*) ;;
+      *) "$KCADM" remove-roles -r "$REALM" --rname "$role" --cclientid "$CLIENT" \
+             --rolename "$c" >/dev/null 2>&1 && log "- $role pierde $c" ;;
+    esac
+  done
+  log "= composites de $role sincronizados"
 }
 
-ensure_role ADMIN          "Administrador: acceso total"
-ensure_role VENDEDORA      "Carga alumnos, cursos y cobra (ve sus inscripciones)"
-ensure_role SECRETARIA_FS  "Secretaría de Formación Superior (diplomaturas)"
-ensure_role SECRETARIA_RM  "Secretaría de Residencias Médicas (Argentina y Uruguay)"
-ensure_role EDITORIAL      "Editorial: libros, stock, ventas, autorías"
-ensure_role CONTABLE       "Presupuesto, balances y reportes"
-ensure_role VIEWER         "Solo lectura global"
+# Secciones del menú (docx IMEDBA 2026-09-24): cada rol recibe bloques completos.
+ACADEMICO="academico:read students:read students:write courses:read courses:write \
+enrollments:read enrollments:write diplomas:read diplomas:write staff:read staff:write \
+hour_logs:read hour_logs:write teaching:read installments:read \
+residencias:read residencias:write formacion_superior:read formacion_superior:write \
+notifications:read notifications:write notifications:manage contacts:read"
 
-# ADMIN: todas las authorities.
+EDITORIAL_AUTH="editorial:read editorial:write books:read books:write authors:read authors:write \
+book_sales:read book_sales:write stock:read stock:write students:read"
+
+CONTABLE_AUTH=""
+for a in $ALL_AUTH; do [ "$a" = "admin:manage" ] || CONTABLE_AUTH="$CONTABLE_AUTH $a"; done
+
+# shellcheck disable=SC2086
+{
 grant ADMIN $ALL_AUTH
 
-grant VENDEDORA \
-  students:read students:write courses:read enrollments:read enrollments:write \
-  payments:read payments:write installments:read installments:write \
-  discount_campaigns:read books:read books:write book_sales:read book_sales:write \
-  residencias:read residencias:write formacion_superior:read formacion_superior:write \
-  notifications:manage notifications:read notifications:write contacts:read
+grant VENDEDORA dashboard:read $ACADEMICO $EDITORIAL_AUTH \
+  finanzas:read payments:read payments:write installments:write discount_campaigns:read
 
-grant SECRETARIA_FS \
-  students:read enrollments:read settlements:read settlements:write installments:read \
-  teaching:read formacion_superior:read formacion_superior:write notifications:manage \
-  diplomas:read diplomas:write sales_commissions:read sales_commissions:write \
-  hour_logs:read hour_logs:write staff:read \
-  notifications:read notifications:write contacts:read
+grant SECRETARIA    dashboard:read $ACADEMICO
+grant SECRETARIA_FS dashboard:read $ACADEMICO
+grant SECRETARIA_RM dashboard:read $ACADEMICO
 
-grant SECRETARIA_RM \
-  students:read courses:read enrollments:read installments:read teaching:read \
-  residencias:read residencias:write notifications:manage notifications:read \
-  hour_logs:read hour_logs:write staff:read \
-  notifications:write contacts:read
+grant EDITORIAL $EDITORIAL_AUTH
 
-grant EDITORIAL \
-  students:read editorial:read editorial:write stock:read stock:write \
-  books:read books:write authors:read authors:write book_sales:read book_sales:write
-
-grant CONTABLE \
-  budget:read budget:write payments:read reports:read book_sales:read contacts:read \
-  sales_commissions:read sales_commissions:write \
-  settlements:read settlements:write hour_logs:read staff:read
+grant CONTABLE $CONTABLE_AUTH
 
 grant VIEWER \
+  dashboard:read academico:read finanzas:read editorial:read \
   students:read courses:read enrollments:read payments:read installments:read \
-  discount_campaigns:read editorial:read stock:read budget:read teaching:read \
+  discount_campaigns:read stock:read budget:read teaching:read \
   settlements:read reports:read authors:read books:read book_sales:read diplomas:read \
   sales_commissions:read staff:read hour_logs:read contacts:read notifications:read
+}
 
 # --- 3) Redirect URIs del client público imedba-frontend (idempotente) -------
 # Igual que los roles: el realm JSON los setea en el PRIMER import; esto los RE-APLICA

@@ -1,5 +1,6 @@
 package com.imedba.modules.student.dto;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -8,6 +9,7 @@ public record StudentResponse(
         String firstName,
         String lastName,
         String email,
+        BusinessUnit businessUnit,
         String phone,
         String dni,
         String nationality,

@@ -4,6 +4,7 @@ import com.imedba.common.auth.AuthUtils;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.common.security.SegmentationFilter;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.discount_campaign.entity.DiscountCampaign;
@@ -82,10 +83,11 @@ public class EnrollmentService {
     @Transactional(readOnly = true)
     public Page<EnrollmentResponse> list(
             UUID studentId, UUID courseId, EnrollmentStatus status,
-            Boolean contractSigned, Pageable pageable) {
+            Boolean contractSigned, BusinessUnit businessUnit, Pageable pageable) {
         Specification<Enrollment> spec = Specification
                 .where(EnrollmentSpecs.byStudent(studentId))
                 .and(EnrollmentSpecs.byCourse(courseId))
+                .and(EnrollmentSpecs.byBusinessUnit(businessUnit))
                 .and(EnrollmentSpecs.byStatus(status))
                 .and(EnrollmentSpecs.byContractSigned(contractSigned))
                 .and(EnrollmentSpecs.byBusinessUnits(SegmentationFilter.allowedBusinessUnits()))
@@ -272,7 +274,8 @@ public class EnrollmentService {
                 s.getEmail(),
                 e.getListPrice(), e.getTotalPrice(), discountLabel,
                 c != null ? c.getName() : "",
-                null, null);                   // Course no modela inicio/fin de grupo → "A confirmar"
+                c != null ? c.getStartDate() : null,
+                c != null ? c.getEndDate() : null);
     }
 
 

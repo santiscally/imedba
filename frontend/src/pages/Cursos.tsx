@@ -8,13 +8,11 @@ import {
 import { coursesApi } from '../api/courses'
 import type { PageResponse } from '../types/common'
 import type {
-  Course, BusinessUnit, CourseCreateRequest, CourseType, Modality,
+  Course, CourseCreateRequest, CourseType, Modality,
 } from '../types/course'
 import {
-  BUSINESS_UNITS, BUSINESS_UNIT_LABELS,
   COURSE_TYPES, COURSE_TYPE_LABELS, MODALITIES, MODALITY_LABELS,
 } from '../types/course'
-import { useUnidad, unidadBusinessUnit } from '../lib/unidad'
 import EmptyState from '../components/EmptyState'
 import CourseForm from '../components/CourseForm'
 import CourseDetail from '../components/CourseDetail'
@@ -30,7 +28,8 @@ type SortDir   = 'asc' | 'desc'
 type SortField = 'name' | 'modality' | 'coursePrice'
 type SortState = { field: SortField; dir: SortDir } | null
 
-type BUFilter = BusinessUnit | 'TODAS'
+// Cursos es sólo Residencias: Formación Superior se carga como comisión de una diplomatura.
+const UNIT = 'RESIDENCIAS' as const
 
 type PanelState =
   | { kind: 'closed' }
@@ -42,7 +41,6 @@ type PanelState =
 export default function Cursos() {
   const [query,     setQuery]     = useState('')
   const [debounced, setDebounced] = useState('')
-  const [bu,        setBu]        = useState<BUFilter>('TODAS')
   const [year,      setYear]      = useState<number | undefined>(undefined)
   const [page,      setPage]      = useState(0)
   const [sort,      setSort]      = useState<SortState>({ field: 'name', dir: 'asc' })
@@ -55,11 +53,6 @@ export default function Cursos() {
   const [panel,     setPanel]     = useState<PanelState>({ kind: 'closed' })
   const [exporting, setExporting] = useState(false)
 
-  const { unidad } = useUnidad()
-  const unidadBu = unidadBusinessUnit(unidad)
-  // Con una unidad seleccionada, el filtro de chips queda fijado a esa unidad.
-  const effectiveBu = unidadBu ?? (bu === 'TODAS' ? undefined : bu)
-
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300)
     return () => clearTimeout(t)
@@ -70,14 +63,11 @@ export default function Cursos() {
   const [courseType, setCourseType] = useState<CourseType | ''>('')
   const [modality,   setModality]   = useState<Modality | ''>('')
 
-  // Al cambiar la unidad global, volver a la primera página.
-  useEffect(() => { setPage(0) }, [unidad])
-
   useEffect(() => {
     setLoading(true); setError(null)
     coursesApi.list({
       q:             debounced || undefined,
-      businessUnit:  effectiveBu,
+      businessUnit:  UNIT,
       year,
       courseType:    courseType || undefined,
       modality:      modality   || undefined,
@@ -87,7 +77,7 @@ export default function Cursos() {
     })
       .then(res => { setData(res); setLoading(false) })
       .catch((err: Error) => { setError(err.message); setLoading(false) })
-  }, [debounced, effectiveBu, year, courseType, modality, page, sort, reload])
+  }, [debounced, year, courseType, modality, page, sort, reload])
 
   const total      = data?.totalElements ?? 0
   const totalPages = data?.totalPages    ?? 0
@@ -130,7 +120,7 @@ export default function Cursos() {
         courseType: courseType || undefined,
         modality:   modality   || undefined,
         q:            debounced || undefined,
-        businessUnit: effectiveBu,
+        businessUnit: UNIT,
         year,
         size:         2000,
         sort:         sort ? `${sort.field},${sort.dir}` : 'name,asc',
@@ -138,13 +128,11 @@ export default function Cursos() {
       exportToCsv(`cursos-${dateStamp()}`, res.content, [
         { label: 'Nombre',         value: c => c.name },
         { label: 'Código',         value: c => c.code ?? '' },
-        { label: 'Unidad',         value: c => c.businessUnit ? BUSINESS_UNIT_LABELS[c.businessUnit] : '' },
+        { label: 'Inicio',         value: c => c.startDate ?? '' },
+        { label: 'Cierre',         value: c => c.endDate ?? '' },
         { label: 'Tipo de curso',  value: c => c.courseType ? COURSE_TYPE_LABELS[c.courseType] : '' },
       { label: 'Modalidad',      value: c => c.modality ? MODALITY_LABELS[c.modality] : '' },
-        { label: 'Año / Comisión', value: c =>
-            c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
-              ? `Com ${c.commission}${c.academicYear != null ? '/' + c.academicYear : ''}`
-              : (c.academicYear ?? 'Libre') },
+        { label: 'Año',            value: c => c.academicYear ?? 'Libre' },
         { label: 'Precio matrícula', value: c => c.enrollmentPrice ?? '' },
         { label: 'Precio curso',     value: c => c.coursePrice ?? '' },
       ])
@@ -153,7 +141,6 @@ export default function Cursos() {
     } finally { setExporting(false) }
   }
 
-  const buOptions = useMemo<BUFilter[]>(() => ['TODAS', ...BUSINESS_UNITS], [])
   // Ciclos lectivos para el filtro: rango razonable alrededor del año actual.
   const yearOptions = useMemo<number[]>(() => {
     const now = new Date().getFullYear()
@@ -203,24 +190,6 @@ export default function Cursos() {
             className="search__input"
           />
         </div>
-
-        {/* Con unidad global seleccionada, el filtro queda fijado a esa unidad. */}
-        {!unidadBu && (
-          <div className="cursos__chips" role="tablist" aria-label="Unidad de negocio">
-            {buOptions.map(opt => (
-              <button
-                key={opt}
-                type="button"
-                className={`chip ${bu === opt ? 'chip--active' : ''}`}
-                onClick={() => { setBu(opt); setPage(0) }}
-                role="tab"
-                aria-selected={bu === opt}
-              >
-                {opt === 'TODAS' ? 'Todas' : BUSINESS_UNIT_LABELS[opt]}
-              </button>
-            ))}
-          </div>
-        )}
 
         <select
           className="cursos__year-select"
@@ -294,8 +263,8 @@ export default function Cursos() {
                   sort={sort}
                   onClick={() => toggleSort('modality')}
                 />
-                <th>Unidad</th>
-                <th>Año / Comisión</th>
+                <th>Inicio – cierre</th>
+                <th>Año</th>
                 <SortableTh
                   label="Precio curso"
                   field="coursePrice"
@@ -333,16 +302,14 @@ export default function Cursos() {
                       : <span className="muted">—</span>}
                   </td>
                   <td>
-                    <span className={`bu bu--${c.businessUnit.toLowerCase()}`}>
-                      {BUSINESS_UNIT_LABELS[c.businessUnit]}
-                    </span>
+                    {c.startDate || c.endDate
+                      ? <span className="muted">{formatDate(c.startDate)} – {formatDate(c.endDate)}</span>
+                      : <span className="muted">A confirmar</span>}
                   </td>
                   <td>
-                    {c.businessUnit === 'FORMACION_SUPERIOR' && c.commission != null
-                      ? <span className="pill">Com. {c.commission}{c.academicYear != null ? ` · ${c.academicYear}` : ''}</span>
-                      : c.academicYear != null
-                        ? <span className="pill">{c.academicYear}</span>
-                        : <span className="muted">Libre</span>}
+                    {c.academicYear != null
+                      ? <span className="pill">{c.academicYear}</span>
+                      : <span className="muted">Libre</span>}
                   </td>
                   <td className="col-precio">
                     {c.coursePrice != null
@@ -555,3 +522,8 @@ function formatPrice(n: number): string {
   }).format(n)
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return '?'
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+}

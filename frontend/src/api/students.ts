@@ -14,7 +14,7 @@ export interface ListStudentsParams {
   size?:         number
   sort?:         string       // ej: "lastName,asc"
   active?:       boolean
-  businessUnit?: string       // segmentación server-side por JWT; este param lo ignora Spring
+  businessUnit?: string       // unidad de alta del alumno o de alguna de sus inscripciones
 }
 
 function buildQuery(params: ListStudentsParams): string {

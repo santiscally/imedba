@@ -11,7 +11,7 @@ import java.time.LocalDate;
  * @param discountLabel descuento ya formateado por el caller ("15%" o "$50.000" o "—"),
  *                      porque puede expresarse en porcentaje o monto fijo.
  * @param groupStart    inicio del grupo; {@code null} → se renderiza "A confirmar"
- *                      (el backend todavía no modela start/end de curso).
+ *                      (el curso no tiene la fecha cargada).
  */
 public record ContractData(
         String firstName,

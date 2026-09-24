@@ -1,5 +1,6 @@
 package com.imedba.modules.student.repository;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.student.entity.Student;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +25,7 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
      * dispara el problema de inferencia de tipo de Postgres ({@code text ~~ bytea}).</p>
      *
      * @param q substring a buscar (ya en lowercase, sin comodines). La query agrega los %.
+     * @param businessUnit alumnos de alta en esa unidad o con alguna inscripción en ella; null = todos.
      */
     @Query("""
             SELECT s FROM Student s
@@ -33,6 +35,12 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
                OR LOWER(s.email)                           LIKE CONCAT('%', :q, '%')
                OR (s.dni IS NOT NULL AND LOWER(s.dni) LIKE CONCAT('%', :q, '%'))
             )
+              AND (:businessUnit IS NULL
+               OR s.businessUnit = :businessUnit
+               OR EXISTS (SELECT 1 FROM Enrollment e
+                           WHERE e.student = s AND e.course.businessUnit = :businessUnit))
             """)
-    Page<Student> search(@Param("q") String q, Pageable pageable);
+    Page<Student> search(@Param("q") String q,
+                         @Param("businessUnit") BusinessUnit businessUnit,
+                         Pageable pageable);
 }

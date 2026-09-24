@@ -3,8 +3,10 @@ import { X, Save, UserPlus, Link2 } from 'lucide-react'
 import type {
   Student,
   StudentCreateRequest,
+  StudentUnit,
   StudentUpdateRequest,
 } from '../types/student'
+import { BUSINESS_UNIT_LABELS } from '../types/course'
 import { toTitleCase } from '../lib/text'
 import { moodleApi } from '../api/moodle'
 import { hasAuthority } from '../lib/auth'
@@ -21,6 +23,8 @@ type Payload = StudentCreateRequest | StudentUpdateRequest
 interface Props {
   mode:      'create' | 'edit'
   initial?:  Student
+  /** Unidad del listado desde el que se da de alta; en la edición manda la del alumno. */
+  unit:      StudentUnit
   onClose:   () => void
   onSaved:   (saved: Student) => void
   onSubmit:  (payload: Payload) => Promise<Student>
@@ -54,7 +58,7 @@ function initialState(s?: Student): FormState {
   }
 }
 
-export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
+export default function StudentForm({ mode, initial, unit, onClose, onSaved, onSubmit }: Props) {
   const isCreate = mode === 'create'
   const Icon     = isCreate ? UserPlus : Save
 
@@ -157,6 +161,7 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
       university:  state.university.trim()  || null,
       locality:    state.locality.trim()    || null,
       notes:       state.notes.trim()       || null,
+      ...(isCreate ? { businessUnit: unit } : {}),
       // Sólo al crear: si se validó contra Moodle y existe, persiste el vínculo de una.
       ...(isCreate && moodleUserId != null ? { moodleUserId } : {}),
     }
@@ -182,7 +187,7 @@ export default function StudentForm({ mode, initial, onClose, onSaved, onSubmit 
           <div className="modal__title-wrap">
             <div className="modal__title-icon"><Icon size={18} /></div>
             <h3 className="modal__title">
-              {isCreate ? 'Nuevo alumno' : 'Editar alumno'}
+              {isCreate ? 'Nuevo alumno' : 'Editar alumno'} · {BUSINESS_UNIT_LABELS[initial?.businessUnit ?? unit]}
             </h3>
           </div>
           <button type="button" className="modal__close" onClick={onClose} aria-label="Cerrar">

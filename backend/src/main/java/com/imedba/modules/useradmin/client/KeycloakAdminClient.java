@@ -31,7 +31,10 @@ public class KeycloakAdminClient {
 
     /** Roles de realm que son "de la app" (se filtran los internos de Keycloak). */
     public static final Set<String> APP_ROLES = Set.of(
-            "ADMIN", "VENDEDORA", "SECRETARIA_FS", "SECRETARIA_RM", "EDITORIAL", "CONTABLE", "VIEWER");
+            "ADMIN", "VENDEDORA", "SECRETARIA", "SECRETARIA_FS", "SECRETARIA_RM", "EDITORIAL", "CONTABLE", "VIEWER");
+
+    /** Siguen en APP_ROLES para mostrar y reemplazar a quien los tenga, pero ya no se ofrecen al asignar. */
+    private static final Set<String> DEPRECATED_ROLES = Set.of("SECRETARIA_FS", "SECRETARIA_RM");
 
     private final KeycloakAdminProperties props;
     private final RestClient http;
@@ -196,7 +199,7 @@ public class KeycloakAdminClient {
     }
 
     public List<String> appRoles() {
-        return APP_ROLES.stream().sorted().toList();
+        return APP_ROLES.stream().filter(r -> !DEPRECATED_ROLES.contains(r)).sorted().toList();
     }
 
     // ─── Roles ───────────────────────────────────────────────────────────────

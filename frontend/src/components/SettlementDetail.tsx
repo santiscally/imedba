@@ -30,7 +30,7 @@ export default function SettlementDetail({
   onApprove,
   onMarkPaid,
 }: Props) {
-  const canWrite = hasAuthority('diplomas:write')
+  const canWrite = hasAuthority('settlements:write')
   const period = `${MONTHS[settlement.periodMonth - 1]} ${settlement.periodYear}`
   const isDraft    = settlement.status === 'DRAFT'
   const isApproved = settlement.status === 'APPROVED'

@@ -24,16 +24,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
-/**
- * Colección de libros (reunión 2026-06-05, Nico): los alumnos compran la colección
- * entera (ej. los 7 libros de Residencias) con un descuento. La misma lista de libros
- * existe en dos variantes (anillada/tradicional) con precios distintos.
- *
- * <p>El precio es el de lista de la colección; el % de descuento alumno se aplica al
- * vender. Al vender una colección se generan N {@code book_sales} (una por libro,
- * repartiendo el precio proporcional al precio de lista de cada libro) para que las
- * autorías se calculen por libro.</p>
- */
+/** Colección de libros: su precio es la suma de sus libros y al venderla se genera una book_sale prorrateada por libro. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -56,9 +47,6 @@ public class Collection extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "variant", nullable = false, length = 20)
     private CollectionVariant variant;
-
-    @Column(name = "price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
 
     @Default
     @Column(name = "student_discount_pct", nullable = false, precision = 5, scale = 2)

@@ -29,6 +29,24 @@
 
 ## Entradas
 
+## 2026-09-24 (c) — Santi — db/deploy (arreglos de datos en el deploy + V047)
+**Qué:** Sección nueva en el README, "Base de datos en el deploy": backup → diagnóstico antes → deploy → diagnóstico después. Los arreglos de datos van como migración **`V0NN__fix_<qué>.sql`**, nunca como SQL a mano. Primer arreglo: **`V047__fix_orphan_fs_courses.sql`**, que cuelga los cursos FS sin diplomatura de la diplomatura de su programa (saca el "— Comisión N" del nombre y la crea si no existe) y completa el número de comisión cuando el nombre lo trae. Diagnóstico de sólo lectura en `scripts/sql/diagnostico-deploy.sql` (7 secciones).
+**Por qué:** con V044 los cursos FS cargados desde Cursos quedaban huérfanos: no aparecían ni en Cursos ni en Diplomaturas.
+**Problemas:** ninguno. Probado con `BEGIN … ROLLBACK` y después aplicado en local: los 2 huérfanos (129 inscripciones) quedaron en "Diplomatura Neurodesarrollo" y "Formación Superior 2026", sin tocar inscripciones ni pagos.
+**Impacto para el otro (Fran):** si necesitás arreglar datos, usá una migración `V0NN__fix_*` (la próxima libre es V048) y seguí las reglas del README. Si el arreglo necesita una decisión, en vez de migración va una consulta al diagnóstico.
+**Refs:** `README.md` §4 de producción, `backend/src/main/resources/db/migration/V047__fix_orphan_fs_courses.sql`, `scripts/sql/diagnostico-deploy.sql`.
+
+## 2026-09-24 (b) — Santi — backend/frontend/auth (doc 18 implementado, menos mail)
+**Qué:** §1–§6 del doc 18, back + front (Santi autorizó tocar `frontend/`; mail queda para Fran). Colección = suma de sus libros · diplomatura general con comisiones (cada comisión es un curso FS con `courses.diploma_id`) · Cursos sólo Residencias · inicio/cierre de curso en el contrato · alumnos con unidad de alta y listados RM/FS reales · tabla de roles nueva. Migraciones **V043–V046**.
+**Por qué:** docx "Dudas para la plataforma" de IMEDBA.
+**Problemas:** (1) "un registro de alumno por unidad" no se puede: email y DNI son únicos → el listado de una unidad trae a los de alta en ella + a los inscriptos en ella. (2) `grant` de `sync-roles.sh` sólo agregaba permisos: ahora reconcilia y saca los que sobran (en el primer `up` a ADMIN le sacó `enrollments:approve`, `teaching:write` y `recurring_services:*`, que no usa ningún endpoint). (3) En la prueba e2e, inscribir a un curso con libro PREMA y stock 0 revienta con `ck_books_stock` (500/409 genérico): ya pasaba antes, no se tocó.
+**Impacto para el otro (Fran):**
+- **Frontend cambiado:** rutas `/rm/alumnos|cursos|inscripciones` y `/fs/alumnos|diplomaturas|inscripciones` (las viejas redirigen); **se borró `lib/unidad.tsx`** y el selector del Topbar; `Alumnos` e `Inscripciones` reciben `unit` por prop; `EnrollmentForm` y `StudentForm` también piden `unit`. Nuevo `components/CommissionForm.tsx` + `lib/commission.ts`. `lib/access.ts` gatea por sección (`dashboard:read`, `academico:read`, `finanzas:read`, `editorial:read`) + authority de datos.
+- **Contrato front↔back:** `Course` suma `startDate/endDate/diplomaId/diplomaName`; `Diploma` pierde `courseId/courseName/enrollmentPrice/coursePrice` y suma `commissions[]`; `Student` suma `businessUnit`; `CollectionCreateRequest` ya no lleva `price`. `GET /students` y `GET /enrollments` aceptan `businessUnit`.
+- **Tocado en archivos tuyos:** `EnrollmentService.contractDataFrom` ahora pasa las fechas del curso y `ContractData` cambió un comentario. Nada de templates ni schedulers de mail. **§7 del doc 18 sigue siendo tuyo.**
+- Migraciones: V043–V046 usadas; si necesitás una, V047 en adelante.
+**Refs:** `instrucciones_claude/18-dudas-plataforma-20260924.md` §9, `10-usuarios-y-roles.md`, `keycloak/sync-roles.sh`, `modules/diploma/`, `modules/course/`, `modules/student/`.
+
 ## 2026-09-24 — Santi — planificación (docx "Dudas para la plataforma" + 2 bugs de mail para Fran)
 **Qué:** Plan de los 7 pedidos del docx de IMEDBA en `18-dudas-plataforma-20260924.md` (insumo: `dudas-plataforma-20260924.docx`). No se implementó nada todavía.
 **Por qué:** pedido de IMEDBA: colección en $0, diplomatura general + comisiones, Cursos sólo RM, fechas de curso en el contrato, dos listados de alumnos, roles y el mail de cuotas.

@@ -1,10 +1,14 @@
 package com.imedba.modules.course.entity;
 
 import com.imedba.common.entity.BaseEntity;
+import com.imedba.modules.diploma.entity.Diploma;
 import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -75,6 +79,18 @@ public class Course extends BaseEntity {
 
     @Column(name = "exam_date")
     private LocalDate examDate;
+
+    /** Inicio y cierre del curso (V045): van al contrato del alumno. */
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    /** Diplomatura de la que esta comisión forma parte (V044). Null en los cursos de Residencias. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "diploma_id")
+    private Diploma diploma;
 
     /**
      * Ciclo lectivo / año del curso (ej. 2026). Nullable: los cursos "libres" (el

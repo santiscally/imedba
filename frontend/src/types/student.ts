@@ -1,4 +1,8 @@
 import type { Instant, UUID } from './common'
+import type { BusinessUnit } from './course'
+
+// Unidades en las que puede darse de alta un alumno (V046).
+export type StudentUnit = Extract<BusinessUnit, 'RESIDENCIAS' | 'FORMACION_SUPERIOR'>
 
 // Refleja com.imedba.modules.student.dto.StudentResponse
 export interface Student {
@@ -6,6 +10,7 @@ export interface Student {
   firstName:     string
   lastName:      string
   email:         string
+  businessUnit:  StudentUnit
   phone:         string | null
   dni:           string | null
   nationality:   string | null
@@ -23,6 +28,7 @@ export interface StudentCreateRequest {
   firstName:   string          // required, max 100
   lastName:    string          // required, max 100
   email:       string          // required, email, max 255
+  businessUnit?: StudentUnit | null // null = Residencias en el alta, sin cambio en la edición
   phone?:      string | null   // max 50
   dni?:        string | null   // max 20
   nationality?: string | null  // max 100

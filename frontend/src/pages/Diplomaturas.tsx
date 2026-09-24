@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Search, Plus,
   GraduationCap, ArrowUp, ArrowDown, ArrowUpDown,
-  University, CircleDollarSign, Users,
+  University, Users,
   Eye, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { diplomasApi } from '../api/diplomas'
@@ -16,7 +16,7 @@ import { exportToCsv, dateStamp } from '../lib/exportCsv'
 import './Diplomaturas.scss'
 
 type SortDir   = 'asc' | 'desc'
-type SortField = 'name' | 'universityName' | 'coursePrice' | 'partnersCount'
+type SortField = 'name' | 'universityName' | 'commissions' | 'partnersCount'
 type SortState = { field: SortField; dir: SortDir } | null
 
 type PanelState =
@@ -86,9 +86,7 @@ export default function Diplomaturas() {
     exportToCsv(`diplomaturas-${dateStamp()}`, visible, [
       { label: 'Nombre',          value: d => d.name },
       { label: 'Universidad',     value: d => d.universityName ?? '' },
-      { label: 'Curso vinculado', value: d => d.courseName ?? '' },
-      { label: 'Precio matrícula', value: d => d.enrollmentPrice ?? '' },
-      { label: 'Precio curso',     value: d => d.coursePrice ?? '' },
+      { label: 'Comisiones',      value: d => d.commissions.map(c => c.commission ?? 's/n').join(', ') },
       { label: 'Directoras',      value: d => d.directors?.length ?? 0 },
       { label: 'Descripción',     value: d => d.description ?? '' },
     ])
@@ -194,10 +192,10 @@ export default function Diplomaturas() {
                   className="col-uni"
                 />
                 <SortableTh
-                  label="Precio curso"
-                  field="coursePrice"
+                  label="Comisiones"
+                  field="commissions"
                   sort={sort}
-                  onClick={() => toggleSort('coursePrice')}
+                  onClick={() => toggleSort('commissions')}
                   className="col-precio"
                 />
                 <SortableTh
@@ -238,9 +236,12 @@ export default function Diplomaturas() {
                         : <span className="muted">—</span>}
                     </td>
                     <td className="col-precio">
-                      {d.coursePrice != null
-                        ? <span className="price"><CircleDollarSign size={13} strokeWidth={1.8} />{formatPrice(d.coursePrice)}</span>
-                        : <span className="muted">—</span>}
+                      {d.commissions.length > 0
+                        ? <span className="pill">
+                            {d.commissions[0].commission != null ? `Com. ${d.commissions[0].commission}` : 'Sin número'}
+                            {d.commissions.length > 1 && ` · ${d.commissions.length} en total`}
+                          </span>
+                        : <span className="muted">Sin comisiones</span>}
                     </td>
                     <td className="col-socias">
                       <span className="cell-inline">
@@ -296,7 +297,7 @@ export default function Diplomaturas() {
           mode="create"
           onClose={() => setPanel({ kind: 'closed' })}
           onSaved={handleSaved}
-          onSubmit={(payload: DiplomaCreateRequest) => diplomasApi.create(payload)}
+          onSubmit={(payload) => diplomasApi.create(payload as DiplomaCreateRequest)}
         />
       )}
       {panel.kind === 'edit' && (
@@ -312,7 +313,8 @@ export default function Diplomaturas() {
         <DiplomaDetail
           diploma={panel.diploma}
           onClose={() => setPanel({ kind: 'closed' })}
-          onEdit={() => setPanel({ kind: 'edit', diploma: panel.diploma })}
+          onEdit={current => setPanel({ kind: 'edit', diploma: current })}
+          onChanged={() => setReload(r => r + 1)}
         />
       )}
     </div>
@@ -351,7 +353,7 @@ function compare(a: Diploma, b: Diploma, field: SortField): number {
   switch (field) {
     case 'name':           return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
     case 'universityName': return strCompare(a.universityName, b.universityName)
-    case 'coursePrice':    return numCompare(a.coursePrice,    b.coursePrice)
+    case 'commissions':    return a.commissions.length - b.commissions.length
     case 'partnersCount':  return (a.directors?.length ?? 0) - (b.directors?.length ?? 0)
   }
 }
@@ -361,17 +363,4 @@ function strCompare(a: string | null, b: string | null): number {
   if (a == null) return 1
   if (b == null) return -1
   return a.localeCompare(b, 'es', { sensitivity: 'base' })
-}
-
-function numCompare(a: number | null, b: number | null): number {
-  if (a == null && b == null) return 0
-  if (a == null) return 1
-  if (b == null) return -1
-  return a - b
-}
-
-function formatPrice(n: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
-  }).format(n)
 }

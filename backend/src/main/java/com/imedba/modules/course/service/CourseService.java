@@ -1,5 +1,6 @@
 package com.imedba.modules.course.service;
 
+import com.imedba.common.error.BadRequestException;
 import com.imedba.common.error.ConflictException;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.common.security.SegmentationFilter;
@@ -13,6 +14,7 @@ import com.imedba.modules.course.entity.Course;
 import com.imedba.modules.course.mapper.CourseMapper;
 import com.imedba.modules.course.repository.CourseRepository;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,6 +56,8 @@ public class CourseService {
     }
 
     public CourseResponse create(CourseCreateRequest req) {
+        requireResidencias(req.businessUnit());
+        requireValidDates(req.startDate(), req.endDate());
         if (!SegmentationFilter.canSee(req.businessUnit())) {
             throw new AccessDeniedException("No tiene permisos para crear cursos de " + req.businessUnit());
         }
@@ -73,6 +77,9 @@ public class CourseService {
     public CourseResponse update(UUID id, CourseUpdateRequest req) {
         Course c = find(id);
         ensureVisible(c);
+        rejectCommission(c);
+        requireResidencias(req.businessUnit());
+        requireValidDates(req.startDate(), req.endDate());
         if (!SegmentationFilter.canSee(req.businessUnit())) {
             throw new AccessDeniedException("No tiene permisos para mover el curso a " + req.businessUnit());
         }
@@ -88,6 +95,13 @@ public class CourseService {
     public void delete(UUID id) {
         Course c = find(id);
         ensureVisible(c);
+        rejectCommission(c);
+        deleteCourse(c);
+    }
+
+    /** Borra el curso sin chequear si es comisión: lo usa Diplomaturas para borrar sus comisiones. */
+    public void deleteCourse(Course c) {
+        UUID id = c.getId();
         // Un curso soft-deleted rompe los joins de inscripciones/cuotas que lo referencian:
         // bloquear si tiene inscripciones (de cualquier estado). Para sacarlo de circulación
         // alcanza con desactivarlo (active=false).
@@ -97,6 +111,31 @@ public class CourseService {
                             + "Desactivalo para que no aparezca en nuevas inscripciones.");
         }
         repository.delete(c);
+    }
+
+    /** Valida que el cierre no sea anterior al inicio (el CHECK de V045 daría un 500). */
+    public static void requireValidDates(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new BadRequestException("La fecha de cierre no puede ser anterior a la de inicio");
+        }
+    }
+
+    /** Formación Superior se carga como comisión de una diplomatura; Editorial/General no son académicas. */
+    private static void requireResidencias(BusinessUnit bu) {
+        if (bu == BusinessUnit.FORMACION_SUPERIOR) {
+            throw new BadRequestException(
+                    "Los cursos de Formación Superior se crean como comisión desde Diplomaturas");
+        }
+        if (bu != BusinessUnit.RESIDENCIAS) {
+            throw new BadRequestException("Los cursos sólo pueden ser de Residencias Médicas");
+        }
+    }
+
+    private static void rejectCommission(Course c) {
+        if (c.getDiploma() != null) {
+            throw new ConflictException("Es una comisión de «" + c.getDiploma().getName()
+                    + "»: se gestiona desde Diplomaturas");
+        }
     }
 
     private Course find(UUID id) {

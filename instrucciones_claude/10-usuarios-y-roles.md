@@ -26,35 +26,40 @@
 |-------|-----------|-------------|----------|
 | `admin@imedba.dev`      | `test1234` | ADMIN        | Acceso total (las 3 socias) |
 | `vendedora@imedba.dev`  | `test1234` | VENDEDORA    | Carga alumnos/inscripciones y cobra (solo ve **sus** inscripciones) |
-| `secretaria@imedba.dev` | `test1234` | SECRETARIA_FS| Secretaría de Formación Superior (diplomaturas + liquidaciones) |
+| `secretaria@imedba.dev` | `test1234` | SECRETARIA   | Académico completo (Residencias y Formación Superior) |
 | `editorial@imedba.dev`  | `test1234` | EDITORIAL    | Libros, colecciones, ventas, autorías |
-| `contable@imedba.dev`   | `test1234` | CONTABLE     | Presupuesto, ventas, contactos |
+| `contable@imedba.dev`   | `test1234` | CONTABLE     | Todo menos la gestión de usuarios |
 | `viewer@imedba.dev`     | `test1234` | VIEWER       | Solo lectura global (ve todo, no edita nada) |
 
-## Qué ve y qué edita cada rol (verificado contra los tokens reales)
+## Qué ve y qué edita cada rol (docx IMEDBA 2026-09-24)
 
-El SPA gatea el **menú y las rutas** por la authority de lectura (`módulo:read`), y los
-**botones de alta/edición/borrado** por la de escritura (`módulo:write`). Es espejo 1:1
-de los `@PreAuthorize` del backend, así que la UI nunca ofrece algo que termine en 403.
+El menú tiene cuatro secciones y cada una tiene su authority: `dashboard:read`,
+`academico:read`, `finanzas:read` y `editorial:read`. Cada ruta pide la de su sección
+**y** la de lectura de su listado (`frontend/src/lib/access.ts`); los botones de
+alta/edición/borrado piden la de escritura. Los endpoints siguen autorizando por
+authority de datos, así que las secciones sólo ordenan el menú.
 
-| Rol | Secciones que VE | Dónde puede ESCRIBIR (crear/editar/borrar) |
-|-----|------------------|--------------------------------------------|
+| Rol | Secciones que VE | Dónde puede ESCRIBIR |
+|-----|------------------|----------------------|
 | **ADMIN** | Todas | Todas |
-| **VENDEDORA** | Dashboard, Alumnos, Cursos, Inscripciones, Cuotas, Descuentos, Contactos, Notificaciones | Alumnos, Inscripciones, Cuotas (pagos) |
-| **SECRETARIA_FS** | Dashboard, Alumnos, Inscripciones, Cuotas, Diplomaturas, Liquidaciones, Contactos, Notificaciones | Diplomaturas, Liquidaciones |
-| **EDITORIAL** | Dashboard, Alumnos, Libros, Colecciones, Ventas | Libros, Colecciones, Ventas |
-| **CONTABLE** | Presupuesto, Ventas, Contactos | Presupuesto |
-| **VIEWER** | Todas | Nada (solo lectura) |
+| **VENDEDORA** | Dashboard, Académico (RM y FS), Editorial, Cuotas y Descuentos | Académico, Editorial, pagos y cuotas |
+| **SECRETARIA** | Dashboard, Académico (RM y FS) | Académico |
+| **EDITORIAL** | Editorial | Editorial |
+| **CONTABLE** | Todas menos Usuarios | Todas menos Usuarios |
+| **VIEWER** | Todas menos Usuarios | Nada (solo lectura) |
 
 Notas:
-- **VENDEDORA** ve Cursos/Descuentos en modo **lectura** (no tiene `courses:write` ni
-  `discount_campaigns:write`), por eso no le aparecen los botones de alta/edición ahí.
-- **SECRETARIA_FS** no tiene `courses:read` → no ve Cursos.
-- **CONTABLE** no tiene `students:read` → no ve Dashboard/Alumnos; aterriza en Presupuesto.
-- **Colecciones**: el CRUD requiere `books:write` y "Vender colección" requiere
-  `book_sales:write` (EDITORIAL y ADMIN tienen ambas).
-- La regla **"vendedora solo ve sus inscripciones"** (`enrolled_by` = ella) la aplica el
-  **backend**, no la UI.
+- **Académico** = Alumnos, Cursos (sólo Residencias), Inscripciones, Diplomaturas con sus
+  comisiones, Personal Académico y Clases.
+- **SECRETARIA** reemplaza a `SECRETARIA_FS` y `SECRETARIA_RM`: siguen existiendo con los
+  mismos permisos para no romper a quien los tenga, pero ya no se ofrecen al asignar.
+  Ya **no** ve liquidaciones ni comisiones (son Finanzas).
+- **EDITORIAL** conserva `students:read` para elegir al alumno cuando vende con descuento,
+  pero no ve Alumnos ni Dashboard (no tiene `academico:read` ni `dashboard:read`).
+- **VENDEDORA** sigue registrando pagos y cuotas y sigue viendo **sólo sus** inscripciones
+  (lo aplica el backend por `enrolled_by`).
+- `keycloak/sync-roles.sh` es **declarativo**: en cada `up` deja a cada rol con exactamente
+  las authorities de la lista, sacando las que sobran. Cambiar un permiso = cambiar la lista.
 
 ## Dónde se administran los usuarios
 

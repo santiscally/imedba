@@ -1,6 +1,7 @@
 package com.imedba.modules.student.controller;
 
 import com.imedba.common.dto.PageResponse;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.student.dto.StudentCreateRequest;
 import com.imedba.modules.student.dto.StudentResponse;
 import com.imedba.modules.student.dto.StudentUpdateRequest;
@@ -34,8 +35,9 @@ public class StudentController {
     @PreAuthorize("hasAuthority('students:read')")
     public PageResponse<StudentResponse> list(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) BusinessUnit businessUnit,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return PageResponse.of(service.list(q, pageable));
+        return PageResponse.of(service.list(q, businessUnit, pageable));
     }
 
     @GetMapping("/{id}")

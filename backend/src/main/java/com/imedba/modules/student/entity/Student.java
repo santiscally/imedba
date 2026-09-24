@@ -1,7 +1,10 @@
 package com.imedba.modules.student.entity;
 
 import com.imedba.common.entity.BaseEntity;
+import com.imedba.modules.course.entity.BusinessUnit;
 import jakarta.persistence.Column;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -29,6 +32,12 @@ public class Student extends BaseEntity {
 
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
+
+    /** Unidad de alta (V046): define en qué listado aparece y qué datos se le piden. */
+    @Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "business_unit", nullable = false, length = 30)
+    private BusinessUnit businessUnit = BusinessUnit.RESIDENCIAS;
 
     @Column(name = "email", nullable = false, length = 255)
     private String email;

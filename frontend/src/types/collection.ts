@@ -26,6 +26,7 @@ export interface Collection {
   /** Unidad en la que se ofrece (V036). null = todas. */
   businessUnit:       BusinessUnit | null
   variant:            CollectionVariant
+  /** Suma del precio de lista de sus libros: la calcula el backend. */
   price:              number
   studentDiscountPct: number
   active:             boolean
@@ -37,8 +38,8 @@ export interface Collection {
 // Refleja CollectionCreateRequest
 export interface CollectionCreateRequest {
   name:                string
+  businessUnit:        BusinessUnit | null
   variant:             CollectionVariant
-  price:               number
   studentDiscountPct?: number | null
   active?:             boolean | null
   bookIds:             UUID[]

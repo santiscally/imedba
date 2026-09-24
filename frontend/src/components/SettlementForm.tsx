@@ -70,14 +70,13 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
-  // Con curso vinculado, el total puede quedar vacío: el backend suma los pagos
-  // del período de las inscripciones de ese curso (V026).
-  const hasLinkedCourse = diploma.courseId != null
+  // Con comisiones, el total puede quedar vacío: el backend suma lo cobrado en el período por todas.
+  const hasLinkedCourse = diploma.commissions.length > 0
 
   function validate(): boolean {
     const e: Partial<Record<keyof FormState, string>> = {}
     if (!state.totalCollected) {
-      if (!hasLinkedCourse) e.totalCollected = 'Obligatorio (la diplomatura no tiene curso vinculado)'
+      if (!hasLinkedCourse) e.totalCollected = 'Obligatorio (la diplomatura no tiene comisiones)'
     } else if (Number.isNaN(Number(state.totalCollected))) {
       e.totalCollected = 'No es un número válido'
     }
@@ -202,8 +201,8 @@ export default function SettlementForm({ diploma, onClose, onSaved, onSubmit }: 
               />
               {hasLinkedCourse && (
                 <span className="field__hint">
-                  Vinculada al curso <strong>{diploma.courseName}</strong>: si lo dejás vacío se suma
-                  automáticamente lo cobrado en el período por sus inscripciones. "Recomputar" lo refresca.
+                  Si lo dejás vacío se suma automáticamente lo cobrado en el período por las inscripciones
+                  de sus {diploma.commissions.length} comisión(es). "Recomputar" lo refresca.
                 </span>
               )}
             </Field>

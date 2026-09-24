@@ -20,6 +20,11 @@ public record CourseResponse(
         BigDecimal enrollmentPrice,
         BigDecimal coursePrice,
         LocalDate examDate,
+        LocalDate startDate,
+        LocalDate endDate,
+        /** Diplomatura de la comisión; null en los cursos de Residencias. */
+        UUID diplomaId,
+        String diplomaName,
         Integer academicYear,
         Integer commission,
         String contractTemplatePath,

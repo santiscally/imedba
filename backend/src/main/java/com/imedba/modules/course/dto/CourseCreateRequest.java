@@ -23,6 +23,8 @@ public record CourseCreateRequest(
         @PositiveOrZero  BigDecimal enrollmentPrice,
         @PositiveOrZero  BigDecimal coursePrice,
         LocalDate examDate,
+        @NotNull LocalDate startDate,
+        @NotNull LocalDate endDate,
         Integer academicYear,
         @Positive Integer commission,
         @Size(max = 500) String contractTemplatePath,

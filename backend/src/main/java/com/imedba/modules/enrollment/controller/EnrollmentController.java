@@ -1,6 +1,7 @@
 package com.imedba.modules.enrollment.controller;
 
 import com.imedba.common.dto.PageResponse;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.enrollment.dto.EnrollmentCreateRequest;
 import com.imedba.modules.enrollment.dto.EnrollmentResponse;
 import com.imedba.modules.enrollment.dto.EnrollmentUpdateRequest;
@@ -48,8 +49,9 @@ public class EnrollmentController {
             @RequestParam(required = false) UUID courseId,
             @RequestParam(required = false) EnrollmentStatus status,
             @RequestParam(required = false) Boolean contractSigned,
+            @RequestParam(required = false) BusinessUnit businessUnit,
             @PageableDefault(size = 20, sort = "enrollmentDate") Pageable pageable) {
-        return PageResponse.of(service.list(studentId, courseId, status, contractSigned, pageable));
+        return PageResponse.of(service.list(studentId, courseId, status, contractSigned, businessUnit, pageable));
     }
 
     /** Inscripciones cargadas por el usuario autenticado (pensado para vendedoras). */

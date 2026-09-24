@@ -1,21 +1,57 @@
+import { useState } from 'react'
 import {
   X, Pencil, GraduationCap, University, FileText,
-  CircleDollarSign, Hash, Calendar, Mail,
+  Hash, Calendar, Mail, Plus, Trash2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { Diploma } from '../types/diploma'
+import type { Commission, Diploma } from '../types/diploma'
+import { diplomasApi } from '../api/diplomas'
 import { hasAuthority } from '../lib/auth'
+import { confirmAction, alertError, toastSuccess } from '../lib/confirm'
+import CommissionForm from './CommissionForm'
 import './StudentDetail.scss'
 import './DiplomaDetail.scss'
 
 interface Props {
-  diploma: Diploma
-  onClose: () => void
-  onEdit:  () => void
+  diploma:    Diploma
+  onClose:    () => void
+  onEdit:     (current: Diploma) => void
+  onChanged?: () => void
 }
 
-export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
+type CommissionPanel = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; commission: Commission }
+
+export default function DiplomaDetail({ diploma: initial, onClose, onEdit, onChanged }: Props) {
   const canWrite = hasAuthority('diplomas:write')
+  const [diploma, setDiploma] = useState<Diploma>(initial)
+  const [panel,   setPanel]   = useState<CommissionPanel>({ kind: 'closed' })
+
+  async function refresh() {
+    setPanel({ kind: 'closed' })
+    try {
+      setDiploma(await diplomasApi.get(diploma.id))
+    } catch (err) {
+      alertError('No se pudo recargar la diplomatura', err instanceof Error ? err.message : undefined)
+    }
+    onChanged?.()
+  }
+
+  async function handleDelete(c: Commission) {
+    const ok = await confirmAction({
+      title: `¿Eliminar la comisión ${c.commission ?? 'sin número'}?`,
+      text: 'Si tiene inscripciones no se puede eliminar: en ese caso, desactivala editándola.',
+      icon: 'warning', danger: true, confirmText: 'Sí, eliminar',
+    })
+    if (!ok) return
+    try {
+      await diplomasApi.removeCommission(diploma.id, c.id)
+      toastSuccess('Comisión eliminada')
+      await refresh()
+    } catch (err) {
+      alertError('No se pudo eliminar', err instanceof Error ? err.message : undefined)
+    }
+  }
+
   // Desde V035 la diplomatura no tiene costos ni porcentajes: sólo quiénes son las
   // directoras. Todo lo demás se carga al liquidar.
   const directors = diploma.directors ?? []
@@ -52,16 +88,69 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
             <h4 className="detail__section-title">Identificación</h4>
             <dl className="detail__grid">
               <Row icon={University}    label="Universidad"           value={diploma.universityName} />
-              <Row icon={GraduationCap} label="Curso (inscripciones)" value={diploma.courseName} />
             </dl>
           </section>
 
           <section className="detail__section">
-            <h4 className="detail__section-title">Precios</h4>
-            <dl className="detail__grid">
-              <Row icon={CircleDollarSign} label="Matrícula"     value={formatPrice(diploma.enrollmentPrice)} />
-              <Row icon={CircleDollarSign} label="Precio curso"  value={formatPrice(diploma.coursePrice)} />
-            </dl>
+            <h4 className="detail__section-title">
+              Comisiones
+              <span className="detail__sum">{diploma.commissions.length}</span>
+              {canWrite && (
+                <button type="button" className="btn-ghost btn-ghost--sm" style={{ marginLeft: 'auto' }}
+                  onClick={() => setPanel({ kind: 'create' })}>
+                  <Plus size={14} /> Nueva comisión
+                </button>
+              )}
+            </h4>
+            <div className="partners-table">
+              {diploma.commissions.length === 0 ? (
+                <div className="partners-table__empty">
+                  Sin comisiones: los alumnos se inscriben a una comisión, así que hace falta al menos una.
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Comisión</th>
+                      <th>Inicio – cierre</th>
+                      <th>Matrícula</th>
+                      <th>Curso</th>
+                      <th>Libro</th>
+                      {canWrite && <th />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diploma.commissions.map(c => (
+                      <tr key={c.id} className={c.active === false ? 'muted' : undefined}>
+                        <td className="partners-table__name">
+                          {c.commission != null ? `Com. ${c.commission}` : 'Sin número'}
+                          {c.academicYear != null ? ` · ${c.academicYear}` : ''}
+                          {c.active === false && <span className="muted"> (inactiva)</span>}
+                        </td>
+                        <td>{formatDay(c.startDate)} – {formatDay(c.endDate)}</td>
+                        <td>{formatPrice(c.enrollmentPrice) ?? '—'}</td>
+                        <td>{formatPrice(c.coursePrice) ?? '—'}</td>
+                        <td>{c.includesPremaBook ? 'PREMA' : '—'}</td>
+                        {canWrite && (
+                          <td>
+                            <div className="row-actions">
+                              <button type="button" className="row-actions__btn" aria-label="Editar comisión"
+                                onClick={() => setPanel({ kind: 'edit', commission: c })}>
+                                <Pencil size={14} />
+                              </button>
+                              <button type="button" className="row-actions__btn row-actions__btn--danger"
+                                aria-label="Eliminar comisión" onClick={() => handleDelete(c)}>
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </section>
 
           <section className="detail__section">
@@ -125,12 +214,30 @@ export default function DiplomaDetail({ diploma, onClose, onEdit }: Props) {
             Cerrar
           </button>
           {canWrite && (
-            <button type="button" className="btn-primary" onClick={onEdit}>
+            <button type="button" className="btn-primary" onClick={() => onEdit(diploma)}>
               <Pencil size={15} /> Editar diplomatura
             </button>
           )}
         </footer>
       </div>
+
+      {panel.kind !== 'closed' && (
+        // Frena el click para que cerrar el modal de la comisión no cierre también el detalle.
+        <div onClick={e => e.stopPropagation()}>
+        <CommissionForm
+          diplomaName={diploma.name}
+          initial={panel.kind === 'edit' ? panel.commission : undefined}
+          onClose={() => setPanel({ kind: 'closed' })}
+          onSaved={() => {
+            toastSuccess(panel.kind === 'edit' ? 'Comisión actualizada' : 'Comisión creada')
+            void refresh()
+          }}
+          onSubmit={payload => panel.kind === 'edit'
+            ? diplomasApi.updateCommission(diploma.id, panel.commission.id, payload)
+            : diplomasApi.createCommission(diploma.id, payload)}
+        />
+        </div>
+      )}
     </div>
   )
 }
@@ -167,4 +274,10 @@ function formatInstant(iso: string): string {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+function formatDay(iso: string | null): string {
+  if (!iso) return '?'
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }

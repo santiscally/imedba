@@ -90,6 +90,10 @@ export interface Course {
   country:              string | null   // ISO-2 (AR/UY); default 'AR' en backend
   enrollmentPrice:      number | null   // BigDecimal en backend → number en JS
   coursePrice:          number | null
+  startDate:            string | null   // ISO yyyy-mm-dd; va al contrato
+  endDate:              string | null
+  diplomaId:            UUID | null     // comisión de diplomatura; null en Residencias
+  diplomaName:          string | null
   academicYear:         number | null   // ciclo lectivo / año (ej. 2026); null = curso "libre"
   commission:           number | null   // nro de comisión (solo Formación Superior)
   contractTemplatePath: string | null
@@ -111,6 +115,8 @@ export interface CourseCreateRequest {
   country?:              string | null            // ISO-2 (AR/UY), default AR
   enrollmentPrice?:      number | null            // ≥ 0
   coursePrice?:          number | null            // ≥ 0
+  startDate?:            string | null            // ISO yyyy-mm-dd
+  endDate?:              string | null            // ≥ startDate
   academicYear?:         number | null            // ciclo lectivo / año (ej. 2026)
   commission?:           number | null            // nro de comisión (solo Formación Superior)
   contractTemplatePath?: string | null            // max 500

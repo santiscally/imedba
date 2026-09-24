@@ -30,19 +30,19 @@ public class DiplomaSettlementController {
     private final DiplomaSettlementService service;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('diplomas:read')")
+    @PreAuthorize("hasAuthority('settlements:read')")
     public List<DiplomaSettlementResponse> listByDiploma(@RequestParam UUID diplomaId) {
         return service.listByDiploma(diplomaId);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('diplomas:read')")
+    @PreAuthorize("hasAuthority('settlements:read')")
     public DiplomaSettlementResponse get(@PathVariable UUID id) {
         return service.get(id);
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('diplomas:write')")
+    @PreAuthorize("hasAuthority('settlements:write')")
     public ResponseEntity<DiplomaSettlementResponse> create(
             @Valid @RequestBody DiplomaSettlementCreateRequest req) {
         DiplomaSettlementResponse created = service.createDraft(req);
@@ -51,19 +51,19 @@ public class DiplomaSettlementController {
     }
 
     @PutMapping("/{id}/recompute")
-    @PreAuthorize("hasAuthority('diplomas:write')")
+    @PreAuthorize("hasAuthority('settlements:write')")
     public DiplomaSettlementResponse recompute(@PathVariable UUID id) {
         return service.recomputeDraft(id);
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('diplomas:write')")
+    @PreAuthorize("hasAuthority('settlements:write')")
     public DiplomaSettlementResponse approve(@PathVariable UUID id) {
         return service.approve(id);
     }
 
     @PutMapping("/{id}/mark-paid")
-    @PreAuthorize("hasAuthority('diplomas:write')")
+    @PreAuthorize("hasAuthority('settlements:write')")
     public DiplomaSettlementResponse markPaid(@PathVariable UUID id) {
         return service.markPaid(id);
     }

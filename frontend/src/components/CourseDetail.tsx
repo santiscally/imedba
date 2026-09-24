@@ -55,6 +55,9 @@ export default function CourseDetail({ course, onClose, onEdit }: Props) {
               <Row icon={Layers}      label="Modalidad"         value={course.modality ? formatModality(course.modality) : null} />
               <Row icon={Building2}   label="Unidad de negocio" value={BUSINESS_UNIT_LABELS[course.businessUnit]} />
               <Row icon={Globe}       label="País"              value={countryLabel(course.country)} />
+              <Row icon={CalendarDays} label="Inicio – cierre"
+                value={course.startDate || course.endDate
+                  ? `${formatDay(course.startDate)} – ${formatDay(course.endDate)}` : 'A confirmar'} />
               {course.businessUnit === 'FORMACION_SUPERIOR' && (
                 <Row icon={CalendarDays} label="Comisión" value={course.commission != null ? `N° ${course.commission}` : '—'} />
               )}
@@ -152,4 +155,10 @@ function formatInstant(iso: string): string {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+function formatDay(iso: string | null): string {
+  if (!iso) return '?'
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }

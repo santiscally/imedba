@@ -1,6 +1,8 @@
 package com.imedba.modules.student.service;
 
+import com.imedba.common.error.BadRequestException;
 import com.imedba.common.error.ConflictException;
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.common.error.NotFoundException;
 import com.imedba.modules.enrollment.repository.EnrollmentRepository;
 import com.imedba.modules.student.dto.StudentCreateRequest;
@@ -26,11 +28,9 @@ public class StudentService {
     private final StudentMapper mapper;
 
     @Transactional(readOnly = true)
-    public Page<StudentResponse> list(String q, Pageable pageable) {
-        Page<Student> page = (q == null || q.isBlank())
-                ? repository.findAll(pageable)
-                : repository.search(q.trim().toLowerCase(), pageable);
-        return page.map(mapper::toResponse);
+    public Page<StudentResponse> list(String q, BusinessUnit businessUnit, Pageable pageable) {
+        String search = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase();
+        return repository.search(search, businessUnit, pageable).map(mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -43,6 +43,7 @@ public class StudentService {
             throw new ConflictException("Ya existe un alumno con el email: " + req.email());
         }
         Student s = mapper.toEntity(req);
+        s.setBusinessUnit(req.businessUnit() == null ? BusinessUnit.RESIDENCIAS : requireAcademic(req.businessUnit()));
         if (req.active() == null) {
             s.setActive(Boolean.TRUE);
         }
@@ -58,6 +59,7 @@ public class StudentService {
                 && repository.existsByEmailIgnoreCase(req.email())) {
             throw new ConflictException("Ya existe un alumno con el email: " + req.email());
         }
+        if (req.businessUnit() != null) requireAcademic(req.businessUnit());
         mapper.updateEntity(req, s);
         return mapper.toResponse(s);
     }
@@ -73,6 +75,13 @@ public class StudentService {
                             + "Desactivalo o cancelá/eliminá primero sus inscripciones.");
         }
         repository.delete(s); // @SQLDelete → UPDATE deleted_at = NOW()
+    }
+
+    private static BusinessUnit requireAcademic(BusinessUnit bu) {
+        if (bu != BusinessUnit.RESIDENCIAS && bu != BusinessUnit.FORMACION_SUPERIOR) {
+            throw new BadRequestException("El alumno sólo puede ser de Residencias Médicas o de Formación Superior");
+        }
+        return bu;
     }
 
     private Student find(UUID id) {

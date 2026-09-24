@@ -134,6 +134,13 @@
     background: rgba(255,255,255,0.06);
     margin: 0.5rem 0.5rem;
   }
+
+  &__subtitle {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    padding: 0.5rem 0.75rem 0.3rem;
+  }
 }
 
 // ─── Nav item ────────────────────────────────────────────────────────────────

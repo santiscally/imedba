@@ -7,6 +7,11 @@ import type {
 } from '../types/diploma'
 import type { Staff } from '../types/staff'
 import { staffApi } from '../api/staff'
+import { CommissionFields } from './CommissionForm'
+import {
+  commissionPayload, commissionState, validateCommission,
+  type CommissionErrors, type CommissionState,
+} from '../lib/commission'
 import './StudentForm.scss'
 import './DiplomaForm.scss'
 
@@ -20,20 +25,11 @@ interface Props {
   onSubmit: (payload: Payload) => Promise<Diploma>
 }
 
-/**
- * La diplomatura sólo tiene datos del «producto» + quiénes son las directoras.
- *
- * Los costos y porcentajes se cargan POR LIQUIDACIÓN (SettlementForm), y desde
- * V035 <b>ya no se pide un «% de la directora»</b>: el cliente lo bajó el
- * 2026-07-23 («eso habría que sacarlo y que sólo pida cuántas directoras y
- * quiénes»). Se reparten en partes iguales.
- */
+// Diplomatura general + directoras; precios, libro y fechas van por comisión (docx 2026-09-24).
 interface FormState {
   name:            string
   universityName:  string
   description:     string
-  enrollmentPrice: string
-  coursePrice:     string
   directorIds:     string[]
 }
 
@@ -42,8 +38,6 @@ function initialState(d?: Diploma): FormState {
     name:            d?.name            ?? '',
     universityName:  d?.universityName  ?? '',
     description:     d?.description     ?? '',
-    enrollmentPrice: d?.enrollmentPrice != null ? String(d.enrollmentPrice) : '',
-    coursePrice:     d?.coursePrice     != null ? String(d.coursePrice)     : '',
     directorIds:     d?.directors?.map(x => x.id) ?? [],
   }
 }
@@ -55,6 +49,9 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
   const [errors,      setErrors]      = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saving,      setSaving]      = useState(false)
+  const [commission,  setCommission]  = useState<CommissionState>(commissionState())
+  const [comErrors,   setComErrors]   = useState<CommissionErrors>({})
+  const isCreate = mode === 'create'
   // Directoras disponibles: Personal Académico con rol DIRECTORA (V034/V035).
   const [availableDirectors, setAvailableDirectors] = useState<Staff[] | null>(null)
 
@@ -67,6 +64,11 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState(prev => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
+  }
+
+  function setCommissionField<K extends keyof CommissionState>(key: K, value: CommissionState[K]) {
+    setCommission(prev => ({ ...prev, [key]: value }))
+    if (comErrors[key]) setComErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
   function toggleDirector(id: string) {
@@ -83,17 +85,11 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     if (!state.name.trim())                e.name = 'Obligatorio'
     if (state.name.length > 300)           e.name = 'Máx 300 caracteres'
     if (state.universityName.length > 200) e.universityName = 'Máx 200 caracteres'
-
-    function validateNumber(field: keyof FormState) {
-      const v = state[field] as string
-      if (!v) return
-      if (Number.isNaN(Number(v))) e[field] = 'No es un número válido'
-    }
-    validateNumber('enrollmentPrice')
-    validateNumber('coursePrice')
+    const ce = isCreate ? validateCommission(commission) : {}
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    setComErrors(ce)
+    return Object.keys(e).length === 0 && Object.keys(ce).length === 0
   }
 
   async function handleSubmit(ev: FormEvent) {
@@ -105,11 +101,10 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
       name:            state.name.trim(),
       universityName:  state.universityName.trim() || null,
       description:     state.description.trim()    || null,
-      enrollmentPrice: state.enrollmentPrice ? Number(state.enrollmentPrice) : null,
-      coursePrice:     state.coursePrice     ? Number(state.coursePrice)     : null,
       // Siempre se manda la lista (aunque esté vacía): en update, null significaría
       // "no tocar" y no habría forma de sacar a todas las directoras.
       directorIds:     state.directorIds,
+      ...(isCreate ? { firstCommission: commissionPayload(commission) } : {}),
     }
 
     try {
@@ -121,7 +116,6 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
     }
   }
 
-  const isCreate = mode === 'create'
   const Icon     = isCreate ? GraduationCap : Save
 
   return (
@@ -171,30 +165,17 @@ export default function DiplomaForm({ mode, initial, onClose, onSaved, onSubmit 
           </div>
 
           <div className="form__hint">
-            La diplomatura <strong>es un curso</strong>: al crearla aparece automáticamente en
-            Cursos (Formación Superior) y los alumnos se inscriben desde Inscripciones como a
-            cualquier curso, con cuotas y pagos. La liquidación suma sola lo cobrado en el período.
+            Es la diplomatura <strong>general</strong>. Cada comisión tiene su matrícula, precio,
+            libro y fechas, y es a lo que se inscriben los alumnos. Las comisiones siguientes se
+            agregan desde el detalle de la diplomatura.
           </div>
 
-          <h4 className="form-section">Precios</h4>
-          <div className="form__grid">
-            <Field label="Matrícula (ARS)" error={errors.enrollmentPrice}>
-              <input
-                type="number" step="any"
-                value={state.enrollmentPrice}
-                onChange={e => setField('enrollmentPrice', e.target.value)}
-                placeholder="250000"
-              />
-            </Field>
-            <Field label="Precio curso (ARS)" error={errors.coursePrice}>
-              <input
-                type="number" step="any"
-                value={state.coursePrice}
-                onChange={e => setField('coursePrice', e.target.value)}
-                placeholder="2400000"
-              />
-            </Field>
-          </div>
+          {isCreate && (
+            <>
+              <h4 className="form-section">Primera comisión</h4>
+              <CommissionFields state={commission} errors={comErrors} onChange={setCommissionField} />
+            </>
+          )}
 
           <div className="partners">
             <div className="partners__header">

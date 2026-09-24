@@ -62,7 +62,6 @@ public class CollectionService {
                 .name(req.name().trim())
                 .businessUnit(req.businessUnit())
                 .variant(req.variant())
-                .price(req.price())
                 .studentDiscountPct(req.studentDiscountPct() != null
                         ? req.studentDiscountPct() : new BigDecimal("35.00"))
                 .active(req.active() == null ? Boolean.TRUE : req.active())
@@ -74,8 +73,8 @@ public class CollectionService {
     public CollectionResponse update(UUID id, CollectionCreateRequest req) {
         Collection c = find(id);
         c.setName(req.name().trim());
+        c.setBusinessUnit(req.businessUnit());
         c.setVariant(req.variant());
-        c.setPrice(req.price());
         if (req.studentDiscountPct() != null) c.setStudentDiscountPct(req.studentDiscountPct());
         if (req.active() != null) c.setActive(req.active());
         c.setBooks(loadBooks(req.bookIds()));
@@ -88,7 +87,7 @@ public class CollectionService {
 
     /**
      * Vende una colección: genera una venta por libro, repartiendo el precio de la
-     * colección proporcional al precio de lista (salePrice) de cada libro. Si se pide
+     * colección (suma de sus libros) proporcional al precio de lista de cada libro. Si se pide
      * descuento alumno, se aplica el % de la colección al total antes de repartir. La
      * última cuota absorbe el redondeo para que la suma sea exacta.
      */
@@ -108,16 +107,13 @@ public class CollectionService {
         boolean applyDiscount = Boolean.TRUE.equals(req.applyStudentDiscount());
         boolean studentSale = applyDiscount || student != null || enrollment != null;
 
-        BigDecimal total = c.getPrice();
+        BigDecimal sumSale = listPrice(books);
+        BigDecimal total = sumSale;
         if (applyDiscount) {
             BigDecimal pct = c.getStudentDiscountPct() == null ? BigDecimal.ZERO : c.getStudentDiscountPct();
             BigDecimal factor = BigDecimal.ONE.subtract(pct.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP));
             total = total.multiply(factor).setScale(2, RoundingMode.HALF_UP);
         }
-
-        BigDecimal sumSale = books.stream()
-                .map(b -> b.getSalePrice() == null ? BigDecimal.ZERO : b.getSalePrice())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         String note = "Venta colección: " + c.getName();
         List<BookSaleResponse> out = new ArrayList<>();
@@ -158,13 +154,19 @@ public class CollectionService {
         return new ArrayList<>(books);
     }
 
+    private static BigDecimal listPrice(List<Book> books) {
+        return books.stream()
+                .map(b -> b.getSalePrice() == null ? BigDecimal.ZERO : b.getSalePrice())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private static CollectionResponse toResponse(Collection c) {
         List<CollectionResponse.BookSummary> books = c.getBooks().stream()
                 .map(b -> new CollectionResponse.BookSummary(
                         b.getId(), b.getName(), b.getCode(), b.getSalePrice()))
                 .toList();
         return new CollectionResponse(
-                c.getId(), c.getName(), c.getBusinessUnit(), c.getVariant(), c.getPrice(),
+                c.getId(), c.getName(), c.getBusinessUnit(), c.getVariant(), listPrice(c.getBooks()),
                 c.getStudentDiscountPct(), c.getActive(), books,
                 c.getCreatedAt(), c.getUpdatedAt());
     }

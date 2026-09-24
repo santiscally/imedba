@@ -1,9 +1,11 @@
 import type {
+  Commission,
+  CommissionRequest,
   Diploma,
   DiplomaCreateRequest,
   DiplomaUpdateRequest,
 } from '../types/diploma'
-import { apiGet, apiPost, apiPut } from './client'
+import { apiDelete, apiGet, apiPost, apiPut } from './client'
 
 // Servicio de diplomaturas — refleja DiplomaController (/api/v1/diplomas).
 // IMPORTANTE: el endpoint NO devuelve PageResponse — devuelve List<Diploma>.
@@ -35,5 +37,14 @@ export const diplomasApi = {
   },
   deactivate(id: string): Promise<void> {
     return apiPut<void, undefined>(`/diplomas/${id}/deactivate`, undefined)
+  },
+  createCommission(id: string, body: CommissionRequest): Promise<Commission> {
+    return apiPost<Commission, CommissionRequest>(`/diplomas/${id}/commissions`, body)
+  },
+  updateCommission(id: string, courseId: string, body: CommissionRequest): Promise<Commission> {
+    return apiPut<Commission, CommissionRequest>(`/diplomas/${id}/commissions/${courseId}`, body)
+  },
+  removeCommission(id: string, courseId: string): Promise<void> {
+    return apiDelete(`/diplomas/${id}/commissions/${courseId}`)
   },
 }

@@ -1,7 +1,7 @@
 # 18 — "Dudas para la plataforma" (docx IMEDBA, 2026-09-24): plan
 
 > **Insumo:** `dudas-plataforma-20260924.docx` (copia de lo que mandó IMEDBA). Son 7 pedidos: 1 de Libros, 4 de Académico, 1 de Finanzas (mails) y una tabla de roles.
-> **Estado:** plan, nada implementado. Todo lo de **mail es de Fran** (§7): va con diagnóstico, no hay que redescubrirlo.
+> **Estado (2026-09-24, tarde):** §1–§6 **implementados** por Santi (back + front), ver §9. Pendiente: las cláusulas nuevas del contrato (§4, falta el adjunto) y los campos propios del alumno FS (§5, falta la lista). Todo lo de **mail es de Fran** (§7): va con diagnóstico, no hay que redescubrirlo.
 > **Dueños:** `[SANTI]` backend/db/Keycloak · `[FRONT]` `frontend/` (lo implementa Fran, salvo que Santi diga otra cosa) · `[FRAN]` mail.
 
 ## Resumen
@@ -118,6 +118,8 @@ Defaults si no contestan: 4 → mantiene pagos y el scoping; 5 → pierde Finanz
 
 **Decisión.** Columna explícita `students.business_unit` (RESIDENCIAS | FORMACION_SUPERIOR). Derivarla de las inscripciones no alcanza: el form tiene que saber qué campos pedir **antes** de que exista la inscripción.
 
+> **Corrección al implementar:** "un registro por unidad" no se puede, porque email y DNI son únicos (`uk_students_email_active`, `uk_students_dni_active`). Quedó así: la columna es la **unidad de alta**, y el listado de una unidad trae a los de alta en ella **más** a los que tienen alguna inscripción en ella. Un alumno que cursa en las dos aparece en las dos listas, y la inscripción cruzada **no** se bloquea.
+
 - `V046`: columna + backfill por inscripciones → `courses.business_unit`. Listar antes los que tienen inscripciones en las dos unidades (pregunta 7) y los que no tienen ninguna (default RESIDENCIAS). Después, `NOT NULL`. Los campos FS entran en la misma migración cuando IMEDBA los mande.
 - `GET /students?businessUnit=` filtra de verdad; el alta exige unidad; validación de campos por unidad.
 - Inscripción: `student.businessUnit` tiene que coincidir con la del curso (409 si no).
@@ -165,7 +167,7 @@ Actualizar `10-usuarios-y-roles.md`. Verificación: un token por rol → menú v
 - Tests: template por grupo (los dos textos) y offset del Rec. 3 relativo a la suspensión. Existe `scripts/test-mail-cuota-vencida.mjs` para la prueba e2e.
 - Confirmar con IMEDBA si el Rec. 1 va el día antes del vencimiento (como está hoy) o al abrir la ventana (día 1 / día 10).
 - Confirmar en qué entorno le llegó el mail: según el DIARIO del 25-ago, prod estaba en Noop hasta verificar el dominio en Resend.
-- Si hace falta migración, usar **V048 en adelante** (V043–V047 quedan reservadas para este plan; ver la colisión del 01-ago).
+- Si hace falta migración, usar **V048 en adelante** (este plan usó V043–V047; ver la colisión del 01-ago).
 
 ---
 
@@ -179,4 +181,25 @@ Actualizar `10-usuarios-y-roles.md`. Verificación: un token por rol → menú v
 | D | §5 alumnos | pregunta 2 |
 | E | Cláusulas del contrato | pregunta 1 |
 
-**Migraciones reservadas:** `V043` colecciones · `V044` `courses.diploma_id` · `V045` fechas de curso · `V046` unidad del alumno + campos FS · `V047` reserva.
+**Migraciones usadas:** `V043` colecciones · `V044` `courses.diploma_id` · `V045` fechas de curso · `V046` unidad del alumno · `V047` arreglo de cursos FS huérfanos. Los campos FS del alumno irán en una nueva cuando lleguen.
+
+---
+
+## §9 — Implementado (2026-09-24)
+
+Verificado: 127 tests unitarios del backend (Maven en contenedor JDK 21), `tsc -b` + `vite build`, lint sin errores nuevos, y una prueba e2e contra el stack local (V043–V046 aplicadas sobre los datos que había, tokens reales de Keycloak por rol): 35 chequeos, todos OK. Pasó por code review: se agregó `@NotNull` a las fechas en el alta de curso y de comisión (antes sólo lo exigía la UI). Los tests de integración con Testcontainers no corren en esta máquina; se actualizaron `CourseApiIntegrationTests` y `StudentApiIntegrationTests`.
+
+| § | Qué quedó |
+|---|---|
+| §1 | Precio de colección = suma de sus libros, calculado al leer. `CollectionForm` muestra la suma y ya no pide precio. De paso: editar una colección ahora sí guarda la unidad. |
+| §2 | Diplomatura general + comisiones (`/diplomas/{id}/commissions`). El alta de la diplomatura crea la primera comisión. La liquidación PREMA suma lo cobrado en todas. Se dejó de crear el curso espejo. |
+| §3 | Cursos sólo acepta Residencias (400 si no). Una comisión no se edita ni se borra por `/courses` (409). Menú Académico partido en Residencias Médicas / Formación Superior, rutas `/rm/*` y `/fs/*` (las viejas redirigen). Se eliminó el selector de unidad del Topbar. |
+| §4 | Inicio y cierre en cursos y comisiones (obligatorios en el alta, también en la API) y en el contrato. El form de curso de Residencias ya no ofrece "Incluye libro PREMA": el cliente lo pidió sólo para Formación Superior (doc 17 §5.4); los cursos que ya lo tenían lo conservan. |
+| §5 | Unidad de alta del alumno + listados RM/FS reales (ver la corrección). Inscripciones filtran por unidad. El form de inscripción sólo ofrece alumnos y cursos de su unidad. |
+| §6 | Tabla de roles aplicada, `sync-roles.sh` declarativo, rol `SECRETARIA`, Dashboard por `dashboard:read`, liquidación PREMA por `settlements:*`. Detalle en `10-usuarios-y-roles.md`. |
+
+**Hallazgos de la prueba (no se tocaron):**
+1. **Inscribir a un curso que "incluye libro PREMA" con stock 0 da error de integridad** (`ck_books_stock`) en vez de un 409 legible. Pasaba antes de este cambio. Por eso el tilde de libro PREMA en una comisión nueva arranca **apagado**.
+2. **La colección anillada va a seguir en $0 si sus libros tienen precio 0.** En la base local los 7 libros anillados tienen `sale_price = 0`. Revisar en prod y cargarles precio.
+3. **Al desplegar, `sync-roles.sh` le saca a ADMIN** `enrollments:approve`, `teaching:write` y `recurring_services:*`: ningún endpoint los usa. **A SECRETARIA_FS le saca** liquidaciones y comisiones: es lo que pidió el cliente.
+4. **Datos en prod:** los cursos FS sin diplomatura los arregla **`V047`** en el deploy (los cuelga de la diplomatura de su programa y completa el número de comisión si el nombre lo trae). Lo que necesita decisión (cursos EDITORIAL/GENERAL, diplomaturas duplicadas por comisión, comisiones sin número, cursos sin fechas, libros de colección en $0) lo lista `scripts/sql/diagnostico-deploy.sql`. Procedimiento en el README, "Base de datos en el deploy".

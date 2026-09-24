@@ -27,13 +27,13 @@ public class DashboardController {
     private final DashboardService service;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAuthority('students:read')")
+    @PreAuthorize("hasAuthority('dashboard:read')")
     public DashboardSummaryResponse summary() {
         return service.summary();
     }
 
     @GetMapping("/activity")
-    @PreAuthorize("hasAuthority('students:read')")
+    @PreAuthorize("hasAuthority('dashboard:read')")
     public List<ActivityItemResponse> activity() {
         return service.recentActivity();
     }

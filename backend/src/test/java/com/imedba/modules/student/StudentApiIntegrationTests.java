@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.imedba.modules.course.entity.BusinessUnit;
 import com.imedba.modules.student.dto.StudentCreateRequest;
 import com.imedba.modules.student.dto.StudentUpdateRequest;
 import com.imedba.test.AbstractIntegrationTest;
@@ -29,7 +30,7 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     @DisplayName("POST /students → 201 y GET /students lo encuentra")
     void create_and_list() throws Exception {
         var req = new StudentCreateRequest(
-                "Ada", "Lovelace", "ada@imedba.dev",
+                "Ada", "Lovelace", "ada@imedba.dev", null,
                 null, "12345678", null, null, null,
                 null, null, null, null,
                 null, null, null);
@@ -49,10 +50,29 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("GET /students?businessUnit filtra por unidad de alta")
+    void list_filters_by_business_unit() throws Exception {
+        createStudentAndGetId(new StudentCreateRequest(
+                "Rita", "Levi", "rita@imedba.dev", BusinessUnit.RESIDENCIAS,
+                null, null, null, null, null, null, null, null, null, null, null, null));
+        createStudentAndGetId(new StudentCreateRequest(
+                "Cecilia", "Grierson", "cecilia@imedba.dev", BusinessUnit.FORMACION_SUPERIOR,
+                null, null, null, null, null, null, null, null, null, null, null, null));
+
+        mockMvc.perform(get("/api/v1/students").param("businessUnit", "FORMACION_SUPERIOR").with(reader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].businessUnit").value("FORMACION_SUPERIOR"));
+
+        mockMvc.perform(get("/api/v1/students").with(reader()))
+                .andExpect(jsonPath("$.content", hasSize(2)));
+    }
+
+    @Test
     @DisplayName("POST /students duplicate email → 409")
     void duplicate_email_is_409() throws Exception {
         var req = new StudentCreateRequest(
-                "Ada", "Lovelace", "dup@imedba.dev",
+                "Ada", "Lovelace", "dup@imedba.dev", null,
                 null, null, null, null, null, null, null, null, null, null, null, null);
         mockMvc.perform(post("/api/v1/students").with(writer())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -69,12 +89,12 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     @DisplayName("PUT /students/{id} actualiza campos")
     void update_changes_fields() throws Exception {
         var create = new StudentCreateRequest(
-                "Grace", "Hopper", "grace@imedba.dev",
+                "Grace", "Hopper", "grace@imedba.dev", null,
                 null, null, null, null, null, null, null, null, null, null, null, null);
         String id = createStudentAndGetId(create);
 
         var upd = new StudentUpdateRequest(
-                "Grace", "Hopper", "grace@imedba.dev",
+                "Grace", "Hopper", "grace@imedba.dev", null,
                 "+54911", null, "Argentina", null, null,
                 null, null, null, null,
                 true, "VIP");
@@ -91,7 +111,7 @@ class StudentApiIntegrationTests extends AbstractIntegrationTest {
     @DisplayName("DELETE es soft delete: deja de aparecer en listado")
     void delete_is_soft() throws Exception {
         var req = new StudentCreateRequest(
-                "Alan", "Turing", "alan@imedba.dev",
+                "Alan", "Turing", "alan@imedba.dev", null,
                 null, null, null, null, null, null, null, null, null, null, null, null);
         String id = createStudentAndGetId(req);
 

@@ -10,7 +10,7 @@ import type {
 import {
   PAYMENT_GROUPS, PAYMENT_GROUP_LABELS,
 } from '../types/enrollment'
-import type { Student } from '../types/student'
+import type { Student, StudentUnit } from '../types/student'
 import type { BusinessUnit, Course } from '../types/course'
 import type { Collection } from '../types/collection'
 import { COLLECTION_VARIANT_LABELS } from '../types/collection'
@@ -29,6 +29,8 @@ type UpdatePayload = EnrollmentUpdateRequest
 interface Props {
   mode:     'create' | 'edit'
   initial?: Enrollment
+  /** Unidad del listado: filtra alumnos y cursos (en FS, las comisiones de las diplomaturas). */
+  unit:     StudentUnit
   onClose:  () => void
   onSaved:  (saved: Enrollment) => void
   onSubmit: (payload: CreatePayload | UpdatePayload) => Promise<Enrollment>
@@ -64,7 +66,7 @@ function initialState(e?: Enrollment): FormState {
   }
 }
 
-export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubmit }: Props) {
+export default function EnrollmentForm({ mode, initial, unit, onClose, onSaved, onSubmit }: Props) {
   const [state,       setState]       = useState<FormState>(initialState(initial))
   const [errors,      setErrors]      = useState<Partial<Record<keyof FormState, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -90,8 +92,8 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
   useEffect(() => {
     if (!isCreate) return
     Promise.all([
-      studentsApi.list({ size: 200, sort: 'lastName,asc' }),
-      coursesApi.list({ size: 200, sort: 'name,asc' }),
+      studentsApi.list({ businessUnit: unit, size: 500, sort: 'lastName,asc' }),
+      coursesApi.list({ businessUnit: unit, active: true, size: 500, sort: 'name,asc' }),
       collectionsApi.list(true),
       booksApi.list({ active: true, size: 500, sort: 'name,asc' }),
       discountCampaignsApi.list({ active: true, size: 200, sort: 'name,asc' }),
@@ -102,7 +104,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
       setBooks(booksRes.content)
       setCampaigns(campaignsRes.content)
     }).catch(() => { /* el form funciona igual aun si falla — los selects quedan vacíos */ })
-  }, [isCreate])
+  }, [isCreate, unit])
 
   /**
    * Unidad de negocio del curso elegido. Filtra el catálogo de libros y colecciones
@@ -342,9 +344,7 @@ export default function EnrollmentForm({ mode, initial, onClose, onSaved, onSubm
                 >
                   <option value="">Seleccionar curso…</option>
                   {courses.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.code ? ` — ${c.code}` : ''}
-                    </option>
+                    <option key={c.id} value={c.id}>{courseLabel(c)}</option>
                   ))}
                 </select>
               ) : (
@@ -583,4 +583,12 @@ function Field(props: {
       {props.error && <div className="field__error">{props.error}</div>}
     </div>
   )
+}
+
+// Las comisiones de diplomatura se muestran por diplomatura + número, no por el nombre técnico del curso.
+function courseLabel(c: Course): string {
+  if (c.diplomaName && c.commission != null) {
+    return `${c.diplomaName} · Com. ${c.commission}${c.academicYear != null ? ` (${c.academicYear})` : ''}`
+  }
+  return `${c.name}${c.code ? ` — ${c.code}` : ''}`
 }

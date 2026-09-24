@@ -35,7 +35,9 @@ export interface ResetPasswordRequest {
 export const ROLE_LABELS: Record<string, string> = {
   ADMIN:         'Administrador',
   VENDEDORA:     'Vendedora',
-  SECRETARIA_FS: 'Secretaría FS',
+  SECRETARIA:    'Secretaría',
+  SECRETARIA_FS: 'Secretaría FS (deprecado)',
+  SECRETARIA_RM: 'Secretaría RM (deprecado)',
   EDITORIAL:     'Editorial',
   CONTABLE:      'Contable',
   VIEWER:        'Solo lectura',
