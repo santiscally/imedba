@@ -108,6 +108,9 @@ services:
       MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@imedba.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-IMEDBA}
+      # Casilla de cobranzas (cuotas, matrícula, mora). Vacía => todo sale del from de arriba.
+      MAIL_FROM_COBRANZAS_ADDRESS: ${MAIL_FROM_COBRANZAS_ADDRESS:-}
+      MAIL_FROM_COBRANZAS_NAME: ${MAIL_FROM_COBRANZAS_NAME:-}
       # Moodle (LMS) — inerte hasta tener token de David. Activar: MOODLE_ENABLED=true + URL + TOKEN.
       MOODLE_ENABLED: ${MOODLE_ENABLED:-false}
       MOODLE_URL: ${MOODLE_URL:-}

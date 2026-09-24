@@ -54,6 +54,65 @@
 **Impacto para el otro (Fran):** **§7 del doc 18 es tuyo, con diagnóstico hecho.** Bug 1 (reportado): `installmentDueSoon` tiene hardcodeado "del 1 al 10", y a los de `GROUP_2` (vencen el 20) les llega el día 19. Bug 2 (no reportado): `PRE_SUSPENSION_DAYS = 20` cuenta desde el vencimiento → el "te suspendemos en 48hs" sale el día 30, 8 días **después** de la suspensión (`MOODLE_SUSPEND_DAYS = 12` → día 22). Migraciones: V043–V047 reservadas para este plan; si necesitás una, usá V048+. Aviso: §4 va a tocar `ContractPdfRenderer` (tuyo) para las cláusulas nuevas y las fechas.
 **Refs:** `instrucciones_claude/18-dudas-plataforma-20260924.md`, `NotificationTemplates.java`, `NotificationScheduler.java`, `InstallmentScheduler.java`, `PaymentGroup.java`.
 
+## 2026-09-04 — Santi — infra
+**Qué:** el dominio público pasa a ser `https://gestion.imedba.com`. Cert de Let's Encrypt expandido para cubrir los dos hostnames, y `.env` migrado: `SERVER_NAME`, `KEYCLOAK_HOSTNAME`, `KEYCLOAK_ISSUER_URI`, `APP_CORS_ALLOWED_ORIGINS` y `FRONTEND_REDIRECT_URIS_EXTRA`. Script nuevo `scripts/setup-domain-gestion.sh` (idempotente) con todo el cutover. `vps-6294990-x.dattaweb.com` **sigue funcionando** — quedó en el SAN del cert y en los redirectUris del client.
+**Por qué:** `gestion.imedba.com` no apuntaba al server: en Cloudflare había una **redirect rule 301** a `https://vps-6294990-x.dattaweb.com/`. Por eso el navegador entraba bien pero terminaba mostrando la URL de DonWeb — comportamiento correcto de un 301, el problema era que no debía haber 301. David (el que maneja el DNS de imedba.com) borró la regla y creó A `179.43.112.23` + AAAA `2800:6c0:6::4a0`, en **DNS only (nube gris)**.
+**Problemas:**
+  1. **El issuer del JWT y `KC_HOSTNAME` hay que cambiarlos en el MISMO paso.** El backend valida `iss` contra `KEYCLOAK_ISSUER_URI`; si Keycloak empieza a emitir con el hostname nuevo y el backend no se entera, **401 en todos los endpoints**. El script recrea `keycloak` + `backend` juntos por eso.
+  2. **`SERVER_NAME` tiene que quedar con UN solo hostname.** `keycloak/sync-roles.sh` arma `"https://$SERVER_NAME/*"`: con dos valores separados por espacio genera una redirect URI inválida y rompe el logout. El hostname viejo va por `FRONTEND_REDIRECT_URIS_EXTRA`, no acá. En nginx no hace falta listarlo: el bloque 443 es el único, así que es el default server y responde igual con cualquier `Host`.
+  3. **El cert se expandió con `--cert-name vps-6294990-x.dattaweb.com` a propósito** (no con el nombre nuevo). `scripts/renew-cert.sh` y su cron de los lunes 3:30 usan ese `--cert-name` hardcodeado; cambiarlo habría dejado la renovación apuntando a un cert que ya no se usa, y se descubriría recién a los 90 días con el sitio caído.
+  4. Nube gris y no naranja: con Cloudflare proxeando, el challenge HTTP-01 y el modo SSL de CF necesitan config extra (origin cert / Full strict). Si algún día se quiere pasar a naranja, hay que hacer ese trabajo primero.
+**Verificado:** SAN = `gestion.imedba.com, vps-6294990-x.dattaweb.com` · `curl -L` a `https://gestion.imedba.com/` → **200, 0 redirects, URL final intacta** · discovery OIDC publica `"issuer":"https://gestion.imedba.com/auth/realms/imedba"` · flujo `/auth` con PKCE S256 devuelve la pantalla de login **para los dos hostnames** · `sync-roles` OK · backend `healthy` (el 401 en `/api/actuator/health` desde afuera es Spring Security, el healthcheck interno da `{"status":"UP"}`) · hostname viejo → 200.
+**Impacto para el otro:** `[FRAN]` la URL de producción es ahora **https://gestion.imedba.com**. El SPA no necesita rebuild: `VITE_API_BASE_URL=/api` y `VITE_KEYCLOAK_URL=/auth` son relativas, así que todo sigue en un solo origen. El link viejo sigue andando, pero usá el nuevo.
+**Refs:** `scripts/setup-domain-gestion.sh` (nuevo), `.env`, `nginx/templates/default.conf.template`, `scripts/renew-cert.sh` (sin cambios, pero depende del `--cert-name` viejo).
+
+## 2026-08-30 — Fran — backend/infra (mail productivo: Resend con dominio de IMEDBA + remitente por tipo)
+
+**Qué:** El mail quedó **funcionando en producción**. Dominio **`imedba.com.ar` verificado en Resend** (SPF + DKIM cargados por David en Cloudflare) y **remitente por tipo de notificación** implementado y deployado.
+
+- **Cobranzas** (`cobranzas@imedba.com.ar`): `PAYMENT_RECEIPT`, `INSTALLMENT_DUE_SOON`, `INSTALLMENT_OVERDUE`, `PRE_SUSPENSION`, `SUSPENDED`, `TEACHING_INVOICE_REQUEST`.
+- **Informes** (`informes@imedba.com.ar`): `CONTRACT`, `WELCOME`, `SETTLEMENT_APPROVED`.
+
+**Por qué:** pedido de IMEDBA — todo lo contable sale de cobranzas, sea ingreso o egreso; el resto de informes. Que el aviso de cuota llegue desde `cobranzas@` importa para que el alumno sepa a quién responder y las respuestas caigan en la bandeja correcta.
+
+**Piezas:** `MailFrom` (record dirección+nombre), `MailFromResolver` (`@Component` con el mapeo), `MailRequest` gana un `from` nullable, y los dos adapters (SMTP y SendGrid) lo usan si viene. El cableado queda en un solo lugar: `NotificationService.toMailRequest()`. **Degradación segura:** si `MAIL_FROM_COBRANZAS_ADDRESS` queda vacía, TODO sale del remitente por defecto — el comportamiento previo. `MailFromResolverTests` recorre `NotificationType.values()`, así que **un tipo nuevo rompe el test hasta que alguien decida de qué casilla sale**.
+
+**DNS:** los tres registros de Resend van sobre el subdominio `send` (MX + SPF) y `resend._domainkey` (DKIM). **No tocan el SPF ni los MX de la raíz**, que son los que hacen andar las casillas actuales de IMEDBA — verificado post-carga que siguen intactos. El DNS de `imedba.com.ar` está en **Cloudflare** (`kip`/`aria.ns.cloudflare.com`), no en DonWeb ni Hostinger; lo maneja David.
+
+**Problema que costó una hora — `MAIL_SMTP_PASSWORD` vacía en el server.** El `_test-send` devolvía `Authentication failed` con `adapter: SmtpMailSender`. La API key **estaba en el `.env` local de la máquina de Fran, no en el del server**: `.env` es gitignored, así que nunca viajó con el `git clone`, y el `.env` de prod se creó de cero con esa línea vacía. Se confundió el estado de los dos archivos durante un buen rato.
+**Regla que sale de esto: el `.env` del server es el que manda, y todo cambio de config hay que hacerlo ahí explícitamente. Que esté en el local no significa nada.**
+
+**⚠️ Hallazgo aparte — el CI viene en ROJO hace 10+ commits.** Todas las corridas de `main` fallan en `Maven test` (compile pasa), desde antes de cualquier cambio de esta tanda. Dos tests, los dos de integración:
+1. **`EnrollmentApiIntegrationTests.vendedora_sees_only_own`** — espera 1 inscripción, ve **0**. Verifica la regla `Vendedora: solo ve sus inscripciones`. **O el test quedó viejo, o la regla está rota y una vendedora no ve ni las propias** — que sería un bug funcional visible el primer día que una vendedora entre a producción. **Sin diagnosticar por decisión del usuario** (el cliente apuraba la entrega).
+2. **`PaymentApiIntegrationTests.register_payment_closes_installment`** — `ClassCastException: Integer cannot be cast to Double` en la aserción. Casi seguro bug del test (compara contra `Double`, el JSON trae entero); o sea que ese test nunca verificó lo que dice verificar.
+
+**Un CI en rojo permanente dejó de ser señal:** al pushear el cambio de mail no hubo forma de saber si algo se rompió, y hubo que copiar logs a mano desde la web de Actions.
+
+**Impacto para el otro (Santi):**
+- `NotificationService` cambió de constructor (toma `MailFromResolver`). Si tenés tests propios que lo instancian a mano, hay que actualizarlos.
+- Las variables nuevas son `MAIL_FROM_COBRANZAS_ADDRESS` y `MAIL_FROM_COBRANZAS_NAME`, documentadas en `.env.example`. Vacías = comportamiento anterior, no rompe nada.
+- **El CI en rojo es tema de los dos.** Arrancaría por el de la vendedora, que es el único con riesgo de producción.
+
+**Pendientes:** (1) **DMARC** — `_dmarc.imedba.com.ar` no existe; pedido a David, `p=none` (solo observar, no puede romper nada). Ayuda a salir de la pestaña Promociones de Gmail, donde cae hoy el mail de prueba. (2) **Borrar `_test-send`** de `NotificationController` — el propio código dice "borrar antes del go-live" y esto ya es go-live. (3) El CI.
+
+**Refs:** commits `dfd7701` (remitente por tipo) y `def6f47` (TEACHING_INVOICE_REQUEST a cobranzas). Archivos: `backend/.../notification/mail/MailFrom.java`, `MailFromResolver.java`, `MailRequest.java`, `SmtpMailSender.java`, `SendGridMailSender.java`, `NotificationService.java`, `MailFromResolverTests.java`, `application.yml`, `docker-compose.yml`, `.env.example`.
+
+## 2026-08-25 (b) — Fran — infra (corrección: el backup generaba archivos VACÍOS y no cubría Keycloak)
+
+**Qué:** Corrección a la entrada de hoy, que dejaba "cron de backup" como pendiente resuelto. Al correr `scripts/backup-db.sh` a mano en producción falló, **pero dejó igual un `.sql.gz` de 20 bytes en `daily/`**.
+
+**Por qué falló:** los scripts hacían `docker compose -f "${COMPOSE_FILE}"`. `COMPOSE_FILE` con varios archivos separados por `:` es sintaxis **nativa** de docker compose (y es la que se usa en prod), pero pasada como un **único `-f`** hace que busque un archivo llamado literalmente `a:b`. El `pg_dump` nunca corría y el `| gzip > archivo` creaba el `.gz` igual → **un archivo que parece un backup y está vacío, que es peor que no tener backup**. `restore-db.sh` tenía el mismo bug en tres lugares: ahí se habría descubierto en medio de un desastre, que es el peor momento posible.
+
+**Nota:** por cron **no** se manifestaba (cron no hereda `COMPOSE_FILE`, así que caía al default y andaba). Solo fallaba corriéndolo a mano desde una sesión con la variable exportada. Un bug que aparece justo cuando lo probás y desaparece cuando lo automatizás.
+
+**Fixes:** (1) no se usa `-f`; los scripts corren desde `REPO_DIR` y dejan que compose resuelva (respeta `COMPOSE_FILE` si está). (2) Se dumpea a `.partial` y se renombra al final; si `pg_dump` falla o el resultado pesa menos de 2 KB, se descarta y se sale con error. (3) **Se agrega el dump de la DB `keycloak`**, en archivo separado (`keycloak-TIMESTAMP.sql.gz`) — sin ella un restore devuelve los datos del negocio pero **sin ninguna persona que pueda entrar**; el realm JSON re-importa la estructura, no las personas del módulo Personal. (4) `restore-db.sh` resuelve la ruta del dump a absoluta antes del `cd`.
+
+**Impacto para el otro (Santi):** si tenés cron de backup en el demo, **verificá el tamaño de los archivos** — pueden ser todos vacíos por el mismo motivo. Y para restaurar Keycloak ahora es `POSTGRES_DB=keycloak ./scripts/restore-db.sh <archivo>`.
+
+**Verificado:** renovación del cert probada con `certbot renew --dry-run` → `Congratulations, all simulated renewals succeeded`. Los dos crons cargados en prod (backup 03:00 diario, renovación 03:30 los lunes).
+
+**Refs:** commit `0440cfe`. `scripts/backup-db.sh`, `scripts/restore-db.sh`, `scripts/README.md`.
+
 ## 2026-08-25 — Fran — infra (PRODUCCIÓN en el aire: VPS nuevo + los 3 bugs que tenía el perfil `prod`)
 
 **Qué:** Deploy de producción completo en un **VPS nuevo de DonWeb**, distinto al del demo: `179.43.112.23` (SSH puerto **5213**), hostname público **`vps-6294990-x.dattaweb.com`** — resuelve solo a esa IP, no hizo falta crear ningún A record. Repo en `/home/imedba`, stack con `docker-compose.yml + docker-compose.prod.yml` (nginx en contenedor tomando 80/443), cert propio de Let's Encrypt (vence ~2026-11-23). Verificado de punta a punta: login ROPC → token → `GET /api/v1/students` → **200**, y login por navegador OK.

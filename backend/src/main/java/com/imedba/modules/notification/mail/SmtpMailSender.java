@@ -46,7 +46,14 @@ public class SmtpMailSender implements MailSender {
         try {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
-            helper.setFrom(fromAddress, fromName);
+            // Remitente del request si vino (cobranzas vs informes, ver MailFromResolver);
+            // si no, el default configurado.
+            MailFrom from = request.from();
+            if (from != null) {
+                helper.setFrom(from.address(), from.name());
+            } else {
+                helper.setFrom(fromAddress, fromName);
+            }
             helper.setTo(request.to());
             helper.setSubject(request.subject());
             helper.setText(request.body(), true);
@@ -60,7 +67,8 @@ public class SmtpMailSender implements MailSender {
                 helper.addAttachment(att.filename(), new ByteArrayResource(att.content()), att.contentType());
             }
             mailSender.send(msg);
-            log.debug("SMTP: sent to={} attachments={}", request.to(), request.attachments().size());
+            log.debug("SMTP: sent from={} to={} attachments={}",
+                    from != null ? from.address() : fromAddress, request.to(), request.attachments().size());
         } catch (MessagingException | UnsupportedEncodingException e) {
             throw new MailSendException("Error armando el mail SMTP para " + request.to(), e);
         } catch (MailException e) {
