@@ -29,6 +29,13 @@
 
 ## Entradas
 
+## 2026-09-24 — Santi — planificación (docx "Dudas para la plataforma" + 2 bugs de mail para Fran)
+**Qué:** Plan de los 7 pedidos del docx de IMEDBA en `18-dudas-plataforma-20260924.md` (insumo: `dudas-plataforma-20260924.docx`). No se implementó nada todavía.
+**Por qué:** pedido de IMEDBA: colección en $0, diplomatura general + comisiones, Cursos sólo RM, fechas de curso en el contrato, dos listados de alumnos, roles y el mail de cuotas.
+**Problemas encontrados revisando:** (1) la colección da $0 porque el seed `V029` la creó con `price = 0`; (2) `GET /students` ignora `businessUnit`, así que el selector de unidad nunca filtró Alumnos en el back real; (3) `sync-roles.sh` sólo agrega permisos, nunca los saca; (4) `CollectionService.update` no persiste `businessUnit`.
+**Impacto para el otro (Fran):** **§7 del doc 18 es tuyo, con diagnóstico hecho.** Bug 1 (reportado): `installmentDueSoon` tiene hardcodeado "del 1 al 10", y a los de `GROUP_2` (vencen el 20) les llega el día 19. Bug 2 (no reportado): `PRE_SUSPENSION_DAYS = 20` cuenta desde el vencimiento → el "te suspendemos en 48hs" sale el día 30, 8 días **después** de la suspensión (`MOODLE_SUSPEND_DAYS = 12` → día 22). Migraciones: V043–V047 reservadas para este plan; si necesitás una, usá V048+. Aviso: §4 va a tocar `ContractPdfRenderer` (tuyo) para las cláusulas nuevas y las fechas.
+**Refs:** `instrucciones_claude/18-dudas-plataforma-20260924.md`, `NotificationTemplates.java`, `NotificationScheduler.java`, `InstallmentScheduler.java`, `PaymentGroup.java`.
+
 ## 2026-08-25 — Fran — infra (PRODUCCIÓN en el aire: VPS nuevo + los 3 bugs que tenía el perfil `prod`)
 
 **Qué:** Deploy de producción completo en un **VPS nuevo de DonWeb**, distinto al del demo: `179.43.112.23` (SSH puerto **5213**), hostname público **`vps-6294990-x.dattaweb.com`** — resuelve solo a esa IP, no hizo falta crear ningún A record. Repo en `/home/imedba`, stack con `docker-compose.yml + docker-compose.prod.yml` (nginx en contenedor tomando 80/443), cert propio de Let's Encrypt (vence ~2026-11-23). Verificado de punta a punta: login ROPC → token → `GET /api/v1/students` → **200**, y login por navegador OK.
